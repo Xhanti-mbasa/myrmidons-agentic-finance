@@ -4,6 +4,9 @@ Shared agent schemas, invoice-agent development, and team tooling for the existi
 
 ## Team onboarding and model tooling
 
+For interactive model chat, local MCP setup, and editing model profiles/weights from
+VS Code, start with [the terminal/MCP walkthrough](docs/local-mcp-chat.md).
+
 * `w3node users add NAME`: generate/reuse a local SSH key and submit an onboarding request.
 * `w3node users connect NAME`: connect to the container with the Ollama tunnel.
 * `w3node admin sync`: provision preapproved GitHub identities and email Tailscale device invites.
