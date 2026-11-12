@@ -1,10 +1,18 @@
-# Myrmidons Agentic Finance
+# Myrmidons Agentic Finance / W3Node
 
-Project repository.
+Shared agent schemas, invoice-agent development, and team tooling for the existing model instance.
 
-## Status
+## Team onboarding and model tooling
 
-Initial setup. Application code and development instructions have not been added yet.
+* `w3node users add NAME`: generate/reuse a local SSH key and submit an onboarding request.
+* `w3node users connect NAME`: connect to the container with the Ollama tunnel.
+* `w3node admin sync`: provision preapproved GitHub identities and email Tailscale device invites.
+* `w3node model pin/pull`: version model component references and selectively download verified artifacts.
+
+See [onboarding](docs/onboarding.md) for installation and one-time server configuration, and
+[model/team workflow](docs/team-workflow.md) for artifact versioning. The shared container,
+`shucamoxa-dev`, runs Ollama with `qwen3:1.7b-q4_K_M`. Automated onboarding still requires
+an administrator to install the sync, configure the member allowlist and supply private credentials.
 
 ## Develop
 
