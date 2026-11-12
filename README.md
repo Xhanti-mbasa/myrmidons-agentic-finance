@@ -17,3 +17,43 @@ pnpm test
 ```
 
 `services/agent/TESTING.md` explains how the agent tests work: a scripted hostile model and a fake backend that records every request.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on every push to `main`. It has two jobs:
+
+- **test**: fails if git tracks an env file other than `.env.example`, or a local-only path (`CLAUDE.md`, `CLAUDE.local.md`, `CONTEXT.md`, `.scratch/`, `docs/agents/`, `docs/adr/`). Then it runs `pnpm install --frozen-lockfile`, `pnpm typecheck` and `pnpm test`.
+- **secrets**: downloads the official gitleaks release, checks its SHA-256, confirms `.gitleaks.toml` catches a fake XRPL seed, then scans the full git history of the commit under test (which includes `main`).
+
+The workflow token is read-only and every action is pinned to a commit SHA.
+
+## Secret scanning
+
+Never commit a seed, private key, token or database URL. Each service keeps its secrets in its own `.env`, which git ignores.
+
+`.gitleaks.toml` adds three rules to gitleaks' defaults:
+
+- XRPL family seeds (`s` plus 28 to 30 base58 characters)
+- XRPL hex private keys (`ED` or `00` plus 64 hex characters)
+- bare 64-hex keys. A line that says `hash`, `digest`, `sha256` or `checksum` is let through, so transaction hashes don't fail the scan.
+
+The only allowlist covers the two documented fake seeds in `services/agent/test/config.test.ts`. If your test needs a fake seed, build it at runtime (see `scripts/test/gitleaks-config.test.ts`). Don't add a file to the allowlist.
+
+### Pre-commit hook
+
+`pnpm install` runs `git config core.hooksPath .githooks`, which turns on `.githooks/pre-commit`. On every commit the hook:
+
+1. refuses staged env files and local-only paths (it needs only git), and
+2. runs `gitleaks git --staged --redact` on the staged changes if gitleaks is installed. If gitleaks is missing, it prints a one-line warning and lets the commit through.
+
+Install gitleaks 8.19 or later so the hook can scan:
+
+```bash
+brew install gitleaks                 # macOS or Linux with Homebrew
+# or download a release binary from https://github.com/gitleaks/gitleaks/releases and put it on your PATH
+gitleaks version
+```
+
+To scan the whole history yourself, run `gitleaks git --config .gitleaks.toml --redact --no-banner .`.
+
+`git commit --no-verify` skips the hook, but CI runs the same checks on the pull request.

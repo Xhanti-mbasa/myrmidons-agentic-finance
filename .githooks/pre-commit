@@ -1,0 +1,15 @@
+#!/bin/sh
+# PayGuard pre-commit hook. `pnpm install` turns it on (git config core.hooksPath .githooks).
+# 1. Refuses staged env files and local-only paths. Needs only git.
+# 2. Scans the staged changes for secrets with gitleaks, if gitleaks is installed.
+# CI runs both checks again, so skipping this hook (git commit --no-verify) only delays the failure.
+root=$(dirname "$0")/..
+
+sh "$root/scripts/check-tracked-paths.sh" || exit 1
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed, so staged changes were not scanned for secrets (see README, Secret scanning)." >&2
+  exit 0
+fi
+
+exec gitleaks git --staged --redact --no-banner --verbose --config "$root/.gitleaks.toml"

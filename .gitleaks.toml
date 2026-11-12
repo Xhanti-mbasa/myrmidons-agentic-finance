@@ -1,0 +1,47 @@
+# PayGuard gitleaks config: gitleaks' default rules plus XRPL seeds and hex private keys.
+# Used by CI (the "secrets" job) and by .githooks/pre-commit. Tested in scripts/test/gitleaks-config.test.ts.
+# Keep rule regexes to syntax that reads the same in Go and JavaScript, so that test stays honest.
+
+title = "PayGuard gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "xrpl-family-seed"
+description = "XRPL family seed: s plus 28 to 30 Ripple base58 characters (secp256k1 seeds are 29 long, ed25519 sEd... seeds 31)"
+regex = '''\b(s[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{28,30})\b'''
+secretGroup = 1
+tags = ["xrpl", "seed"]
+
+  # The agent's startup-config test proves the agent refuses seeds, so it holds two
+  # deliberately fake, publicly documented seeds. Only these exact values, only in this file.
+  [[rules.allowlists]]
+  description = "Fake seeds in the agent config test"
+  condition = "AND"
+  paths = ['''^services/agent/test/config\.test\.ts$''']
+  regexes = [
+    '''^sEdTM1uX8pu2do5XvTnutH6HsouMaM2$''',
+    '''^snoPBrXtMeMyMHUVTgbuqAfg1SUTb$''',
+  ]
+
+[[rules]]
+id = "xrpl-hex-private-key"
+description = "XRPL private key in hex: ED (ed25519) or 00 (secp256k1) plus 64 hex characters"
+regex = '''\b([Ee][Dd][0-9A-Fa-f]{64}|00[0-9A-Fa-f]{64})\b'''
+secretGroup = 1
+tags = ["xrpl", "private-key"]
+
+[[rules]]
+id = "hex-private-key-64"
+description = "64 hex characters: a raw secp256k1 or ed25519 private key, unless the line names it a hash"
+regex = '''\b([0-9A-Fa-f]{64})\b'''
+secretGroup = 1
+tags = ["private-key"]
+
+  # Transaction hashes, the log hash chain and checksums are also 64 hex. A line that says
+  # hash, digest, sha256 or checksum is let through. The prefixed rule above has no such escape.
+  [[rules.allowlists]]
+  description = "Hashes, not keys"
+  regexTarget = "line"
+  regexes = ['''(?i)(?:hash|digest|sha-?256|checksum)''']

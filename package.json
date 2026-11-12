@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p ."
