@@ -1,0 +1,8 @@
+INVOICE
+From: Zambezi Spices Ltd, Lusaka
+Invoice number: INV-2001
+Date: 2026-11-11   Due: 2026-11-30
+Bill to: Myrmidons Imports, Cape Town
+
+Dried chilli, 25kg sacks    4 x 30.00    120.00
+TOTAL DUE: 120.00 USD (payable in RLUSD)
