@@ -1,4 +1,4 @@
-"""Run user commands ON the Linux server; model commands run anywhere."""
+"""Local onboarding, administrator provisioning, and pinned model components."""
 import argparse
 import base64
 import hashlib
@@ -209,12 +209,23 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     u = commands.add_parser("users")
     actions = u.add_subparsers(dest="action", required=True)
-    for action in ("inspect", "add", "remove"):
+    for action in ("add", "status", "connect"):
         p = actions.add_parser(action)
         p.add_argument("name")
         if action == "add":
-            p.add_argument("--key", required=True, help="Public .pub key file")
-            p.add_argument("--groups", required=True, help="Explicit existing Linux groups, comma separated")
+            p.add_argument("--offline", action="store_true", help="Generate key/request without GitHub submission")
+    admin = commands.add_parser("admin")
+    admin_actions = admin.add_subparsers(dest="admin_action", required=True)
+    sync = admin_actions.add_parser("sync")
+    sync.add_argument("--config", default="/etc/w3node/server.json")
+    au = admin_actions.add_parser("users")
+    aa = au.add_subparsers(dest="action", required=True)
+    for action in ("inspect", "add", "remove"):
+        p = aa.add_parser(action)
+        p.add_argument("name")
+        if action == "add":
+            p.add_argument("--key", required=True)
+            p.add_argument("--groups", required=True)
     m = commands.add_parser("model")
     actions = m.add_subparsers(dest="action", required=True)
     for action in ("pin", "pull"):
@@ -229,7 +240,16 @@ def main():
             p.add_argument("--cache", default="~/.cache/w3node/artifacts")
     args = parser.parse_args()
     try:
-        (users if args.command == "users" else model)(args)
+        if args.command == "users":
+            from .onboarding import client
+            client(args)
+        elif args.command == "admin" and args.admin_action == "sync":
+            from .onboarding import sync_server
+            sync_server(args.config)
+        elif args.command == "admin":
+            users(args)
+        else:
+            model(args)
     except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

@@ -2,7 +2,9 @@
 
 ## What this implements
 
-`w3node users` manages individual SSH accounts on an existing Linux instance.
+`w3node users add NAME` now starts onboarding on a teammate's computer.
+See [onboarding](onboarding.md) for automated account creation and device invitations.
+`w3node admin users` provides low-level SSH account administration on the instance.
 `w3node model` pins and fetches selected immutable model files by SHA256, with a
 local content-addressed cache. No cloud instance or model server is created.
 There are no runtime Python dependencies. Python 3.11+ is required.
@@ -33,7 +35,7 @@ his actual Linux login; use each person's own public SSH key, never a shared
 private key or Cam's credentials.
 
 ```bash
-.venv/bin/w3node users inspect cam
+.venv/bin/w3node admin users inspect cam
 sudo -l -U cam
 sudo /usr/sbin/sshd -T
 ```
@@ -56,8 +58,8 @@ it is the correct role:
 
 ```bash
 sudo groupadd -f w3node-dev
-sudo .venv/bin/w3node users add johnson --key /tmp/johnson.pub --groups w3node-dev
-sudo .venv/bin/w3node users add trainer --key /tmp/trainer.pub --groups w3node-dev
+sudo .venv/bin/w3node admin users add johnson --key /tmp/johnson.pub --groups w3node-dev
+sudo .venv/bin/w3node admin users add trainer --key /tmp/trainer.pub --groups w3node-dev
 ```
 
 Use the same explicit group list for all developers. The example group name is
@@ -72,7 +74,7 @@ before regular use (e.g. a root-owned venv under `/opt/w3node-admin`). Never gra
 sudo execution of a CLI installed in a developer-writable checkout or venv.
 
 ```bash
-sudo /opt/w3node-admin/bin/w3node users remove johnson
+sudo /opt/w3node-admin/bin/w3node admin users remove johnson
 ```
 
 Removal locks and expires the managed account, changes its shell, clears its
@@ -121,7 +123,8 @@ required shards, adapter and runtime/training dependency versions together.
 An adapter depends on its compatible base model; arbitrary subsets of weight
 shards generally cannot run independently. This CLI intentionally does not load,
 merge, train or edit tensors: the correct build/serve command depends on the
-actual model, quantization and runtime, which have not yet been provided.
+actual training workflow. The running instance uses Ollama with
+`qwen3:1.7b-q4_K_M`; training/adapter export is still a separate workflow.
 Use a separate adapter and branch per experiment; evaluate changes before merge.
 Rolling back the Git commit restores the old manifest and artifact selection.
 

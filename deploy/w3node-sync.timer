@@ -1,0 +1,10 @@
+[Unit]
+Description=Check W3Node onboarding requests every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+Unit=w3node-sync.service
+
+[Install]
+WantedBy=timers.target

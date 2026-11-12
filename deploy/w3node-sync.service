@@ -1,0 +1,14 @@
+[Unit]
+Description=Reconcile preapproved W3Node onboarding requests
+After=network-online.target ssh.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/
+Environment=PATH=/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/w3node-admin/bin/w3node admin sync
+TimeoutStartSec=50
+UMask=0077
+PrivateTmp=true

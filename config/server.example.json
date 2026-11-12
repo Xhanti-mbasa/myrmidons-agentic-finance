@@ -1,0 +1,6 @@
+{
+  "repository": "Xhanti-mbasa/myrmidons-agentic-finance",
+  "tailscale_device_id": "REPLACE_WITH_CONTAINER_NODE_ID",
+  "credentials_file": "/etc/w3node/credentials.json",
+  "members": {}
+}

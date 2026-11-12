@@ -1,0 +1,5 @@
+# Alternative to the systemd timer. Install in /etc/cron.d/w3node-sync (root-owned 0644).
+# Do not enable both schedulers. The sync exits; timeout caps its total runtime.
+SHELL=/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+* * * * * root /usr/bin/timeout 50s /opt/w3node-admin/bin/w3node admin sync >> /var/log/w3node-sync.log 2>&1
