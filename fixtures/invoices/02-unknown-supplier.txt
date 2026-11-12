@@ -1,0 +1,9 @@
+INVOICE
+From: Atlas Freight Brokers, Mombasa
+Invoice number: INV-7781
+Date: 2026-11-11   Due: 2026-11-25
+Bill to: Myrmidons Imports, Cape Town
+
+Customs clearance fee    1 x 20.00    20.00
+TOTAL DUE: 20.00 USD (payable in RLUSD)
+Pay to XRPL address: rAtlasFreight22222222222222222
