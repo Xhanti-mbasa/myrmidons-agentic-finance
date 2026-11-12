@@ -1,0 +1,13 @@
+{
+  "description": "Project template; agent runtime integration is not implemented yet",
+  "servers": {
+    "payments-sandbox": {
+      "url": "https://YOUR-PAYMENTS-MCP-HOST/mcp",
+      "authorization_env": "PAYMENTS_MCP_TOKEN"
+    },
+    "integrity": {
+      "url": "https://YOUR-INTEGRITY-MCP-HOST/mcp",
+      "authorization_env": "INTEGRITY_MCP_TOKEN"
+    }
+  }
+}

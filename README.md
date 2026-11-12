@@ -1,7 +1,12 @@
-# Myrmidons Agentic Finance
+# Myrmidons Agentic Finance / W3Node
 
-Project repository.
+Team tooling for an existing Linux model instance and versioned model components.
 
-## Status
+* `w3node users inspect/add/remove`: individual SSH accounts and explicit roles.
+* `w3node model pin/pull`: checksum-pinned component manifests and selective downloads.
+* MCP server configuration template for subsequent agent-runtime integration.
 
-Initial setup. Application code and development instructions have not been added yet.
+Read [the setup and team workflow](docs/team-workflow.md) before provisioning.
+The instance/model/runtime details are still needed to activate this on the real
+server. This repository does not yet include the finance application, training
+pipeline or a running model/MCP client.

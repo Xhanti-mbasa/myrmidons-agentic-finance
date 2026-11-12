@@ -6,6 +6,7 @@
 *.key
 secrets/
 wallets/
+*.pub
 
 # Dependencies and build output
 node_modules/
@@ -16,6 +17,17 @@ __pycache__/
 dist/
 build/
 coverage/
+*.egg-info/
+
+# Model artifacts stay in the registry/cache; Git tracks model.lock.json
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.ckpt
+*.onnx
+checkpoints/
+artifacts/
 
 # Local logs and editor files
 *.log
