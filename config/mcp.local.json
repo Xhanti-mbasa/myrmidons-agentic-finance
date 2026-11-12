@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sandbox": {
+      "command": "{python}",
+      "args": ["-m", "w3node.sandbox_mcp"]
+    }
+  }
+}
