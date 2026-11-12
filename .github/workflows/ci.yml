@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Refuse tracked env files and local-only paths
+        run: sh scripts/check-tracked-paths.sh
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks (official release binary, checksum pinned)
+        run: |
+          tarball="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl -sSfL -o "$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $tarball" | sha256sum --check --strict -
+          tar -xzf "$tarball" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" version
+
+      - name: Self-test, the config must catch a fake XRPL seed
+        run: |
+          # Built here so no seed-shaped literal sits in the repo. Exit code 3 means "leak found".
+          fake="sEdT$(printf 'FAKE%.0s' 1 2 3 4 5 6)FAK"
+          set +e
+          printf 'AGENT_SEED=%s\n' "$fake" | "$RUNNER_TEMP/gitleaks" stdin --config .gitleaks.toml --exit-code 3 --redact --no-banner
+          code=$?
+          set -e
+          if [ "$code" -ne 3 ]; then
+            echo "::error::.gitleaks.toml did not flag a fake XRPL seed (exit $code)"
+            exit 1
+          fi
+
+      # HEAD's full history includes main. Teammates' branches are scanned on their own PRs.
+      - name: Scan the full git history of the commit under test
+        run: '"$RUNNER_TEMP/gitleaks" git --log-opts="--full-history HEAD" --config .gitleaks.toml --redact --no-banner --verbose .'
