@@ -13,8 +13,8 @@ const job = (name: string) => {
 };
 
 describe("CI workflow", () => {
-  it("runs on pull requests and on pushes to main", () => {
-    expect(CI).toMatch(/^on:\n  pull_request:\n  push:\n    branches: \[main\]$/m);
+  it("runs on pull requests and pushes to main and the security repair branch", () => {
+    expect(CI).toMatch(/^on:\n  pull_request:\n  push:\n    branches: \[main, fix\/submission-security\]$/m);
   });
 
   it("gives the token read-only access to contents and nothing else", () => {
