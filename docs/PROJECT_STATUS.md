@@ -40,7 +40,7 @@ Testnet XRP demonstration with temporary wallets and validated-result checks.
 This is not an RLUSD or agent payment and does not satisfy AC-01 or GAP-05/06.
 The confirmation predicate has simulated tests. A live Testnet run validated
 `tesSUCCESS` for 1 XRP, with matching sender, recipient and delivered amount:
-transaction `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
+transaction hash `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
 An earlier validated payment exposed the API's `DeliverMax` field and the demo
 correctly refused to claim success until the check was updated. Typecheck and
 391 shared/agent/backend tests passed on Node 24; 24 tests were skipped. The full
