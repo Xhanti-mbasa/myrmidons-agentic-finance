@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.90",
+    "@scure/bip39": "^2.4.0",
     "@shucamoxa/shared": "workspace:*",
     "ai": "^7.0.170",
     "zod": "^4.6.7"
