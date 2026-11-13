@@ -34,6 +34,7 @@ Read [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md),
 [implementation status](docs/PROJECT_STATUS.md).
 Team SSH onboarding: [docs/onboarding.md](docs/onboarding.md).
 The independent payment core: [services/payments/README.md](services/payments/README.md).
+XRPL demos and the draft wallet adapter: [services/backend/README.md](services/backend/README.md).
 Payment MCP gateway (not exposed to Open WebUI): [mcp_gateway/README.md](mcp_gateway/README.md).
 
 Requires Node 22 and pnpm for finance services:
