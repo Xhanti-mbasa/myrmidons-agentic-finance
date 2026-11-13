@@ -128,6 +128,11 @@ and model import tooling, not training, automatic deployment or streaming output
 
 Validation: Python tests cover endpoint precedence, cache reuse, streamed pull
 flow, digest mismatch and failed/incomplete downloads using scripted Ollama APIs;
-existing tests exercise actual local MCP subprocess discovery/echo. No model was
-downloaded or benchmarked on the owner's computer in this session. Next: owner
-runs local setup/chat and echo, then records hardware and observed latency.
+existing tests exercise actual local MCP subprocess discovery/echo. Owner output
+now confirms a successful local pull and matching digest, followed by zero-tool
+MCP discovery. The first live chat failed with a wrapped ExceptionGroup; its
+underlying cause is not yet established. The CLI now unwraps nested SDK task
+groups to report bounded Ollama HTTP errors, timeout and connection failures.
+Regression tests simulate those failures; no successful local inference or
+benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
+specific error if it fails; compare `--no-mcp` and direct Ollama inference.
