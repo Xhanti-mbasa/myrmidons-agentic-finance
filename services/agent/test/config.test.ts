@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT_ENV_NAMES, findSecretInValue, loadAgentEnvFile, loadAgentStartupConfig } from "../src/config";
+import { AGENT_ENV_NAMES, findSecretInValue, loadAgentEnvFile, loadAgentServerConfig, loadAgentStartupConfig } from "../src/config";
 
 const base = {
   MODEL_BASE_URL: "http://100.101.102.103:11434/v1",
@@ -502,5 +502,59 @@ describe("T09: loadAgentEnvFile reads only allowlisted names from services/agent
     it("refuses an unknown key in the file even when process.env is clean", () => {
       expect(() => loadAgentStartupConfig({ envFile: envFile(`${fileEnv}\nDATABASE_URL=x\n`), env: {} })).toThrow(/DATABASE_URL/);
     });
+  });
+});
+
+describe("T12: loadAgentServerConfig adds the HTTP service's own settings", () => {
+  const INBOUND = "inbound-token-for-the-backend-0123456789";
+  const server = { ...base, AGENT_INBOUND_TOKEN: INBOUND };
+
+  it("binds to 127.0.0.1:8790 by default", () => {
+    expect(loadAgentServerConfig(server)).toMatchObject({ inboundToken: INBOUND, host: "127.0.0.1", port: 8790 });
+  });
+
+  it("accepts another loopback or Tailscale address and a port", () => {
+    expect(loadAgentServerConfig({ ...server, AGENT_HOST: "100.101.102.103", AGENT_PORT: "9001" })).toMatchObject({
+      host: "100.101.102.103",
+      port: 9001,
+    });
+  });
+
+  it("requires an inbound token", () => {
+    expect(() => loadAgentServerConfig(base)).toThrow(/AGENT_INBOUND_TOKEN is required/);
+  });
+
+  it("refuses a short inbound token without echoing it", () => {
+    const run = () => loadAgentServerConfig({ ...base, AGENT_INBOUND_TOKEN: "short-token" });
+    expect(run).toThrow(/AGENT_INBOUND_TOKEN must be at least 32 characters/);
+    expect(run).not.toThrow(/short-token/);
+  });
+
+  it("accepts a 32-character inbound token and refuses a 31-character one", () => {
+    expect(loadAgentServerConfig({ ...base, AGENT_INBOUND_TOKEN: "t".repeat(32) }).inboundToken).toHaveLength(32);
+    expect(() => loadAgentServerConfig({ ...base, AGENT_INBOUND_TOKEN: "t".repeat(31) })).toThrow(/at least 32 characters/);
+  });
+
+  it("refuses an inbound token equal to the backend token, so the backend token is never accepted inbound", () => {
+    const same = "x".repeat(40);
+    expect(() => loadAgentServerConfig({ ...server, AGENT_INBOUND_TOKEN: same, AGENT_BACKEND_TOKEN: same })).toThrow(
+      /AGENT_INBOUND_TOKEN must differ from AGENT_BACKEND_TOKEN/,
+    );
+  });
+
+  it.each(["100.64.0.0", "100.127.255.255", "localhost"])("accepts AGENT_HOST=%s, at the edges of 100.64.0.0/10", (host) => {
+    expect(loadAgentServerConfig({ ...server, AGENT_HOST: host }).host).toBe(host);
+  });
+
+  it.each(["0.0.0.0", "::", "[::1]", "192.168.1.10", "example.com", "box.ts.net", "100.63.255.255", "100.128.0.0", "100.64.0.256", "100.64.300.1", "100.64.0"])("refuses to bind to %s", (host) => {
+    expect(() => loadAgentServerConfig({ ...server, AGENT_HOST: host })).toThrow(/AGENT_HOST must be/);
+  });
+
+  it.each(["abc", "0", "65536", "80.5", "-1"])("refuses AGENT_PORT=%s", (port) => {
+    expect(() => loadAgentServerConfig({ ...server, AGENT_PORT: port })).toThrow(/AGENT_PORT must be/);
+  });
+
+  it("still refuses a seed in the environment", () => {
+    expect(() => loadAgentServerConfig({ ...server, AGENT_SEED: "sEdTM1uX8pu2do5XvTnutH6HsouMaM2" })).toThrow(/must not hold/);
   });
 });
