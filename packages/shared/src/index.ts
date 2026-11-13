@@ -13,3 +13,4 @@ export * from "./signing";
 export * from "./purchase-budgets";
 export * from "./x402";
 export * from './harness';
+export * from "./openai-chat";

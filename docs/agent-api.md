@@ -226,3 +226,55 @@ data: {"summary":"Blocked: the owner has revoked the agent's payment authority."
 event: done
 data: {}
 ```
+
+---
+
+### 3.3 `GET /v1/models`
+
+`{"object":"list","data":[{"id":"payguard","object":"model","owned_by":"myrmidons"}]}`.
+
+### 3.4 `POST /v1/chat/completions`
+
+OpenAI-compatible (M05), so Open WebUI can point at the guarded agent instead of the raw model.
+
+Request (`OpenAIChatRequest`): `model`, `messages[]` (role `system`, `developer`, `user` or `assistant`), optional
+`stream`. Other OpenAI options (`temperature`, `top_p`, `stream_options`, ...) are ignored.
+
+- **Only the last `user` message is used.** It goes to `ownerChat({ latestOwnerTurn })`. System, developer and assistant
+  messages and earlier user turns are never read and never reach the model, so a client cannot widen a limit through
+  a system prompt or a replayed history.
+- The agent's tools are its own: `tools`, `tool_choice`, `functions`, `function_call` and `parallel_tool_calls` are
+  refused whatever their value.
+
+Refusals use OpenAI's error shape, `{"error":{"message","type","param":null,"code"}}`:
+
+| Status | `code` | When |
+|---|---|---|
+| 400 | `invalid_json` | the body is not JSON |
+| 400 | `tools_not_supported` | the request carries any tool field |
+| 400 | `unsupported_content` | any message's content is not plain text (image, file, audio, null) |
+| 400 | `no_user_turn` | no user message, or the last one is blank |
+| 400 | `turn_too_long` | the last user message is over 2,000 characters |
+| 400 | `invalid_request` | anything else off-shape (no model, no messages, a `tool` role, ...) |
+| 500 | `internal_error` | the turn failed before the backend acted; generic message, no stack |
+
+Answers carry the agent's reply: the model's text followed by a code-built summary of what the backend actually did
+(for example `Paid 30.00 to sup_karoo, tx <hash>.` or `No payment was made.`).
+
+- `stream: false` (default): a `chat.completion` object with one choice, `finish_reason: "stop"`.
+- `stream: true`: `text/event-stream` with three `data:` lines: one `chat.completion.chunk` holding the full reply, a
+  chunk with an empty delta and `finish_reason: "stop"`, then `[DONE]`.
+
+If a payment settled (or was sent, or an approval was asked) during the turn and something fails afterwards, the answer
+is still 200 and says what happened, with the tx hash. A settled payment is never hidden behind an error.
+
+The reply is built only after the queued run finishes, and the run does not watch the client connection, so a client
+that disconnects cannot cancel a payment already sent to the backend.
+
+### Try it
+
+```sh
+curl -s localhost:8790/v1/chat/completions \
+  -H "Authorization: Bearer $AGENT_INBOUND_TOKEN" -H 'content-type: application/json' \
+  -d '{"model":"payguard","messages":[{"role":"user","content":"How much budget is left?"}]}'
+```

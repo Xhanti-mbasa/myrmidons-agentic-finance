@@ -1,9 +1,19 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { streamSSE } from "hono/streaming";
 import type { LanguageModel } from "ai";
 import {
   AgentError,
+  lastUserTurn,
+  MAX_CHAT_TURN_CHARS,
+  OPENAI_MODEL_ID,
+  OpenAIChatCompletion,
+  OpenAIChatCompletionChunk,
+  OpenAIChatRequest,
+  OpenAIError,
+  OpenAIModelList,
+  type OpenAIErrorCode,
   ProcessInvoiceRequest,
   ProcessInvoiceResponse,
   type AgentDecision,
@@ -24,6 +34,8 @@ export const MAX_PDF_REQUEST_BYTES = 10 * 1024 * 1024;
 export type AgentLogEntry =
   | { event: "invoice_processed"; invoiceId: string; decision: AgentDecision; ruleCode: RuleCode | null; durationMs: number }
   | { event: "invoice_failed"; invoiceId: string; durationMs: number }
+  | { event: "chat_answered"; payments: number; durationMs: number }
+  | { event: "chat_failed"; durationMs: number }
   | { event: "request_refused"; status: number };
 export type AgentLogger = (entry: AgentLogEntry) => void;
 
@@ -45,6 +57,17 @@ const ERRORS: Record<AgentErrorCode, { status: 400 | 401 | 404 | 409 | 413 | 500
   not_found: { status: 404, message: "No such route." },
   internal_error: { status: 500, message: "The agent could not finish this request." },
 };
+
+const OPENAI_ERRORS: Record<OpenAIErrorCode, { status: 400 | 500; message: string }> = {
+  invalid_json: { status: 400, message: "The request body is not valid JSON." },
+  invalid_request: { status: 400, message: "The request body does not match the chat completions shape." },
+  tools_not_supported: { status: 400, message: "Tools, functions and tool choice are not accepted; the agent uses its own tools." },
+  unsupported_content: { status: 400, message: "Only plain text messages are accepted, not images or files." },
+  no_user_turn: { status: 400, message: "The request has no user message with text." },
+  turn_too_long: { status: 400, message: `The last user message is over ${MAX_CHAT_TURN_CHARS} characters.` },
+  internal_error: { status: 500, message: "The agent could not finish this request." },
+};
+const CLIENT_TOOL_KEYS = new Set<PropertyKey>(["tools", "tool_choice", "functions", "function_call", "parallel_tool_calls"]);
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
@@ -68,8 +91,8 @@ export function createAgentServer(deps: AgentServerDeps) {
   const inFlight = new Set<string>();
 
   /**
-   * The one entry point for owner chat, for the chat adapter (T13) to call. It takes only the latest
-   * owner turn, never a history, and runs on the same queue as invoices.
+   * The one entry point for owner chat, called by POST /v1/chat/completions (M05). It takes only the
+   * latest owner turn, never a history, and runs on the same queue as invoices.
    */
   const ownerChat = ({ latestOwnerTurn }: { latestOwnerTurn: string }) => serially(() => agent.chat(latestOwnerTurn));
 
@@ -206,6 +229,68 @@ export function createAgentServer(deps: AgentServerDeps) {
     }
   });
 
+  const openAIFail = (c: Context, code: OpenAIErrorCode) => {
+    const { status, message } = OPENAI_ERRORS[code];
+    if (status < 500) log({ event: "request_refused", status });
+    const type = status < 500 ? "invalid_request_error" : "server_error";
+    return c.json(OpenAIError.parse({ error: { message, type, param: null, code } }), status);
+  };
+
+  app.get("/v1/models", (c) =>
+    c.json(OpenAIModelList.parse({ object: "list", data: [{ id: OPENAI_MODEL_ID, object: "model", owned_by: "myrmidons" }] })),
+  );
+
+  /**
+   * Open WebUI's chat surface (M05). Only the last user turn reaches the agent, through ownerChat; system,
+   * developer and assistant messages are never read. The answer is built after ownerChat resolves, so a
+   * client that disconnects cannot cancel a payment already on its way: the queued run finishes regardless.
+   */
+  app.post("/v1/chat/completions", async (c) => {
+    const body = await readJson(c);
+    if (!body.ok) return openAIFail(c, "invalid_json");
+    const request = OpenAIChatRequest.safeParse(body.value);
+    if (!request.success) {
+      const paths = request.error.issues.map((issue) => issue.path);
+      if (paths.some((path) => CLIENT_TOOL_KEYS.has(path[0]!))) return openAIFail(c, "tools_not_supported");
+      if (paths.some((path) => path[0] === "messages" && path[2] === "content")) return openAIFail(c, "unsupported_content");
+      return openAIFail(c, "invalid_request");
+    }
+    const turn = lastUserTurn(request.data.messages);
+    if (turn === null || turn.trim().length === 0) return openAIFail(c, "no_user_turn");
+    if (turn.length > MAX_CHAT_TURN_CHARS) return openAIFail(c, "turn_too_long");
+
+    const started = performance.now();
+    let reply: string;
+    try {
+      const answer = await ownerChat({ latestOwnerTurn: turn });
+      reply = answer.reply;
+      log({ event: "chat_answered", payments: answer.payments.length, durationMs: since(started) });
+    } catch {
+      log({ event: "chat_failed", durationMs: since(started) });
+      return openAIFail(c, "internal_error");
+    }
+
+    const id = `chatcmpl-${randomUUID()}`;
+    const created = Math.floor(Date.now() / 1000);
+    if (!request.data.stream) {
+      return c.json(
+        OpenAIChatCompletion.parse({
+          id,
+          object: "chat.completion",
+          created,
+          model: OPENAI_MODEL_ID,
+          choices: [{ index: 0, message: { role: "assistant", content: reply }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        }),
+      );
+    }
+    const chunk = (delta: { role?: "assistant"; content?: string }, finish_reason: "stop" | null) =>
+      JSON.stringify(OpenAIChatCompletionChunk.parse({ id, object: "chat.completion.chunk", created, model: OPENAI_MODEL_ID, choices: [{ index: 0, delta, finish_reason }] }));
+    const chunks = [chunk({ role: "assistant", content: reply }, null), chunk({}, "stop"), "[DONE]"];
+    return streamSSE(c, async (stream) => {
+      for (const data of chunks) await stream.writeSSE({ data });
+    });
+  });
   app.notFound((c) => fail(c, "not_found"));
   app.onError((_error, c) => fail(c, "internal_error"));
   return { app, ownerChat, host: config.host, port: config.port };

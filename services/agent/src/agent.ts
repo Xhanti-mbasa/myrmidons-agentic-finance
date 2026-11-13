@@ -154,7 +154,14 @@ export function createAgent(deps: AgentDeps) {
     try {
       return await run.within(chatRun(message, run, backendClient(deps, run), progress));
     } catch (error) {
-      if (!run.stalled) throw error;
+      if (!run.stalled) {
+        // Something failed after the backend already acted (a payment sent, an approval asked): report
+        // what it did, so a settled payment is never hidden behind an error. Otherwise nothing happened.
+        const state = progress.state;
+        if (!state || (state.chatPayments.length === 0 && state.approvals.length === 0)) throw error;
+        const summary = chatSummary(state, { stopped: true });
+        return { reply: `${summary} Something went wrong after that, so I stopped there.`, summary, payments: state.payResults };
+      }
       const payments = progress.state?.payResults ?? [];
       const settled = payments.flatMap((r) => (r.status === "settled" ? [r.txHash] : []));
       // A payment the backend already settled is reported, so the owner never pays it again by hand.
