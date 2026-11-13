@@ -2,3 +2,7 @@
 # Exact historical finding only: do not exempt a whole file, rule, or future commit.
 # This is ledger metadata, not a signing credential.
 da402696d87309289c47280f8c5c1841283f6c3c:docs/PROJECT_STATUS.md:hex-private-key-64:43
+# Public Testnet XRP and RLUSD transaction hashes recorded in our demo history.
+# Exact historical fingerprints only; no other keys, files or commits are exempted.
+11452aafc36a9b3e23535d92da908a0e4d65f443:docs/PROJECT_STATUS.md:hex-private-key-64:46
+6212f029ff0ad9d1e99947a525f23f8e249991c3:docs/PROJECT_STATUS.md:hex-private-key-64:25
