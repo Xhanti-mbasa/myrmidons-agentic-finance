@@ -1,14 +1,29 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { Amount, PayRequest, PayResult } from "@shucamoxa/shared";
+import { Amount, PayRequest, PayResult, SupplierLookup } from "@shucamoxa/shared";
 import type { BackendClient } from "./backend";
+
+/**
+ * The lowest GET /suppliers confidence that counts as a match. Below it, nothing is payable: the
+ * invoice waits for the owner (propose_supplier) or a person (needs_review).
+ */
+export const MIN_SUPPLIER_CONFIDENCE = 0.85;
 
 /** What the tools observed during one run. The outcome is built from this, never from model text. */
 export type RunState = {
-  /** When processing an invoice, pay may only pay exactly this invoice number and amount. */
-  mandate: { invoiceNumber: string; amount: string } | null;
-  /** Supplier IDs the backend returned during this run. pay only accepts one of these. */
+  /**
+   * When processing an invoice, pay may only pay exactly this invoice number and amount, and only to
+   * supplierId, which code resolved from the invoice's own supplierName before the planner ran.
+   * A null supplierId means no confident match, so pay refuses everything.
+   */
+  mandate: { invoiceNumber: string; amount: string; supplierId: string | null } | null;
+  /** Chat mode only: IDs find_supplier matched at or above MIN_SUPPLIER_CONFIDENCE. pay only accepts one of these. */
   knownSupplierIds: Set<string>;
+  /**
+   * Every ID find_supplier returned in this run, whatever the confidence. In invoice mode this never
+   * makes an ID payable; pay just also requires that the planner looked its supplier up.
+   */
+  lookedUpSupplierIds: Set<string>;
   /** Invoice numbers already sent to POST /payments in this run, whatever the result. */
   attemptedInvoices: Set<string>;
   payResults: PayResult[];
@@ -16,13 +31,39 @@ export type RunState = {
 };
 
 export function newRunState(mandate: RunState["mandate"] = null): RunState {
-  return { mandate, knownSupplierIds: new Set(), attemptedInvoices: new Set(), payResults: [], approvals: [] };
+  return {
+    mandate,
+    knownSupplierIds: new Set(),
+    lookedUpSupplierIds: new Set(),
+    attemptedInvoices: new Set(),
+    payResults: [],
+    approvals: [],
+  };
 }
+
+/** A GET /suppliers reply that satisfies the contract and matched, or null. Anything off-contract is no match. */
+export function supplierMatch(reply: Awaited<ReturnType<BackendClient["findSupplier"]>>) {
+  if (!reply.ok) return null;
+  const parsed = SupplierLookup.safeParse(reply.body);
+  return parsed.success && "supplierId" in parsed.data ? parsed.data : null;
+}
+
+export function isConfident<T extends { confidence: number }>(match: T | null): match is T {
+  return match !== null && match.confidence >= MIN_SUPPLIER_CONFIDENCE;
+}
+
+const NOT_LOOKED_UP =
+  "supplierId was not returned by find_supplier in this run. Only approved suppliers can be paid; use propose_supplier for a new one.";
 
 /** Layer-1 checks inside the agent. The policy service and ledger enforce again; this just stops bad requests early. */
 function refusePay(request: PayRequest, state: RunState): string | null {
-  if (!state.knownSupplierIds.has(request.supplierId))
-    return "supplierId was not returned by find_supplier in this run. Only approved suppliers can be paid; use propose_supplier for a new one.";
+  if (state.mandate) {
+    if (state.mandate.supplierId === null || request.supplierId !== state.mandate.supplierId)
+      return "This invoice can only be paid to its own supplier, matched by the system. Use propose_supplier if it is new.";
+    if (!state.lookedUpSupplierIds.has(request.supplierId)) return NOT_LOOKED_UP;
+  } else if (!state.knownSupplierIds.has(request.supplierId)) {
+    return NOT_LOOKED_UP;
+  }
   if (state.mandate && request.invoiceNumber !== state.mandate.invoiceNumber)
     return `This run may only pay invoice ${state.mandate.invoiceNumber}.`;
   if (state.mandate && cents(request.amount) !== cents(state.mandate.amount))
@@ -54,7 +95,12 @@ export function agentTools(backend: BackendClient, state: RunState) {
       inputSchema: z.strictObject({ name: z.string().min(1) }),
       execute: async ({ name }) => {
         const reply = await backend.findSupplier(name);
-        if (reply.ok && isSupplierMatch(reply.body)) state.knownSupplierIds.add(reply.body.supplierId);
+        const match = supplierMatch(reply);
+        if (match) {
+          state.lookedUpSupplierIds.add(match.supplierId);
+          // Invoice mode: results only inform propose_supplier; the payable ID is fixed in the mandate.
+          if (!state.mandate && isConfident(match)) state.knownSupplierIds.add(match.supplierId);
+        }
         return reply;
       },
     }),
@@ -125,10 +171,6 @@ function redactResults<T extends Record<string, { execute?: (...args: any[]) => 
     if (execute) t.execute = async (...args: any[]) => redactAddresses(await execute(...args));
   }
   return tools;
-}
-
-function isSupplierMatch(body: unknown): body is { supplierId: string } {
-  return typeof body === "object" && body !== null && typeof (body as { supplierId?: unknown }).supplierId === "string";
 }
 
 function approvalIdOf(body: unknown): string {
