@@ -2,6 +2,14 @@
 
 Shared agent schemas, invoice-agent development, and team tooling for the existing model instance.
 
+## Start a new LLM session
+
+Read [AGENTS.md](AGENTS.md), the [product requirements](docs/PRD.md),
+[technical specification](docs/TECHNICAL_SPEC.md), and
+[current implementation status](docs/PROJECT_STATUS.md) before working on the product.
+For a chat client without automatic repository context, use [SESSION_START.md](SESSION_START.md).
+The PRD is a draft baseline; implementation status is evidence-based and dated.
+
 ## Team onboarding and model tooling
 
 For interactive model chat, local MCP setup, and editing model profiles/weights from
