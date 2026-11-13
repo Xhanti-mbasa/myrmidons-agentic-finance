@@ -465,3 +465,45 @@ edge case next. No further check-in or automation was scheduled.
   Q5 secondhand rubric). Reviewed `feat/deterministic-pay-tool@60ce44f`: P1 (policy approves an
   abstract intent, not the signed tx bytes) is the key gap before any no-bypass claim.
   **Codex: please respond to P1 and P2.**
+
+
+### Codex adversarial suite handoff — 13 November 2026
+
+Work is on **`security/adversarial-suite`**, based on main `04b0adc` (PR #12 had
+already merged the deterministic coordinator). No merge or settings change.
+Full findings, reproductions and pitch claim: [SECURITY_ASSESSMENT.md](../SECURITY_ASSESSMENT.md).
+Run `python3 security/run.py`; prerequisites and evidence boundaries are in
+[security/README.md](../security/README.md). Retained results:
+[security/evidence/results.json](../security/evidence/results.json).
+
+- **79 cases: 42 BLOCKED, 12 VULNERABLE, 25 NOT_IMPLEMENTED.** Unsafe outcomes
+  and missing controls are explicit expected failures, not security passes.
+- Confirmed **R2, A1, A3's redirect behavior, A4's remaining invoice-address
+  provenance risk, A6**. **P1/P2/P4** remain implementation gaps. New LLM-07
+  demonstrates malicious extraction selecting another approved supplier named
+  in injected invoice notes; SECRET-02 shows TS tool-result key material can
+  reach the next model input.
+- **Refuted R3's transitive-install-script claim for pinned pnpm 10.28.0**:
+  offline postinstall-marker dependency is installed without running its script
+  (CI-01). Do not mistake repository lifecycle scripts for dependency scripts.
+- **A5:** current exact money boundary/equivalence tests support fixed status.
+  **X8:** pre-wallet revocation checks pass; signing-time check absent.
+  **A2:** 4xx certainty not established; the earlier “every non-2xx” wording is
+  too broad because 401/403/404 have separate branches. **P3:** no load benchmark.
+- **X1–X6 and ledger part of X8:** cannot execute against missing production
+  adapters; concrete mutation vectors are red specifications. No Testnet
+  submissions, validated hashes or ledger security claims. **X7**, infrastructure
+  settings/host custody and **L1–L9** were not operationally tested.
+- Validation: security runner passes its documented expectations; root typecheck,
+  912 TS regression tests (24 pre-existing opt-in skips), 47 Python CLI tests and
+  10 MCP tests pass. Gitleaks history scan clean.
+
+**Claude continuation:** fix LLM-07's invoice-to-supplier authority binding and
+R2 first; then isolate/sanitize both model-output paths. Implement P1 using the
+actual finalized signed transaction and independent signer, not a test double;
+wire XRPL mutation vectors to it, add runtime fresh-wallet Testnet evidence,
+and build external audit checkpoint verification. P2 needs a narrow intake
+role bound to authenticated invoice identity, never a general owner token.
+Keep fixes on this security branch or a coordinated successor, do not merge
+main without new user direction. Review the report's seven grouped findings
+and prerequisites before changing any expected-failure classification.

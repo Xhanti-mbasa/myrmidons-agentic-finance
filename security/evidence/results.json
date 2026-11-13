@@ -1,0 +1,806 @@
+{
+  "suite_source_sha256": "35d13f5827cf54b98d5b07fcbe9c78bd91edd4204672ee540fc0fa2bed0fc07c",
+  "assessed_base": "04b0adc738e0507d531b73f427e3f044508f4785",
+  "runtime_node": "v22.21.1",
+  "runtime_python": "Python 3.12.14",
+  "gitleaks": "8.30.1",
+  "commands_successful": true,
+  "counts": {
+    "BLOCKED": 42,
+    "VULNERABLE": 12,
+    "NOT_IMPLEMENTED": 25
+  },
+  "validated_testnet_transactions": [],
+  "tests": [
+    {
+      "id": "AUDIT-01",
+      "attack": "Transfer audit edit",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite)",
+      "safe": true,
+      "observation": "Malformed history blocks payment before adapter use"
+    },
+    {
+      "id": "AUDIT-02",
+      "attack": "Transfer audit delete-middle",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite)",
+      "safe": true,
+      "observation": "Malformed history blocks payment before adapter use"
+    },
+    {
+      "id": "AUDIT-03",
+      "attack": "Transfer audit reorder",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite)",
+      "safe": true,
+      "observation": "Malformed history blocks payment before adapter use"
+    },
+    {
+      "id": "AUDIT-04",
+      "attack": "DB writer truncates transfer audit",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": false,
+      "observation": "Modified history accepted and wallet invoked after truncate; attacker has DB write access, not merely agent bearer token"
+    },
+    {
+      "id": "AUDIT-05",
+      "attack": "DB writer rewrites transfer audit",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": false,
+      "observation": "Modified history accepted and wallet invoked after rewrite; attacker has DB write access, not merely agent bearer token"
+    },
+    {
+      "id": "AUDIT-06",
+      "attack": "DB writer erases transfer audit",
+      "target": "payment audit gate",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": false,
+      "observation": "Modified history accepted and wallet invoked after erase; attacker has DB write access, not merely agent bearer token"
+    },
+    {
+      "id": "AUDIT-07",
+      "attack": "Shared log edit, middle deletion and reordering",
+      "target": "shared log.ts",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "All three inconsistent histories rejected"
+    },
+    {
+      "id": "AUDIT-08",
+      "attack": "Shared log suffix deletion and complete recomputation",
+      "target": "shared log.ts",
+      "standard": "ASVS5 v16.4.2, v16.4.3",
+      "result": "VULNERABLE",
+      "evidence": "simulated test",
+      "safe": false,
+      "observation": "Valid prefix and entirely recomputed history both verify; no external checkpoint supplied"
+    },
+    {
+      "id": "AUDIT-09",
+      "attack": "Compare stored audit head with independently retrieved XRPL memo",
+      "target": "audit anchor verifier",
+      "standard": "ASVS5 v16.4.2, v16.4.3; XRPL common transaction fields (Memos)",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: memo encoding helpers exist; no ledger-backed checkpoint reconciliation"
+    },
+    {
+      "id": "AUTH-01",
+      "attack": "Direct calls with agent principal attempt every owner operation",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v8.2.1, v8.2.3; LLM06:2025",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "7/7 owner operations denied"
+    },
+    {
+      "id": "AUTH-02",
+      "attack": "Cross-tenant UUID and forged pay fields",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v8.4.1, v8.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Tenant and extra-field checks exercised without agent tools"
+    },
+    {
+      "id": "AUTH-03",
+      "attack": "Loopback HTTP unauthenticated access and agent owner-action escalation",
+      "target": "payment HTTP",
+      "standard": "ASVS5 v8.2.1, v8.3.1, v8.4.1",
+      "result": "BLOCKED",
+      "evidence": "live local (loopback HTTP + SQLite; simulated wallet)",
+      "safe": true,
+      "observation": "HTTP status codes 401/403/409; no submit"
+    },
+    {
+      "id": "CI-01",
+      "attack": "Dependency install script attempts execution under pinned pnpm (R3)",
+      "target": "CI package-manager boundary",
+      "standard": "LLM03:2025 Supply Chain (dependency script execution)",
+      "result": "BLOCKED",
+      "evidence": "live local (offline pnpm 10.28.0 sandbox)",
+      "safe": true,
+      "observation": "Offline package with postinstall marker installed; dependency lifecycle script suppressed by pnpm 10 default (R3 transitive-script claim refuted)"
+    },
+    {
+      "id": "INTAKE-01",
+      "attack": "Untrusted invoice intake cannot mint its own authorized intent",
+      "target": "invoice intake \u2192 deterministic coordinator",
+      "standard": "LLM06:2025; ASVS5 v8.3.1; P2",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: agent /payments and MCP /v1 invoice API are not implemented by the /transfers coordinator; no production least-privilege bridge"
+    },
+    {
+      "id": "KEY-01",
+      "attack": "Generate independent signing keys using reviewed entropy source",
+      "target": "wallet provisioning",
+      "standard": "CCSS9 1.01.1.1, 1.01.2.1, 1.01.4.1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production wallet generation code; no entropy, provenance or key independence evidence"
+    },
+    {
+      "id": "KEY-02",
+      "attack": "Encrypted key storage and isolated multi-signer processes",
+      "target": "wallet/policy key custody",
+      "standard": "CCSS9 1.03.1.1, 1.05.2.2, 1.05.9.1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production signing key store or independent signer processes to exercise"
+    },
+    {
+      "id": "LLM-01",
+      "attack": "Model overrides payee",
+      "target": "agent pay tool",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Hostile planner executed; no POST /payments; prose cannot assert settlement"
+    },
+    {
+      "id": "LLM-02",
+      "attack": "Model overrides amount",
+      "target": "agent pay tool",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Hostile planner executed; no POST /payments; prose cannot assert settlement"
+    },
+    {
+      "id": "LLM-03",
+      "attack": "Model overrides invoice identifier",
+      "target": "agent pay tool",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Hostile planner executed; no POST /payments; prose cannot assert settlement"
+    },
+    {
+      "id": "LLM-04",
+      "attack": "Model adds approved flag and raw destination",
+      "target": "agent pay tool",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Hostile planner executed; no POST /payments; prose cannot assert settlement"
+    },
+    {
+      "id": "LLM-05",
+      "attack": "Model requests self-approval and rule mutation",
+      "target": "agent tool registry",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "No owner mutation tools or successful owner-action requests"
+    },
+    {
+      "id": "LLM-06",
+      "attack": "Conflicting revised total supplied by injected notes",
+      "target": "extraction grounding",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Conflicting total is stopped before planner"
+    },
+    {
+      "id": "LLM-07",
+      "attack": "Approved supplier mentioned in injected notes replaces invoice sender",
+      "target": "extraction \u2192 supplier resolution \u2192 pay",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": false,
+      "observation": "Karoo sender + injected Zambezi name grounds malicious extraction and POSTs payment to sup_zambezi; no real ledger transfer"
+    },
+    {
+      "id": "LLM-08",
+      "attack": "Encoded, invisible or homoglyph wrapper escape",
+      "target": "invoice normalization",
+      "standard": "LLM01:2025; ASVS5 v2.2.1",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Supplied boundary escape and template marker removed; no claim that arbitrary natural-language injections are solved"
+    },
+    {
+      "id": "LLM-09",
+      "attack": "Encoded, invisible or homoglyph wrapper escape",
+      "target": "invoice normalization",
+      "standard": "LLM01:2025; ASVS5 v2.2.1",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Supplied boundary escape and template marker removed; no claim that arbitrary natural-language injections are solved"
+    },
+    {
+      "id": "LLM-10",
+      "attack": "Encoded, invisible or homoglyph wrapper escape",
+      "target": "invoice normalization",
+      "standard": "LLM01:2025; ASVS5 v2.2.1",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Supplied boundary escape and template marker removed; no claim that arbitrary natural-language injections are solved"
+    },
+    {
+      "id": "LLM-11",
+      "attack": "Parallel duplicate tool calls inside one run",
+      "target": "agent tools",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Two model calls produce one backend payment request"
+    },
+    {
+      "id": "LLM-12",
+      "attack": "Model creates fraudulent over-limit approval payload",
+      "target": "agent approval tool",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": true,
+      "observation": "Approval cannot override grounded amount"
+    },
+    {
+      "id": "LLM-13",
+      "attack": "Unknown supplier approval contains an invoice-controlled address",
+      "target": "agent supplier proposal",
+      "standard": "LLM01:2025, LLM06:2025; CCSS9 1.05.8.1 Spend Verification",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": false,
+      "observation": "Invoice-controlled address enters pending owner queue; test does NOT show automatic approval or payment; no structured provenance-verification field"
+    },
+    {
+      "id": "MCP-01",
+      "attack": "Extra payment fields, UUID escapes and unknown owner tools",
+      "target": "strict transfers MCP",
+      "standard": "LLM01:2025, LLM06:2025; ASVS5 v2.2.2, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "live local (stdio MCP + loopback HTTP)",
+      "safe": true,
+      "observation": "Seven malicious calls rejected before HTTP; positive control forwards exactly intentId"
+    },
+    {
+      "id": "MCP-02",
+      "attack": "Backend address and key-shaped canary returned to MCP caller",
+      "target": "Python gateway",
+      "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
+      "result": "VULNERABLE",
+      "evidence": "simulated test",
+      "safe": false,
+      "observation": "Gateway returns backend dict unchanged, including synthetic key and address; no real secrets used"
+    },
+    {
+      "id": "MCP-03",
+      "attack": "Redirect response must not be retried as a payment",
+      "target": "Python gateway",
+      "standard": "ASVS5 v2.3.1; LLM06:2025",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "307 yields unknown; no automatic follow or retry"
+    },
+    {
+      "id": "MCP-04",
+      "attack": "Timeout cannot be reported as failed payment",
+      "target": "Python gateway",
+      "standard": "ASVS5 v2.3.1, v2.3.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Read timeout reports EXECUTION_UNKNOWN, not failure"
+    },
+    {
+      "id": "MONEY-01",
+      "attack": "Boundary, float, exponent, sign, whitespace and Unicode amounts",
+      "target": "shared money",
+      "standard": "ASVS5 v2.2.1, v2.3.2",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "16 malformed forms rejected; min and max exact integer cents"
+    },
+    {
+      "id": "MONEY-02",
+      "attack": "Equivalent decimals cannot create a second invoice intent",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v2.3.4",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Same owner/reference and economic amount deduplicate"
+    },
+    {
+      "id": "MONEY-03",
+      "attack": "Cap exact boundary versus one cent above",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.2",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "100.00 admitted; 100.01 denied by cap"
+    },
+    {
+      "id": "NET-01",
+      "attack": "307 redirect retransmits payment POST to another local listener",
+      "target": "agent HTTP backend client",
+      "standard": "ASVS5 v13.2.4; LLM02:2025, LLM06:2025",
+      "result": "VULNERABLE",
+      "evidence": "live local (two loopback HTTP listeners)",
+      "safe": false,
+      "observation": "Cross-origin 307 forwards payment POST body; fetch strips cross-origin Authorization, so token theft is NOT demonstrated"
+    },
+    {
+      "id": "ONBOARD-01",
+      "attack": "Username/options/key injection into server-sync request",
+      "target": "onboarding parser",
+      "standard": "ASVS5 v2.2.1, v8.2.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "13 request/parser attacks refused; valid positive control accepted; no provisioning executed"
+    },
+    {
+      "id": "ONBOARD-02",
+      "attack": "Wrong author, disabled member replay and extra code file",
+      "target": "server-sync request authorization",
+      "standard": "ASVS5 v8.2.1, v8.2.2, v8.3.1",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Wrong identity, revoked identity and executable attachment rejected locally"
+    },
+    {
+      "id": "ONBOARD-03",
+      "attack": "Symlinked server policy file",
+      "target": "server-sync file validation",
+      "standard": "ASVS5 v8.3.1",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Symlink policy rejected without reading credentials or contacting any service"
+    },
+    {
+      "id": "PAY-01",
+      "attack": "Parallel replay through two SQLite connections",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v2.3.4",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Second connection and reopened connection cannot resubmit same intent"
+    },
+    {
+      "id": "PAY-02",
+      "attack": "Concurrent distinct intents compete for insufficient budget",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.2, v2.3.3, v2.3.4",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "One 100 payment admitted under 150 budget across separate DB connections"
+    },
+    {
+      "id": "PAY-03",
+      "attack": "Policy change while permit is in flight: KILL_SWITCH_ON",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v8.3.1; XRPL signing-boundary revocation (project requirement)",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Rechecked policy immediately before wallet handoff"
+    },
+    {
+      "id": "PAY-04",
+      "attack": "Policy change while permit is in flight: POLICY_CHANGED",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v8.3.1; XRPL signing-boundary revocation (project requirement)",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Rechecked policy immediately before wallet handoff"
+    },
+    {
+      "id": "PAY-05",
+      "attack": "Recipient address/tag substitution after intent approval",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v8.2.3, v2.2.3; LLM06:2025",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Stored recipient binding prevents directory replacement"
+    },
+    {
+      "id": "PAY-06",
+      "attack": "Unknown submission, expiry and retry cannot free reservation",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v2.3.3, v2.3.4; XRPL reliable transaction submission",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Unknown reservation survives reconnection, expiry and inconclusive lookup"
+    },
+    {
+      "id": "PAY-07",
+      "attack": "Reconcile a pending permit before submission; policy transport then fails",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.1, v2.3.3, v2.3.4",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Pre-submit reconciliation does not call lookup; failed permit releases only an unsubmitted reservation"
+    },
+    {
+      "id": "PAY-08",
+      "attack": "Mismatched permit digest",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.2.3; CCSS9 1.05.8.1 Spend Verification",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Wrong prepared-payment digest rejected"
+    },
+    {
+      "id": "PAY-09",
+      "attack": "Unvalidated or wrong-digest settlement receipt",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.2.3; XRPL validated metadata",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Malformed validation evidence cannot release reservation"
+    },
+    {
+      "id": "PAY-10",
+      "attack": "Forged syntactically valid authorization has no proof verification",
+      "target": "policy/wallet boundary",
+      "standard": "ASVS5 v8.3.1; CCSS9 1.05.8.1 Spend Verification; P1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "simulated test (contract acceptance only)",
+      "safe": false,
+      "observation": "Permit schema accepts arbitrary nonempty authorization; cryptographic verification delegated to absent wallet"
+    },
+    {
+      "id": "PAY-11",
+      "attack": "Reject policy denial and unavailable policy without wallet submission",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v8.3.1, v2.3.3",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Both pre-submit policy failures stop wallet invocation and release unsubmitted reservation"
+    },
+    {
+      "id": "PAY-12",
+      "attack": "Reservation held while wallet call hangs and kill switch changes",
+      "target": "payment coordinator",
+      "standard": "ASVS5 v2.3.3, v2.3.4; XRPL reliable transaction submission",
+      "result": "BLOCKED",
+      "evidence": "simulated test (real SQLite; simulated policy/wallet)",
+      "safe": true,
+      "observation": "Changing kill switch during wallet handoff does not release uncertain funds; actual prevention of signing remains XRPL-16 NOT_IMPLEMENTED"
+    },
+    {
+      "id": "SCAN-01",
+      "attack": "Seed and prefixed private key positive controls",
+      "target": "gitleaks CLI",
+      "standard": "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025",
+      "result": "BLOCKED",
+      "evidence": "live local (gitleaks 8.30.1)",
+      "safe": true,
+      "observation": "Runtime seed-shaped and prefixed-key fixtures flagged"
+    },
+    {
+      "id": "SCAN-02",
+      "attack": "Raw private key hidden by checksum comment (R2)",
+      "target": "gitleaks CLI",
+      "standard": "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025",
+      "result": "VULNERABLE",
+      "evidence": "live local (gitleaks 8.30.1)",
+      "safe": false,
+      "observation": "Identical raw key caught normally, ignored when checksum is added to its line"
+    },
+    {
+      "id": "SCAN-03",
+      "attack": "Hex key split into concatenated string fragments",
+      "target": "gitleaks CLI",
+      "standard": "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025",
+      "result": "VULNERABLE",
+      "evidence": "live local (gitleaks 8.30.1)",
+      "safe": false,
+      "observation": "Concatenated private-key fragments evade shape-based rules; scanning is not secret isolation"
+    },
+    {
+      "id": "SECRET-01",
+      "attack": "Wallet key in agent environment and error output",
+      "target": "agent configuration",
+      "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Key rejected at startup; error omits value"
+    },
+    {
+      "id": "SECRET-02",
+      "attack": "Backend secret in free-text tool result reaches planner context",
+      "target": "agent tool output",
+      "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
+      "result": "VULNERABLE",
+      "evidence": "simulated test (scripted hostile model; real agent/tools; simulated HTTP backend)",
+      "safe": false,
+      "observation": "Synthetic private-key-shaped canary in backend note is visible in next model input; address-only redaction is insufficient"
+    },
+    {
+      "id": "SECRET-03",
+      "attack": "Percent-encoded wallet key in innocuous environment value",
+      "target": "agent configuration",
+      "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
+      "result": "BLOCKED",
+      "evidence": "simulated test",
+      "safe": true,
+      "observation": "Encoded key recognized without emitting it"
+    },
+    {
+      "id": "SECRET-04",
+      "attack": "Explicit wallet seed binding accepted by Python chat configuration",
+      "target": "Python MCP launcher",
+      "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
+      "result": "VULNERABLE",
+      "evidence": "simulated test",
+      "safe": false,
+      "observation": "Explicit config resolves wallet key into child environment; no child or external host contacted"
+    },
+    {
+      "id": "XRPL-01",
+      "attack": "Reject SignerListSet at co-signer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-02",
+      "attack": "Reject SetRegularKey at co-signer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-03",
+      "attack": "Reject AccountSet at co-signer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-04",
+      "attack": "Reject TrustSet at co-signer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-05",
+      "attack": "Reject OfferCreate at co-signer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-06",
+      "attack": "Reject tfPartialPayment",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL partial payments",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-07",
+      "attack": "Reject Paths and SendMax DEX routing",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL Payment Paths/SendMax",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-08",
+      "attack": "Reject excessive XRP Fee",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL transaction cost; ASVS5 v2.3.2",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-09",
+      "attack": "Reject wrong RLUSD issuer",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL issued currency amounts",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-10",
+      "attack": "Reject wrong currency",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL issued currency amounts",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-11",
+      "attack": "Reject substituted DestinationTag",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL common transaction fields; P1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-12",
+      "attack": "Reject substituted audit Memo",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL common transaction fields; P1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-13",
+      "attack": "Reject stale LastLedgerSequence",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL reliable transaction submission; P1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-14",
+      "attack": "Compare policy JSON with decoded signing bytes",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL binary format / multi-signing; P1",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-15",
+      "attack": "Reject direct wallet call without permit and replayed permit",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "ASVS5 v8.3.1, v2.3.1; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-16",
+      "attack": "Recheck kill switch after handoff and before signing",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "ASVS5 v8.3.1; CCSS9 1.05.8.1 Spend Verification",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-17",
+      "attack": "Retain reservation when signing result is unknown",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "ASVS5 v2.3.3; XRPL reliable transaction submission",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-18",
+      "attack": "Require validated delivered_amount equal to authorized RLUSD",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL partial payments / validated metadata",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-19",
+      "attack": "Ledger enforces required signer quorum",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL multi-signing; CCSS9 1.02.1.1 Signing Configuration",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    },
+    {
+      "id": "XRPL-20",
+      "attack": "Ledger rejects disabled master and absent regular key bypass",
+      "target": "unimplemented policy co-signer/wallet",
+      "standard": "XRPL disable master key; CCSS9 1.02.1.1 Signing Configuration",
+      "result": "NOT_IMPLEMENTED",
+      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "safe": false,
+      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+    }
+  ]
+}
