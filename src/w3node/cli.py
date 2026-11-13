@@ -208,7 +208,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     chat = commands.add_parser("chat", help="Interactive Ollama chat with a local stdio MCP server")
-    chat.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11435"))
+    chat.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
     chat.add_argument("--model", default="qwen3:1.7b-q4_K_M")
     chat.add_argument("--mcp", default="config/mcp.local.json")
     chat.add_argument("--no-mcp", action="store_true")
@@ -236,11 +236,14 @@ def main():
             p.add_argument("--groups", required=True)
     m = commands.add_parser("model")
     actions = m.add_subparsers(dest="action", required=True)
+    setup = actions.add_parser("setup", help="Pull and verify the locked Ollama base model")
+    setup.add_argument("--lock", default="model-profiles/base-model.lock.json")
+    setup.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
     build = actions.add_parser("build", help="Create a development model from a profile and optional local GGUF")
     build.add_argument("name")
     build.add_argument("--profile", default="model-profiles/qwen-dev.json")
     build.add_argument("--gguf", help="Import a local, already trained GGUF checkpoint")
-    build.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11435"))
+    build.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
     for action in ("pin", "pull"):
         p = actions.add_parser(action)
         p.add_argument("--manifest", default="model.lock.json")
@@ -259,6 +262,9 @@ def main():
         elif args.command == "model" and args.action == "build":
             from .model_build import build_model
             build_model(args)
+        elif args.command == "model" and args.action == "setup":
+            from .model_setup import setup_model
+            setup_model(args)
         elif args.command == "users":
             from .onboarding import client
             client(args)
@@ -277,3 +283,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

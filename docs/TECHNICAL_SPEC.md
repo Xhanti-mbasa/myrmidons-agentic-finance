@@ -152,10 +152,19 @@ evidence that a payment occurred.
 
 ## 8. LLM, MCP and model development
 
-Qwen/Ollama is the development inference runtime reported for the shared Incus
-container; local chat defaults to `qwen3:1.7b-q4_K_M`. Developer MCP runs locally
-over stdio. The remote model remains reachable through the existing private
-model tunnel. No public Ollama listener is needed.
+Qwen/Ollama is the development inference runtime. Local chat/build/setup default
+to `http://127.0.0.1:11434` and `qwen3:1.7b-q4_K_M`. Developer MCP runs locally
+over stdio. `OLLAMA_HOST` overrides the default; explicit `--host` takes precedence.
+The shared Incus model remains reachable by explicitly selecting the private
+SSH tunnel on local 11435. No public Ollama listener is needed.
+
+`w3node model setup` pulls missing base weights and verifies the Ollama manifest
+digest against `model-profiles/base-model.lock.json`; matching cached models need
+no pull and mismatches fail verification. The initial digest is owner-reported
+from the shared server. This identity check does not archive upstream versions.
+Git stores the lock, profiles and MCP code; Ollama stores the actual base layers.
+The same revision can be set up/built on either endpoint. Setup is explicit,
+not a prerequisite automatically enforced before every chat/build.
 
 `w3node chat` is a generic development host, not the completed payment pipeline.
 Its default MCP server has zero tools; the demo config enables echo. Tool-call
@@ -206,3 +215,4 @@ When changing wire fields/statuses, update the shared contracts, all consumers,
 tests and this spec together. Resolve known mismatches in PROJECT_STATUS before
 asserting the system is integrated. Do not bypass CI/secret controls to land an
 integration. Operational access and payment authority are separate permissions.
+

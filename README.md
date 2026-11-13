@@ -15,6 +15,9 @@ The PRD is a draft baseline; implementation status is evidence-based and dated.
 For interactive model chat, local MCP setup, and editing model profiles/weights from
 VS Code, start with [the terminal/MCP walkthrough](docs/local-mcp-chat.md).
 
+* `w3node model setup`: pull and verify the same Qwen base model into local Ollama.
+* `w3node chat`: local model + local MCP; use `--host http://127.0.0.1:11435` for the shared tunnel.
+* `w3node model build w3node-YOURNAME-v1`: rebuild a versioned profile on the selected Ollama.
 * `w3node users add NAME`: generate/reuse a local SSH key and submit an onboarding request.
 * `w3node users connect NAME`: connect to the container with the Ollama tunnel.
 * `w3node admin sync`: provision preapproved GitHub identities and email Tailscale device invites.
@@ -76,3 +79,4 @@ gitleaks version
 To scan the whole history yourself, run `gitleaks git --config .gitleaks.toml --redact --no-banner .`.
 
 `git commit --no-verify` skips the hook, but CI runs the same checks on the pull request.
+
