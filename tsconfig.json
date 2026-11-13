@@ -9,5 +9,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["packages/*/src", "packages/*/test", "packages/*/test-support", "services/*/src", "services/*/test", "services/*/eval", "scripts/test", "scripts/make-invoice-pdfs.ts"]
+  "include": ["packages/*/src", "packages/*/test", "packages/*/test-support", "services/*/src", "services/*/test", "services/*/eval", "scripts/test", "scripts/make-invoice-pdfs.ts", "scripts/setup-treasury.ts"]
 }
