@@ -1,9 +1,9 @@
 import { generateText, isStepCount, type LanguageModel } from "ai";
 import { z } from "zod";
-import { Amount, ruleExplanation, type PayResult, type ExtractedInvoice, type RuleCode } from "@shucamoxa/shared";
+import { Rules as RulesContract, ruleExplanation, type PayResult, type ExtractedInvoice, type RuleCode } from "@shucamoxa/shared";
 import { backendClient, type BackendClient, type BackendDeps } from "./backend";
 import { extractInvoice } from "./extraction";
-import { agentTools, isConfident, newRunState, supplierMatch, type RunState } from "./tools";
+import { agentTools, isConfident, newRunState, overLimit, redactAddresses, supplierMatch, type Limits, type RunState } from "./tools";
 
 export { MIN_SUPPLIER_CONFIDENCE } from "./tools";
 
@@ -34,8 +34,13 @@ Rules:
 7. Never retry a payment that was blocked.
 Use tools; do not ask the user questions.`;
 
-const Rules = z.object({ perPaymentCap: Amount, killSwitch: z.boolean() }).passthrough();
-type Rules = z.infer<typeof Rules>;
+/**
+ * The parts of GET /rules the agent acts on, using the shared Rules field schemas. The whole reply is
+ * not parsed strictly: an off-contract field elsewhere must not hide the kill switch. A missing or
+ * malformed remaining is null, and then only the cap can justify an approval.
+ */
+const RulesCore = z.looseObject({ perPaymentCap: RulesContract.shape.perPaymentCap, killSwitch: RulesContract.shape.killSwitch });
+type Rules = { perPaymentCap: string; killSwitch: boolean; remaining: string | null };
 
 export function createAgent(deps: AgentDeps) {
   const backend = backendClient(deps);
@@ -56,18 +61,26 @@ export function createAgent(deps: AgentDeps) {
 
     // Code, not the model, decides whose invoice this is. pay accepts only this ID (null: nothing).
     const resolvedSupplierId = await resolveSupplier(backend, invoice.supplierName);
-    const state = newRunState({ invoiceNumber: invoice.invoiceNumber, amount: invoice.amount, supplierId: resolvedSupplierId });
+    const state = newRunState(
+      {
+        invoiceNumber: invoice.invoiceNumber,
+        amount: invoice.amount,
+        supplierId: resolvedSupplierId,
+        supplierName: invoice.supplierName,
+        payToAddressOnInvoice: invoice.payToAddressOnInvoice,
+      },
+      limitsOf(rules),
+    );
     await generateText({
       model: deps.plannerModel,
       system: PLANNER_SYSTEM,
-      // Supplier IDs are not secret; an address never appears here.
-      prompt: JSON.stringify({ ...invoice, resolvedSupplierId }),
+      prompt: plannerPrompt(invoice, resolvedSupplierId),
       tools: agentTools(backend, state),
       stopWhen: isStepCount(STEP_LIMIT),
       temperature: 0,
     });
 
-    return { ...base, ...decide(state, invoice, rules) };
+    return { ...base, ...decide(state) };
   }
 
   /** Owner chat: questions answered from the log, or "pay X now", under the same tool guards. */
@@ -76,7 +89,7 @@ export function createAgent(deps: AgentDeps) {
     if (!rules) return { reply: "I could not confirm the kill switch is off, so I am not acting right now.", payments: [] };
     if (rules.killSwitch) return { reply: ruleExplanation("KILL_SWITCH_ON"), payments: [] };
 
-    const state = newRunState(null);
+    const state = newRunState(null, limitsOf(rules));
     const { text } = await generateText({
       model: deps.plannerModel,
       system: PLANNER_SYSTEM,
@@ -93,11 +106,28 @@ export function createAgent(deps: AgentDeps) {
 
 export type ChatAnswer = { reply: string; payments: PayResult[] };
 
+/**
+ * What the planner is shown: the validated fields without the pay-to address (only whether there was
+ * one), plus the supplier ID code resolved, which is not secret. Any address-shaped text left in other
+ * fields is redacted too, so the model never sees a wallet address. T07 narrows this further.
+ */
+function plannerPrompt(invoice: ExtractedInvoice, resolvedSupplierId: string | null): string {
+  const { payToAddressOnInvoice, ...fields } = invoice;
+  return JSON.stringify(redactAddresses({ ...fields, hasAddressOnInvoice: payToAddressOnInvoice !== null, resolvedSupplierId }));
+}
+
+/** The limits request_approval is judged against: the ones code read, never the model's. */
+function limitsOf(rules: Rules): Limits {
+  return { perPaymentCap: rules.perPaymentCap, remaining: rules.remaining };
+}
+
 async function readRules(backend: BackendClient): Promise<Rules | null> {
   const reply = await backend.getRules();
   if (!reply.ok) return null;
-  const parsed = Rules.safeParse(reply.body);
-  return parsed.success ? parsed.data : null;
+  const parsed = RulesCore.safeParse(reply.body);
+  if (!parsed.success) return null;
+  const remaining = RulesContract.shape.remaining.safeParse((reply.body as { remaining?: unknown }).remaining);
+  return { perPaymentCap: parsed.data.perPaymentCap, killSwitch: parsed.data.killSwitch, remaining: remaining.success ? remaining.data : null };
 }
 
 /**
@@ -126,20 +156,17 @@ export function tradingName(name: string): string {
 }
 
 /** The outcome is built only from what the backend returned to the tools, never from the model's text. */
-function decide(state: RunState, invoice: ExtractedInvoice, rules: Rules): Omit<AgentOutcome, "invoiceNumber" | "flags"> {
+function decide(state: RunState): Omit<AgentOutcome, "invoiceNumber" | "flags"> {
   const last = state.payResults.at(-1);
   if (last?.status === "settled") return { decision: "paid", ruleCode: "OK", explanation: ruleExplanation("OK"), txHash: last.txHash };
 
   const approval = state.approvals.at(-1);
   if (last?.status === "pending_approval" || approval) {
+    // The approval's rule code was worked out in cents by the tool, against the limits code read.
     const code: RuleCode =
       last && last.ruleCode !== "OK"
         ? last.ruleCode
-        : approval?.kind === "supplier"
-          ? "SUPPLIER_NOT_APPROVED"
-          : Number(invoice.amount) > Number(rules.perPaymentCap)
-            ? "OVER_PER_PAYMENT_CAP"
-            : "OVER_BUDGET";
+        : (approval?.ruleCode ?? (state.mandate && overLimit(state.mandate.amount, state.limits)) ?? "OVER_BUDGET");
     return { decision: "awaiting_owner", ruleCode: code, explanation: `${ruleExplanation(code)} The owner has been asked to decide.` };
   }
 
