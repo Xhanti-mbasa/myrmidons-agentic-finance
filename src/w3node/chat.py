@@ -205,6 +205,41 @@ async def chat(args):
                 break
 
 
+def failure_details(error):
+    """Unwrap SDK task groups without dumping requests, environment or tracebacks."""
+    import httpx
+    if isinstance(error, BaseExceptionGroup):
+        details = []
+        for child in error.exceptions:
+            detail = failure_details(child)
+            if detail not in details:
+                details.append(detail)
+        return "; ".join(details[:3])
+    if isinstance(error, httpx.HTTPStatusError):
+        response = error.response
+        detail = f"Ollama HTTP {response.status_code}"
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+        # Ollama's error field is useful (e.g. insufficient RAM); never print a
+        # raw response body, request headers, messages or a proxy's HTML page.
+        if isinstance(data, dict) and isinstance(data.get("error"), str):
+            reason = " ".join(data["error"].split())
+            reason = "".join(char for char in reason if char.isprintable())
+            detail += ": " + reason[:400]
+        return detail
+    if isinstance(error, httpx.TimeoutException):
+        return f"{type(error).__name__}: Ollama did not respond within the request timeout; check model loading and CPU/GPU/RAM usage"
+    if isinstance(error, httpx.ConnectError):
+        return "ConnectError: cannot connect to Ollama; check that its service is running at the selected endpoint"
+    if isinstance(error, json.JSONDecodeError):
+        return "Invalid JSON returned by the model endpoint"
+    if isinstance(error, ValueError):
+        return str(error)[:400]
+    return type(error).__name__
+
+
 def launch(args):
     try:
         import httpx
@@ -217,5 +252,6 @@ def launch(args):
         print("\nChat closed.")
     except Exception as error:
         # AsyncExitStack/SDK can wrap child failures in ExceptionGroup. Avoid dumping env/tracebacks.
-        raise ValueError(f"Chat stopped ({type(error).__name__}). Check the MCP command and Ollama at {endpoint(args.host)} (or its SSH tunnel if remote); no calls are automatically retried.") from None
+        raise ValueError(f"Chat stopped: {failure_details(error)}. Endpoint: {endpoint(args.host)}. "
+                         "For inference without MCP, rerun with --no-mcp. No calls are automatically retried.") from None
 
