@@ -1,0 +1,31 @@
+{
+  "ownerId": "business",
+  "stateDirectory": "/var/lib/shucamoxa-purchases",
+  "payerSeedFile": "/etc/shucamoxa/purchases/testnet-payer.secret",
+  "ownerTokenFile": "/etc/shucamoxa/purchases/owner.token",
+  "agentTokenFile": "/etc/shucamoxa/purchases/agent.token",
+  "quotePublicKeyFile": "/etc/shucamoxa/purchases/quote-public.pem",
+  "quoteFile": "/etc/shucamoxa/purchases/quote.json",
+  "policy": {
+    "enabled": true,
+    "aggregateRlusd": {"perPurchase": "0.006", "lifetimeBudget": "1.00"},
+    "categories": {
+      "articles": {
+        "perPurchaseZar": "0.11", "periodBudgetZar": "20.00", "period": "weekly",
+        "merchantIds": ["demo_publisher"], "autoPurchase": true
+      }
+    }
+  },
+  "resources": {
+    "article": {
+      "categoryId": "articles",
+      "url": "https://publisher.example/article/1",
+      "merchant": {
+        "id": "demo_publisher", "origin": "https://publisher.example",
+        "payTo": "REPLACE_WITH_VERIFIED_TESTNET_MERCHANT_ADDRESS",
+        "facilitator": "https://xrpl-facilitator-testnet.t54.ai",
+        "termsUrl": "https://publisher.example/terms"
+      }
+    }
+  }
+}

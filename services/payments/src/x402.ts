@@ -5,7 +5,7 @@ import { canonicalJson } from '../../../packages/shared/src/log';
 import type { Principal } from './payment';
 
 export type Merchant = Readonly<{ id: string; origin: string; payTo: string; destinationTag?: number;
-  facilitator: 'https://x402.org/facilitator'; termsUrl: string }>;
+  facilitator: 'https://x402.org/facilitator' | 'https://xrpl-facilitator-testnet.t54.ai'; termsUrl: string }>;
 export type PurchaseBinding = Readonly<{ purchaseId: string; ownerId: string; merchantId: string;
   categoryId: string; resourceUrl: string; resourceHash: string; challenge: X402Challenge;
   expiresAt: string; digest: string }>;
@@ -45,7 +45,7 @@ export function bindPurchase(input: { purchaseId: string; ownerId: string; categ
   if (url.protocol !== 'https:' || url.username || url.password || url.hash || configured.origin !== input.merchant.origin ||
       url.origin !== configured.origin || requirement.payTo !== input.merchant.payTo ||
       requirement.extra.destinationTag !== input.merchant.destinationTag ||
-      input.merchant.facilitator !== 'https://x402.org/facilitator') throw new Error('MERCHANT_MISMATCH');
+      !['https://x402.org/facilitator','https://xrpl-facilitator-testnet.t54.ai'].includes(input.merchant.facilitator)) throw new Error('MERCHANT_MISMATCH');
   if (challenge.resource.url !== url.href) throw new Error('RESOURCE_MISMATCH');
   if (!/^[0-9a-f-]{36}$/i.test(input.purchaseId) || !input.ownerId || !input.categoryId ||
       !Number.isFinite(input.receivedAt.getTime())) throw new Error('CHALLENGE_INVALID');
@@ -83,6 +83,8 @@ export class X402PurchaseService {
   async purchase(ctx: Principal, binding: PurchaseBinding, decision: 'pay'|'decline'|'automatic'): Promise<PurchaseState> {
     this.check(ctx,binding);
     if (!['pay','decline','automatic'].includes(decision)) throw new Error('CHALLENGE_INVALID');
+    // Persist the binding BEFORE the independently committed budget reservation.
+    // A crash can then always be reconciled by purchase ID, including after reserve/authorize.
     this.db.exec('BEGIN IMMEDIATE');
     let authorization: { budgetDigest: string };
     try {
@@ -90,26 +92,43 @@ export class X402PurchaseService {
       if (duplicate && duplicate.id !== binding.purchaseId) throw new Error('PURCHASE_MISMATCH');
       const old = this.state(ctx,binding);
       if (old && old.status !== 'awaiting_owner') { this.db.exec('COMMIT'); return old; }
-      if (old?.status === 'awaiting_owner' && this.adapters.budget.status(ctx,binding) !== 'none') {
+      if (this.adapters.budget.status(ctx,binding) !== 'none') {
         const s=this.save(binding,'unknown'); this.db.exec('COMMIT'); return s;
       }
       if (decision === 'decline') { const s=this.save(binding,'declined'); this.db.exec('COMMIT'); return s; }
       if (decision === 'pay' && ctx.role !== 'owner') { const s=this.save(binding,'awaiting_owner'); this.db.exec('COMMIT'); return s; }
       if (Date.parse(binding.expiresAt) <= this.now().getTime()) throw new Error('CHALLENGE_EXPIRED');
       this.save(binding,'awaiting_owner');
-      this.adapters.budget.reserve(ctx,binding);
-      authorization = this.adapters.budget.authorize(ctx,binding);
-      // Commit uncertainty BEFORE any signer/external interaction; no automatic retry after a crash.
+      this.db.exec('COMMIT');
+    } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+    // Claim single-attempt execution durably before calling any independently committed adapter.
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const current = this.state(ctx,binding)!;
+      if (current.status !== 'awaiting_owner') { this.db.exec('COMMIT'); return current; }
       this.save(binding,'unknown'); this.db.exec('COMMIT');
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+    try {
+      this.adapters.budget.reserve(ctx,binding);
+      authorization = this.adapters.budget.authorize(ctx,binding);
+    } catch (error) {
+      // No retry or speculative release: the independent adapter may have committed.
+      throw error;
+    }
     try {
       const evidence = await this.adapters.execution.execute(binding,authorization.budgetDigest);
       return await this.finish(ctx,binding,evidence);
     } catch { return this.state(ctx,binding)!; }
   }
   async reconcile(ctx: Principal, binding: PurchaseBinding): Promise<PurchaseState> {
-    this.check(ctx,binding); const state=this.state(ctx,binding);
+    this.check(ctx,binding); let state=this.state(ctx,binding);
     if (!state) throw new Error('PURCHASE_MISMATCH');
+    // A reserve operation in another process may finish after no-sign recovery closed this ID.
+    // Reconcile that late reservation without ever reopening the terminal purchase.
+    if (state.status==='blocked' && ['reserved','unknown'].includes(this.adapters.budget.status(ctx,binding))) {
+      this.adapters.budget.reconcile(ctx,binding,await this.adapters.execution.lookup(binding)); return state;
+    }
+    if (state.status==='awaiting_owner' && this.adapters.budget.status(ctx,binding)!=='none') state=this.save(binding,'unknown');
     if (state.status === 'unknown') return this.finish(ctx,binding,await this.adapters.execution.lookup(binding));
     if (state.status === 'delivery_failed' || state.status === 'settled') return this.deliver(binding);
     return state;

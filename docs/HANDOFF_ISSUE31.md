@@ -1,5 +1,10 @@
 # Independent authorization adapter handoff — issue 31
 
+**Later integration:** [PAYMENT_INTEGRATION.md](PAYMENT_INTEGRATION.md) records
+the concrete Testnet transfer provider, final synchronous revocation/signing gate,
+private purchase host and remaining deployment/co-sign topology evidence. The
+older scaffolding-only descriptions below are historical.
+
 13 November 2026. This is implemented adapter scaffolding with simulated provider
 outcomes, not deployed signing isolation or a validated Testnet payment.
 

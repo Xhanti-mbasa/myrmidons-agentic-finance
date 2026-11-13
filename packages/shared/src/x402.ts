@@ -9,8 +9,9 @@ export const X402Requirements = z.strictObject({
   asset: z.literal(RLUSD_CURRENCY_HEX), payTo: XrplAddress,
   amount: PositiveMicroAmount,
   maxTimeoutSeconds: z.number().int().min(1).max(120),
-  extra: z.strictObject({ issuer: z.literal(RLUSD_TESTNET_ISSUER), areFeesSponsored: z.literal(false),
-    assetTransferMethod: z.literal('sequence'), invoiceId: z.string().min(1).max(128),
+  extra: z.strictObject({ issuer: z.literal(RLUSD_TESTNET_ISSUER), areFeesSponsored: z.literal(false).optional(),
+    assetTransferMethod: z.literal('sequence').optional(), invoiceId: z.string().min(1).max(128),
+    sourceTag: z.number().int().min(0).max(4294967295).optional(),
     destinationTag: z.number().int().min(0).max(4294967295).optional() }),
 });
 export type X402Requirements = z.infer<typeof X402Requirements>;

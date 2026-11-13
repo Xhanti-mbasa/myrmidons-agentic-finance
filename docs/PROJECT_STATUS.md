@@ -314,3 +314,50 @@ root typecheck and full regular suite passed (1,545 tests passed, 39 skipped).
 Tracked-path guard and conflict-file whitespace checks passed. No live payment,
 merchant unlock, deployed signer or FX integration was tested; Node 22 CI remains
 the repository-runtime gate. No new completion claim for #31–#33 is implied.
+
+## Issues #31–#33: guarded provider and purchase-host integration
+
+13 November 2026. `PAYMENT_INTEGRATION.md` is the current operator/AI handoff.
+The new Testnet transfer provider verifies independent Ed25519 permits, signs
+under the coordinator's final revocation DB gate, persists one transaction
+identity and verifies signed bytes/delivered amount on ledger lookup. The x402
+executor constructs a v2 presigned RLUSD payload, independently revalidates the
+registered merchant, checks periodic and aggregate purchase-wallet budgets,
+and exposes content only after exact ledger evidence. The private host and
+strict purchase/read/reconcile MCP tools keep owner policy, URLs, quotes and
+wallet keys out of tool arguments. Purchase wallets are separate from transfer
+treasuries; neither contract silently replaces the other.
+
+Recovery now persists the purchase binding and execution claim before budget
+adapter commits. Durable signer tombstones close a proven no-sign purchase;
+unknown signed outcomes remain reserved without re-signing. Confirmed ledger
+rejections retain converted payer-fee charges. Owner-signed short-lived quote
+packets bind rate and fee ceilings; there is no automatic market feed. Added
+private-file checks, deployment unit and configuration examples are source, not
+proof that isolation is installed on the operator's machine. Privy is unchanged.
+
+Validation: Node 22.23.5/pnpm 10.28.0 root typecheck and regular tests; Python
+3.12 gateway and onboarding tests; full adversarial reproduction with
+checksum-verified gitleaks 8.30.1. The current security probes exercise the actual
+merged T20 service instead of claiming it is absent: several unsafe mutations
+are accepted by its incomplete default pipeline and remain VULNERABLE. These
+adapters do not use that endpoint as their live signing gate. Team T21/T22 and
+other newly observed branches are separate work, not silently integrated.
+
+Read-only live checks: the fixed official HTTPS RPC reported XRPL Testnet
+network ID 1 and the preflight succeeded; t54's public /supported advertised
+v2 exact on xrpl:1. The WebSocket attempt failed, so the new transport uses
+fixed HTTPS RPC with bounds and no redirects. No wallet was loaded and no
+payment was submitted for these checks. A funded dedicated Testnet payer,
+approved compatible HTTPS merchant, deployed isolation and actual paid-resource
+allowed/blocked evidence are still needed. Keep #31–#33 open until that evidence
+exists. Signed-expiry recovery and final on-ledger/cross-service co-sign topology
+remain explicit gates; no Mainnet, real-value or blanket security readiness claim.
+
+Final local evidence for this integration: Node 22.23.5/pnpm 10.28.0 typecheck
+passed; 1,561 regular TypeScript tests passed, 39 skipped. Python 3.12: 25 CLI/
+onboarding tests and 11 gateway tests passed (including a real purchase MCP
+subprocess). The adversarial runner completed with 53 BLOCKED, 18 VULNERABLE,
+7 NOT_IMPLEMENTED; expected vulnerabilities are not security approvals. Both
+staged secret scanning and tracked-path/whitespace guards passed. Live validated
+payment count for this integration remains zero.

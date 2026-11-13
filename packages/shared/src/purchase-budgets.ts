@@ -21,6 +21,8 @@ export const PurchaseCategory = z.strictObject({
 });
 export const PurchaseBudgetPolicy = z.strictObject({
   enabled: z.boolean(), timezone: z.literal("Africa/Johannesburg").default("Africa/Johannesburg"),
+  /** Dedicated purchase-wallet mandate; independent of the invoice-transfer treasury. */
+  aggregateRlusd: z.strictObject({ perPurchase: PositiveMicroAmount, lifetimeBudget: PositiveMicroAmount }).optional(),
   categories: z.record(AccountId, PurchaseCategory),
 });
 export type PurchaseBudgetPolicy = z.infer<typeof PurchaseBudgetPolicy>;
@@ -38,4 +40,5 @@ export type PurchaseBudgetRequest = z.infer<typeof PurchaseBudgetRequest>;
 export type PurchaseReservation = PurchaseBudgetRequest & {
   ownerId: string; policyVersion: number; periodStart: string; period: "daily" | "weekly" | "monthly"; chargedZar: string;
   quote: TrustedPurchaseQuote; settledAt?: string; settledPeriodStart?: string; settledPeriod?: "daily" | "weekly" | "monthly"; budgetDigest: string; state: "reserved" | "unknown" | "settled" | "rejected";
+  rejectedFeeRlusd?: string;
 };

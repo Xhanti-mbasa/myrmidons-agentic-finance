@@ -1,5 +1,10 @@
 # Issue 33: weekly/category purchase budgets
 
+**Later integration:** [PAYMENT_INTEGRATION.md](PAYMENT_INTEGRATION.md) records
+the owner-attested signed quote publisher, aggregate purchase-wallet allowance,
+final signing gate, rejected-payment fee accounting and private host composition.
+This does not claim a live market feed or deployed period-boundary evidence.
+
 13 November 2026. Branch baseline `47b6c55`. This implements a separate local
 purchase-budget coordinator, not a deployed signer, FX service, or ledger payment.
 Issue: https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/issues/33

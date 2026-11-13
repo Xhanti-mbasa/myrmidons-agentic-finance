@@ -16,6 +16,7 @@ export function x402BudgetAdapter(service: PurchaseBudgetService,
     },
     authorize(ctx,binding) { return service.authorize(ctx,binding.purchaseId); },
     reconcile(ctx,binding,evidence) {
+      if (!service.reservation(ctx,binding.purchaseId)) return service.reconcileAbsent(ctx,binding.purchaseId,evidence);
       const state=service.recordOutcome(ctx,binding.purchaseId,evidence).state;
       return state === 'settled' ? 'settled' : state === 'rejected' ? 'rejected' : 'unknown';
     },

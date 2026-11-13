@@ -1,5 +1,11 @@
 # Issue #32: restricted x402 purchase prototype
 
+**Later integration:** [PAYMENT_INTEGRATION.md](PAYMENT_INTEGRATION.md) records
+the presigned payload executor, authenticated host/MCP tools, crash/no-sign
+recovery and exact ledger verification. Durable binding/attempt records and
+signer tombstones address the earlier orphan-reservation window. Uncertain signed
+transactions still require reconciliation, never speculative release.
+
 13 November 2026. The source adds a strict XRPL Testnet RLUSD x402 v2 challenge parser, merchant and resource binding, a durable single-attempt purchase coordinator, and a bridge to the weekly category budget service. The code is a local prototype with required injected execution, budget, quote and outcome adapters. It contains no wallet keys, live facilitator client or actual merchant integration.
 
 `packages/shared/src/x402.ts` accepts only the selected exact/sequence Testnet RLUSD profile. `services/payments/src/x402.ts` binds the challenge to a configured HTTPS merchant origin, destination, resource URL, expiry and purchase digest. It supports decline, owner pay and agent automatic purchase only when the budget adapter allows it. Duplicate resource purchase IDs are refused. Unknown execution retains state for lookup without another payment; delivery failures can retry content access without paying again. The execution adapter must independently validate the exact signed transaction, payer fees, policy permit, current revocation, facilitator response and ledger outcome. It must enforce no redirects on content delivery and preserve the transaction identity before network I/O.

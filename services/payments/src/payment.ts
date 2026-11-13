@@ -209,7 +209,11 @@ export class PaymentService {
   /** Trusted policy/signer host only: never expose as an agent-controlled approval endpoint.
    * Checks an existing reservation; does not create authority or re-submit a payment. */
   checkSigningBoundary(payment: PreparedTransfer): void {
-    this.atomic(() => {
+    this.withSigningBoundary(payment,()=>{});
+  }
+  /** Final synchronous signing under the same DB lock as owner revocation. Trusted host only. */
+  withSigningBoundary<T>(payment: PreparedTransfer, sign:()=>T): T {
+    return this.atomic(() => {
       const ctx: Principal = { ownerId: payment.ownerId, subjectId: "signer", role: "owner" };
       const intent = this.intent(ctx, payment.intentId);
       if (!intent.prepared || !intent.reserved || intent.result.status !== "unknown" ||
@@ -227,6 +231,9 @@ export class PaymentService {
       if (toCents(intent.amount) > toCents(cap)) throw new PaymentError("OVER_PER_PAYMENT_CAP");
       if (toCents(policy.spent) + toCents(policy.reserved) > toCents(policy.rules.totalBudget))
         throw new PaymentError("OVER_BUDGET");
+      const result=sign();
+      if(result && typeof (result as any).then==='function')throw new PaymentError('POLICY_DENIED');
+      return result;
     });
   }
   async pay(ctx: Principal, input: unknown): Promise<TransferResult> {
