@@ -8,11 +8,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p .",
-    "dev:mock": "SHUCAMOXA_MOCK=1 pnpm --filter @shucamoxa/mock-backend start"
+    "dev:mock": "SHUCAMOXA_MOCK=1 pnpm --filter @shucamoxa/mock-backend start",
+    "xrpl": "tsx services/backend/src/xrpl-demo.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "pdf-lib": "^1.17.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },

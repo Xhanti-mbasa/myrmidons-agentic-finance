@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createAgent } from "../src/agent";
-import { ownerAmountFromMessage, ownerNamesSupplier } from "../src/tools";
+import { ownerAmountFromMessage, ownerSupplierFromMessage } from "../src/tools";
 import { chatInvoiceNumber } from "../src/ids";
 import { logForModel } from "../src/tools";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";
-import { AGENT_TOKEN, BACKEND_URL, fakeBackend } from "./support/fake-backend";
+import { AGENT_TOKEN, BACKEND_URL, fakeBackend, KAROO, type FakeSupplier } from "./support/fake-backend";
 import { ATTACKER_TEST_ADDRESS, invoiceTextFor, KAROO_FIELDS } from "./support/invoices";
 
 function setup(planner: ModelTurn[], backendOptions?: Parameters<typeof fakeBackend>[0]) {
@@ -375,7 +375,13 @@ describe("ownerAmountFromMessage", () => {
     ["Pay Karoo 30 RLUSD", "30.00"],
     ["Pay Karoo RLUSD 30", "30.00"],
     ["pay karoo usd 30", "30.00"],
-    ["Pay Karoo 30usd", "30.00"],
+    ["Pay Karoo 30 dollars", "30.00"],
+    ["Pay Karoo 30 US dollars", "30.00"],
+    ["Pay Karoo 30 U.S. dollars", "30.00"],
+    ["Pay Karoo US dollars 30", "30.00"],
+    // Lower-case words that happen to be ISO codes ("all", "mad") don't count away from the number.
+    ["Pay Karoo $30 for all of it", "30.00"],
+    ["Pay Karoo $30 now, it is a mad rush", "30.00"],
     ["Pay Karoo $30 to settle up.", "30.00"],
     ["Pay Karoo $30 USD", "30.00"],
   ])("%s -> %s", (message, amount) => {
@@ -426,6 +432,28 @@ describe("ownerAmountFromMessage", () => {
       "Pay Karoo 30$",
       "Pay Karoo -$30",
       "Pay Karoo xUSD 30",
+      "Pay Karoo 30usd",
+      "Pay Karoo USD30",
+      "pay all 30",
+      // Blocker 1 of the re-review: a currency named anywhere in the message, not only next to the number.
+      "Pay Karoo 500 Namibian dollars",
+      "Pay Karoo 30 in rand",
+      "Pay Karoo 500 (in ZAR)",
+      "Pay Karoo 30, in rands please",
+      "Pay Karoo 30 worth of rand",
+      "Pay Karoo 30 \u2014 rand",
+      "Pay Karoo 30 Kenyan shillings",
+      "Pay Karoo 30 Canadian dollars",
+      "Pay Karoo 30 Hong Kong dollars",
+      "Pay Karoo 30 Zim dollars",
+      "Pay Karoo 30 ZAR-equivalent",
+      "Pay Karoo 30 in South African currency",
+      "Pay Karoo 30 at the forex rate",
+      "Pay Karoo 30 and convert from EUR",
+      "Pay Karoo 30, \u00a3 later",
+      "Pay Karoo 30 now and settle the \u20ac difference later",
+      "Pay Karoo 30 now, the \u20a6 part next week",
+      "Pay Karoo dollars 30",
     ].map((m) => [`non-USD or unlisted form: ${m}`, m] as [string, string]),
     ...["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069", "\u200E", "\u200F", "\u061C"].map(
       (c) => [`bidi control U+${c.codePointAt(0)!.toString(16).toUpperCase()}`, `Pay ${c}Karoo${c} $30 now`] as [string, string],
@@ -543,20 +571,61 @@ describe("chat guards from the T08 review", () => {
   });
 });
 
-describe("ownerNamesSupplier", () => {
+describe("ownerSupplierFromMessage", () => {
+  const sup = (id: string, name: string) => ({ id, name });
+  const KAROO_T = sup("sup_karoo", "Karoo Textiles");
+  const KAROO_S = sup("sup_karoo_spices", "Karoo Spices");
+  const ZAMB = sup("sup_zambezi", "Zambezi Spices");
+  const PAYDAY = sup("sup_payday", "Pay Day Loans");
+  const AFRICAN = sup("sup_african", "African Textiles");
+  const KZ = [KAROO_T, ZAMB];
+  const KK = [KAROO_T, KAROO_S];
+
   it.each([
-    ["Pay Karoo $30 now", "Karoo Textiles", true],
-    ["pay karoo $30", "Karoo Textiles (Pty) Ltd", true],
-    ["Pay KAROO TEXTILES $30", "Karoo Textiles", true],
-    ["Pay Lagos $30", "The Lagos Cotton Company", true],
-    ["Pay BP $30", "BP", true],
-    ["Pay Karoo $30 now", "Zambezi Spices", false],
-    ["Pay Karoon $30", "Karoo Textiles", false],
-    ["Pay the textiles people $30", "Karoo Textiles", false],
-    ["Pay the company $30", "The Lagos Cotton Company", false],
-    ["Pay BPX $30", "BP", false],
-  ])("%s names %s: %s", (message, name, expected) => {
-    expect(ownerNamesSupplier(message, name)).toBe(expected);
+    ["Pay Karoo $30 now", KZ, "sup_karoo"],
+    ["pay KAROO TEXTILES $30", KZ, "sup_karoo"],
+    ["Pay Zambezi $30", KZ, "sup_zambezi"],
+    ["Pay Karoo Textiles (Pty) Ltd $30", KZ, "sup_karoo"],
+    ["Pay Karoo Spices $30 now", KK, "sup_karoo_spices"],
+    ["Pay Karoo Textiles $30", KK, "sup_karoo"],
+    ["Pay Karoo $30", [PAYDAY, KAROO_T], "sup_karoo"],
+    ["Pay Day Loans $30", [PAYDAY, KAROO_T], "sup_payday"],
+    ["Pay African $30", [AFRICAN], "sup_african"],
+    ["Pay Karoo $30", [sup("sup_kt", "(Pty) Ltd Karoo Textiles")], "sup_kt"],
+    ["Pay Karoo $30", [sup("sup_kt", "Karoo Textiles Co.")], "sup_kt"],
+    ["Pay BP $30", [sup("sup_bp", "BP")], "sup_bp"],
+    ["Pay Lagos $30", [sup("sup_lagos", "The Lagos Cotton Company")], "sup_lagos"],
+  ] as Array<[string, Array<{ id: string; name: string }>, string]>)("%s with %j -> %s", (message, suppliers, expected) => {
+    expect(ownerSupplierFromMessage(message, suppliers)).toBe(expected);
+  });
+
+  it.each([
+    ["negation: don't pay", "Don't pay Karoo, pay Zambezi $30", KZ],
+    ["negation: curly apostrophe", "Don\u2019t pay Karoo, pay Zambezi $30", KZ],
+    ["negation: do not", "Do not pay Karoo, pay Zambezi $30", KZ],
+    ["negation: never", "Never pay Zambezi. Pay Karoo $30", KZ],
+    ["negation: not", "Pay Karoo, not Zambezi, $30", KZ],
+    ["negation: dont", "Pay Karoo $30 dont pay Zambezi", KZ],
+    // Negations that name only one supplier: nothing else would catch them.
+    ["negation: don't pay, one supplier", "Don't pay Karoo $30", KZ],
+    ["negation: do not pay, one supplier", "Do not pay Karoo $30", KZ],
+    ["negation: never pay, one supplier", "Never pay Karoo $30", KZ],
+    ["negation: n't elsewhere", "Pay Karoo $30, they haven't delivered", KZ],
+    ["negation: curly n't", "Pay Karoo $30? I can\u2019t decide", KZ],
+    ["two suppliers named", "Pay Karoo and Zambezi $30", KZ],
+    ["a full name's words, not together", "Pay Karoo $30 for the spices", KK],
+    ["a full name plus another supplier's word", "Pay Karoo Spices and Zambezi $30", [KAROO_T, KAROO_S, ZAMB]],
+    ["plain Karoo with two Karoo suppliers", "Pay Karoo $30", KK],
+    ["Pay Day Loans not named by an unrelated Pay", "Pay Karoo $30", [PAYDAY]],
+    ["first word followed by a different name", "Pay African Spices $30", [AFRICAN]],
+    ["first word is a legal form", "Pay Pty $30", [sup("sup_kt", "Pty Ltd Karoo")]],
+    ["first word is Co", "Pay Co $30", [sup("sup_kt", "Karoo Co")]],
+    ["only a generic word", "Pay the company $30", [sup("sup_lagos", "The Lagos Cotton Company")]],
+    ["a longer word", "Pay Karoon $30", KZ],
+    ["a short name inside another word", "Pay BPX $30", [sup("sup_bp", "BP")]],
+    ["no suppliers", "Pay Karoo $30", []],
+  ] as Array<[string, string, Array<{ id: string; name: string }>]>)("null for %s", (_label, message, suppliers) => {
+    expect(ownerSupplierFromMessage(message, suppliers)).toBeNull();
   });
 });
 
@@ -606,4 +675,84 @@ describe("chat summary when the run stops early (T10 RunGuard)", () => {
     const answer = await agent.chat("Pay Karoo $30 now");
     expect(answer.summary).toBe("Paid 30.00 to sup_karoo, tx TXHASH1.");
   });
+});
+
+describe("chat payee resolved against the owner's whole supplier list (T08 re-review)", () => {
+  const KAROO_SPICES: FakeSupplier = { id: "sup_karoo_spices", name: "Karoo Spices", xrplAddress: "rLeakedKarooSpicesAddress77777777" };
+  const pay = (supplierId: string): ModelTurn => ({ toolCalls: [{ tool: "pay", input: { supplierId, amount: "30.00", reason: "Owner asked" } }] });
+  const find = (name: string): ModelTurn => ({ toolCalls: [{ tool: "find_supplier", input: { name } }] });
+
+  it("'Don't pay Karoo, pay Zambezi $30': neither supplier is paid", async () => {
+    const { agent, backend } = setup([find("Karoo"), find("Zambezi"), pay("sup_karoo"), pay("sup_zambezi"), { text: "Paid." }]);
+    await agent.chat("Don't pay Karoo, pay Zambezi $30");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("'Pay Karoo and Zambezi $30': ambiguous, nobody is paid", async () => {
+    const { agent, backend } = setup([find("Karoo"), find("Zambezi"), pay("sup_karoo"), pay("sup_zambezi"), { text: "Paid." }]);
+    await agent.chat("Pay Karoo and Zambezi $30");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("with Karoo Textiles and Karoo Spices approved, 'Pay Karoo Spices $30 now' pays only Karoo Spices", async () => {
+    const { agent, backend } = setup([find("Karoo"), find("Karoo Spices"), pay("sup_karoo"), pay("sup_karoo_spices"), { text: "Paid." }], {
+      suppliers: [KAROO, KAROO_SPICES],
+    });
+    await agent.chat("Pay Karoo Spices $30 now");
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo_spices"]);
+  });
+
+  it("with both Karoo suppliers approved, plain 'Pay Karoo $30 now' is ambiguous: no payment", async () => {
+    const { agent, backend } = setup([find("Karoo"), pay("sup_karoo"), { text: "Paid." }], { suppliers: [KAROO, KAROO_SPICES] });
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("when no single supplier is resolved, the model is told to ask the owner which one", async () => {
+    const { agent, plannerModel } = setup([find("Karoo"), pay("sup_karoo"), { text: "Which Karoo?" }], { suppliers: [KAROO, KAROO_SPICES] });
+    await agent.chat("Pay Karoo $30 now");
+    expect(plannerModel.everythingTheModelSaw).toContain("Ask the owner which supplier they mean.");
+  });
+
+  it("an approval card follows the same rule: 'Pay Karoo $120' with both Karoo suppliers sends no card", async () => {
+    const { agent, backend } = setup(
+      [find("Karoo"), { toolCalls: [{ tool: "request_approval", input: { invoiceNumber: "X", supplierId: "sup_karoo", amount: "120.00", reason: "Owner asked" } }] }, { text: "Asked." }],
+      { suppliers: [KAROO, KAROO_SPICES] },
+    );
+    await agent.chat("Pay Karoo $120 now");
+    expect(backend.approvals).toHaveLength(0);
+  });
+
+  it("refuses to pay a different supplier than the one resolved from the message", async () => {
+    const { agent, backend } = setup([find("Karoo"), find("Zambezi"), pay("sup_zambezi"), { text: "Paid Zambezi instead." }]);
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  for (const [label, edit] of [
+    ["is missing", (rules: Record<string, unknown>) => void delete rules.suppliers],
+    ["is malformed", (rules: Record<string, unknown>) => void (rules.suppliers = [{ id: "not-a-supplier-id", name: "Karoo Textiles" }])],
+    // Strict like the Rules contract: a supplier entry carrying an address is off-contract, so nothing is payable.
+    ["carries an address field", (rules: Record<string, unknown>) => void (rules.suppliers = [{ id: "sup_karoo", name: "Karoo Textiles", xrplAddress: KAROO.xrplAddress }])],
+  ] as Array<[string, (rules: Record<string, unknown>) => void]>) {
+    it(`refuses to pay when the rules' supplier list ${label}`, async () => {
+      const backend = fakeBackend();
+      const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const reply = await backend.fetch(input, init);
+        if (!String(input).endsWith("/rules")) return reply;
+        const rules = (await reply.json()) as Record<string, unknown>;
+        edit(rules);
+        return new Response(JSON.stringify(rules), { status: 200, headers: { "Content-Type": "application/json" } });
+      }) as typeof globalThis.fetch;
+      const agent = createAgent({
+        extractionModel: scriptedModel([{ text: "{}" }]).model,
+        plannerModel: scriptedModel([find("Karoo"), pay("sup_karoo"), { text: "Paid." }]).model,
+        backendUrl: BACKEND_URL,
+        backendToken: AGENT_TOKEN,
+        fetch,
+      });
+      await agent.chat("Pay Karoo $30 now");
+      expect(backend.payments).toHaveLength(0);
+    });
+  }
 });

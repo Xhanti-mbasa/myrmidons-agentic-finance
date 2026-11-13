@@ -1,4 +1,8 @@
+> **Branch-wide baseline review, 13 November 2026:** [Assigned Kanban](BASELINE_KANBAN.md) and [progress/evidence](BASELINE_PROGRESS.md) cover all 31 remote heads, including Cameron’s latest `feat/testnet` uploads. Scheduling and ledger history are now baseline; browser extensions are deferred. Review is pinned to `main@47b6c55`; historical results below were not rerun for this documentation assessment.
+
 # Shucamoxa implementation status and handoff
+
+> **Implementation review, 13 November 2026:** See [the current ticket backlog](IMPLEMENTATION_BACKLOG.md) for a source-checked inventory at `47b6c55`. It covers all 21 Markdown files, 13 completed implementation slices and 40 remaining tickets. Older sections below are historical snapshots and contain retired commands; they are not a current deployment inventory. No runtime or ledger tests were run for this documentation review.
 
 Updated: 13 November 2026 (Africa/Johannesburg).
 Source-inspection baseline commit: `c808928f075f5bc50c737924f3c480a9f56dd73b`.
@@ -32,6 +36,22 @@ source/tests. See [PRD](PRD.md) and [technical specification](TECHNICAL_SPEC.md)
 No release claim should be based only on an enum, comment, mock response, older
 test count or earlier assistant statement. Run the current checks and record the
 actual commit and results when working on the relevant area.
+
+### Developer XRP demonstration (13 November 2026)
+
+Working tree based on `cb3b4bd`: `services/backend` adds an isolated single-signature
+Testnet XRP demonstration with temporary wallets and validated-result checks.
+This is not an RLUSD or agent payment and does not satisfy AC-01 or GAP-05/06.
+The confirmation predicate has simulated tests. A live Testnet run validated
+`tesSUCCESS` for 1 XRP, with matching sender, recipient and delivered amount:
+transaction hash `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
+An earlier validated payment exposed the API's `DeliverMax` field and the demo
+correctly refused to claim success until the check was updated. Typecheck and
+391 shared/agent/backend tests passed on Node 24; 24 tests were skipped. The full
+suite failed 46 script tests on Windows, including missing `sh` on PATH and
+POSIX file-mode assumptions; the tracked-path guard passed using Git's shell. Next:
+implement durable reconciliation and the independently enforced policy/signing
+boundary before connecting a product payment flow.
 
 ## Known integration gaps at this baseline
 
@@ -223,6 +243,30 @@ validated ledger transactions. Local runtime was Node 24/Python 3.12; repository
 Node 22/Python 3.11 verification remains the GitHub CI gate. No financial control
 was weakened or new live payment claimed.
 
+## PR #22 conflict and security-check repair (13 November 2026)
+
+Merged current main (`3bb1abd`) into the Testnet demo branch, preserving both
+README sections: developer XRP demo and the assigned baseline plan. The original
+four demo/handoff commits remain in history.
+
+Both failing checks traced to the same full-history gitleaks finding in
+`da40269:docs/PROJECT_STATUS.md:43`: a public transaction identifier, not a key.
+A read-only query to the fixed public XRPL Testnet endpoint independently confirmed
+that recorded hash as a validated `Payment`, `tesSUCCESS`, with
+`delivered_amount = 1000000` drops (1 XRP). No transaction was submitted for this
+repair. `.gitleaksignore` excludes only the exact historical commit/file/rule/line
+fingerprint; scanner rules and full-history coverage are unchanged. This does
+not fix or conceal the separately documented R2 hash-label bypass.
+
+Local checks on Node 24/Python 3.12: root and security typechecks passed;
+1,414 regular TypeScript tests passed, 39 skipped. Full adversarial runner passed:
+44 BLOCKED, 9 VULNERABLE, 25 NOT_IMPLEMENTED. The latter two remain expected
+failures, not successful security controls. Gitleaks 8.30.1 (checksum verified)
+scanned the complete merged history clean. Removing the exception reproduced
+exactly the known finding; new raw-key/seed canaries and that same public value
+outside the historical fingerprint were still detected. Tracked-path and
+whitespace checks passed. Node 22/Python 3.11 results are the GitHub CI gate.
+
 ## 13 November 2026: issues #30–#33 local integration snapshot
 
 On `work/payment-issues-30-33`, #30 added cap, reservation, policy-edit,
@@ -256,3 +300,17 @@ payment-project tests passed locally with scripted merchant, quote, wallet and
 ledger responses. This is not actual x402 payment integration: a live signed
 payload, verified facilitator/ledger settlement, trusted quote source and real
 paid-resource access remain with the wallet and deployment integration.
+
+## PR #34 merge repair (13 November 2026)
+
+Integrated main into the payment issues branch. Preserved the complete pinned
+B01–B40 backlog alongside the newer #30–#33 payment update, and retained both
+branches' status evidence. Fixed two integration typecheck errors: removed an
+unused test import of a retired supplier helper and explicitly narrowed the
+policy bearer-token regex capture before hashing. Authorization remains fail-closed.
+
+Validation on Node 24.22.1 with pinned pnpm 10.28.0: frozen-lockfile install,
+root typecheck and full regular suite passed (1,545 tests passed, 39 skipped).
+Tracked-path guard and conflict-file whitespace checks passed. No live payment,
+merchant unlock, deployed signer or FX integration was tested; Node 22 CI remains
+the repository-runtime gate. No new completion claim for #31–#33 is implied.

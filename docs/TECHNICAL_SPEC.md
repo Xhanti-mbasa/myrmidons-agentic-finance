@@ -111,6 +111,13 @@ Do not run the unconfigured gateway against a real-value backend for a demo.
 
 ## 6. Payment state and reconciliation requirements
 
+The isolated `pnpm xrpl` developer demonstration creates two disposable Testnet
+wallets, funds them from the faucet and sends 1 XRP with a single local signature.
+It is not the application payment endpoint or a policy-authorized payment. It
+checks the validated transaction and exact fields; an uncertain submission is
+reported as unknown with its hash. The later product flow still requires durable
+reconciliation, policy enforcement and independent signing authority.
+
 The service must persist an internal operation lifecycle richer than the agent's
 three `PayResult` outcomes. The following phases are target semantics, **not a
 new finalized API enum**:
