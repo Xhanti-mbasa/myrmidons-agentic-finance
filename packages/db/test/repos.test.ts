@@ -165,23 +165,23 @@ describe("T28 - Database Repositories", () => {
     expect(() => paymentsRepo.consumeMemoHash(hash, "INV-300")).toThrow();
   });
 
-  it("handles audit log repository and chain verification", () => {
+  it("handles audit log repository and chain verification", async () => {
     const logRepo = createLogRepo(db);
 
-    logRepo.appendLog({
+    await logRepo.appendLog({
       actor: "system",
       event: "rules_changed",
       explanation: "Initial rules setup",
     });
 
-    logRepo.appendLog({
+    await logRepo.appendLog({
       actor: "agent",
       event: "invoice_received",
       invoiceNumber: "INV-400",
       explanation: "Invoice INV-400 received",
     });
 
-    logRepo.appendLog({
+    await logRepo.appendLog({
       actor: "payment",
       event: "payment_settled",
       invoiceNumber: "INV-400",

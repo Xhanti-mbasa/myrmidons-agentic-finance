@@ -57,6 +57,8 @@ export interface AuditLogRow {
   actor: string;
   event: string;
   invoice_number: string | null;
+  supplier_id: string | null;
+  amount: string | null;
   rule_code: string | null;
   explanation: string;
   tx_hash: string | null;
