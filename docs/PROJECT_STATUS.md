@@ -246,3 +246,13 @@ Issue #30 verification was rerun on `c9d415b`: `pnpm typecheck` and all 67
 payment-project tests passed with loopback access. This completes the source,
 simulated-test and shared-handoff scope of #30. It does not establish deployed
 limits or validated Testnet payment; those remain #31 integration gates.
+
+## 13 November 2026: direct #32/#33 implementation update
+
+The x402 work now includes a pinned-origin HTTPS merchant transport for 402
+challenge retrieval and bounded article delivery. Owner category period edits
+retain settled spending in the newly selected current period. Typecheck and 70
+payment-project tests passed locally with scripted merchant, quote, wallet and
+ledger responses. This is not actual x402 payment integration: a live signed
+payload, verified facilitator/ledger settlement, trusted quote source and real
+paid-resource access remain with the wallet and deployment integration.

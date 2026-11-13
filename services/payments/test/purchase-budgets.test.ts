@@ -32,6 +32,14 @@ describe("independent category purchase budgets",()=>{
     expect(f.service.reserve(agent,f.request()).period).toBe("daily");
     expect(()=>f.service.reserve(agent,f.request({amountRlusd:"0.015"}))).toThrow("OVER_PER_PURCHASE_CAP");
   });
+  it("does not erase settled spend when owner changes the category period",()=>{
+    const f=fixture(), first=f.service.reserve(agent,f.request());
+    f.service.authorize(agent,first.purchaseId);
+    f.service.recordOutcome(agent,first.purchaseId,"verified-settlement");
+    f.service.setPolicy(owner,{...policy,categories:{articles:{...policy.categories.articles,period:"daily",periodBudgetZar:"0.10"}}});
+    expect(f.service.remaining(owner,"articles")).toMatchObject({spentZar:"0.100000",remainingZar:"0.000000"});
+    expect(()=>f.service.reserve(agent,f.request())).toThrow("OVER_PERIOD_BUDGET");
+  });
   it("uses exact micro precision, rejects exponent/float input and rounds charges upward",()=>{
     expect(fromMicros(toMicros("0.000001"))).toBe("0.000001");
     expect(()=>toMicros("1e-6")).toThrow();

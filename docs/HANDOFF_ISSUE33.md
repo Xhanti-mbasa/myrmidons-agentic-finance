@@ -118,3 +118,8 @@ edit increments the version and prevents signing under the old policy.
 This is a wire-schema change; existing stored purchase policies using
 `weeklyZar` require an owner-authorized migration before this version starts.
 No automatic migration is bundled.
+
+A regression test now verifies that changing a category from weekly to daily
+within the same day retains settled spend, preventing a policy edit from
+resetting the current allowance. The owner-selected period and x402 merchant
+changes passed typecheck and 70 payment-project tests with loopback access.
