@@ -1,9 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { isValidClassicAddress, isValidXAddress } from "ripple-address-codec";
-import { Amount, ApprovalRequest, fromCents, XrplAddress, PayRequest, PayResult, Reason, SupplierLookup, toCents, type RuleCode } from "@shucamoxa/shared";
+import { Amount, ApprovalRequest, fromCents, LogEntry, XrplAddress, PayRequest, PayResult, Reason, SupplierLookup, toCents, type RuleCode } from "@shucamoxa/shared";
 import type { BackendClient } from "./backend";
 import { chatInvoiceNumber } from "./ids";
+import { significantWords } from "./grounding";
+import { LEGAL_FORM_WORDS } from "./names";
 
 /**
  * The lowest GET /suppliers confidence that counts as a match. Below it, nothing is payable: the
@@ -36,10 +38,29 @@ export type RunState = {
   attemptedInvoices: Set<string>;
   payResults: PayResult[];
   /** At most one of each kind per run. ruleCode is why the owner was asked, worked out in cents by code. */
-  approvals: Array<{ kind: "supplier" | "payment"; approvalId: string; ruleCode: RuleCode }>;
+  approvals: Array<{ kind: "supplier" | "payment"; approvalId: string; ruleCode: RuleCode; amount?: string; supplierId?: string }>;
   /** Approval kinds already sent (or being sent) to POST /approvals in this run. */
   requestedApprovalKinds: Set<"supplier" | "payment">;
+  /**
+   * Chat mode only (null in an invoice run): the supplier and amount code read from the owner's message.
+   * Chat pay and request_approval refuse unless they match both.
+   */
+  chatMandate: ChatMandate | null;
+  /**
+   * Chat mode only: every payment chat pay sent to POST /payments, as code built it (code-generated
+   * CHAT- invoice number), with the backend's parsed answer or null if there was no usable answer.
+   * Pushed before the await, so at most one can ever be sent per run, even with parallel calls.
+   */
+  chatPayments: Array<{ request: PayRequest; result: PayResult | null }>;
 };
+
+/**
+ * What code read from the owner's chat message, never the model:
+ * - amount: the one USD amount (ownerAmountFromMessage), or null if there was none, several, or any doubt;
+ * - supplierId: the one approved supplier the message names, resolved against the whole list from
+ *   GET /rules (ownerSupplierFromMessage), or null if none, several, a negation, or no valid list.
+ */
+export type ChatMandate = { amount: string | null; supplierId: string | null };
 
 /**
  * The invoice being processed, as extraction read it and code resolved it. supplierName and
@@ -55,10 +76,12 @@ export type Mandate = {
 
 export type Limits = { perPaymentCap: string; remaining: string | null };
 
-export function newRunState(mandate: RunState["mandate"], limits: Limits): RunState {
+export function newRunState(mandate: RunState["mandate"], limits: Limits, chatMandate: ChatMandate | null = null): RunState {
   return {
     mandate,
     limits,
+    chatMandate,
+    chatPayments: [],
     requestedApprovalKinds: new Set(),
     knownSupplierIds: new Set(),
     lookedUpSupplierIds: new Set(),
@@ -82,20 +105,16 @@ export function isConfident<T extends { confidence: number }>(match: T | null): 
 const NOT_LOOKED_UP =
   "supplierId was not returned by find_supplier in this run. Only approved suppliers can be paid; use propose_supplier for a new one.";
 
-/** Layer-1 checks inside the agent. The policy service and ledger enforce again; this just stops bad requests early. */
-function refusePay(request: PayRequest, state: RunState): string | null {
+/** Layer-1 checks for an invoice run. The policy service and ledger enforce again; this just stops bad requests early. */
+function refusePay(request: PayRequest, mandate: Mandate, state: RunState): string | null {
   if (carriesAddress(request.reason)) return ADDRESS_IN_TEXT;
-  if (state.mandate) {
-    if (state.mandate.supplierId === null || request.supplierId !== state.mandate.supplierId)
-      return "This invoice can only be paid to its own supplier, matched by the system. Use propose_supplier if it is new.";
-    if (!state.lookedUpSupplierIds.has(request.supplierId)) return NOT_LOOKED_UP;
-  } else if (!state.knownSupplierIds.has(request.supplierId)) {
-    return NOT_LOOKED_UP;
-  }
-  if (state.mandate && request.invoiceNumber !== state.mandate.invoiceNumber)
-    return `This run may only pay invoice ${state.mandate.invoiceNumber}.`;
-  if (state.mandate && toCents(request.amount) !== toCents(state.mandate.amount))
-    return `The amount must equal the invoice total, ${state.mandate.amount}. Amounts mentioned elsewhere in the invoice are ignored.`;
+  if (mandate.supplierId === null || request.supplierId !== mandate.supplierId)
+    return "This invoice can only be paid to its own supplier, matched by the system. Use propose_supplier if it is new.";
+  if (!state.lookedUpSupplierIds.has(request.supplierId)) return NOT_LOOKED_UP;
+  if (request.invoiceNumber !== mandate.invoiceNumber)
+    return "This run may only pay the invoice being processed.";
+  if (toCents(request.amount) !== toCents(mandate.amount))
+    return `The amount must equal the invoice total, ${mandate.amount}. Amounts mentioned elsewhere in the invoice are ignored.`;
   if (state.attemptedInvoices.has(request.invoiceNumber))
     return "A payment for this invoice was already requested in this run. It is never retried; the owner decides what happens next.";
   return null;
@@ -197,11 +216,12 @@ function paymentApproval(input: PaymentApprovalInput, state: RunState): { refusa
   if (mandate) {
     if (mandate.supplierId === null || input.supplierId !== mandate.supplierId)
       return { refusal: "Approval can only be requested for this invoice's own supplier, matched by the system. Use propose_supplier if it is new." };
-    if (input.invoiceNumber !== mandate.invoiceNumber) return { refusal: `This run may only ask about invoice ${mandate.invoiceNumber}.` };
+    if (input.invoiceNumber !== mandate.invoiceNumber) return { refusal: "This run may only ask about the invoice being processed." };
     if (toCents(input.amount) !== toCents(mandate.amount))
       return { refusal: `The amount must equal the invoice total, ${mandate.amount}. Amounts mentioned elsewhere in the invoice are ignored.` };
-  } else if (!state.knownSupplierIds.has(input.supplierId)) {
-    return { refusal: NOT_LOOKED_UP };
+  } else {
+    const refusal = refuseChatMoney(input, state);
+    if (refusal) return { refusal };
   }
   if (carriesAddress(input.reason)) return { refusal: ADDRESS_IN_TEXT };
   // The card reads in canonical two decimals ("120" -> "120.00").
@@ -250,18 +270,239 @@ function supplierProposal(input: SupplierProposalInput, state: RunState): { refu
 
 /**
  * The agent's tools. In invoice mode all six: four read or propose, one pays, none can change rules.
- * In chat (no mandate) propose_supplier is left out, because owners add suppliers on the dashboard.
+ * In chat (no mandate) propose_supplier is left out, because owners add suppliers on the dashboard,
+ * and pay is the chat pay tool: no invoiceNumber input, the owner's own amount, one payment per run.
  * Tool inputs are Zod-parsed by the SDK before execute runs; a bad input goes back to the model as an
  * error result instead of reaching the backend.
  */
 export function agentTools(backend: BackendClient, state: RunState) {
-  const all = allTools(backend, state);
-  if (state.mandate) return all;
-  const { propose_supplier: _notInChat, ...chatTools } = all;
+  if (state.mandate) return allTools(backend, state, invoicePayTool(backend, state, state.mandate));
+  const { propose_supplier: _notInChat, ...chatTools } = allTools(backend, state, chatPayTool(backend, state));
   return chatTools;
 }
 
-function allTools(backend: BackendClient, state: RunState) {
+function invoicePayTool(backend: BackendClient, state: RunState, mandate: Mandate) {
+  return tool({
+    description: "Request payment to an APPROVED supplier by supplierId. amount is a decimal string in USD (RLUSD).",
+    inputSchema: PayRequest,
+    execute: async (request) => {
+      const refusal = refusePay(request, mandate, state);
+      if (refusal) return { refused: true, reason: refusal };
+      state.attemptedInvoices.add(request.invoiceNumber); // before the await, so parallel calls see it
+      const reply = await backend.pay(request);
+      if (!reply.ok) return reply;
+      const result = PayResult.parse(reply.body);
+      state.payResults.push(result);
+      return result;
+    },
+  });
+}
+
+/** Chat pay input: no invoiceNumber, so the model can't squat on a real invoice's number (G6). Strict. */
+const ChatPayInput = PayRequest.omit({ invoiceNumber: true });
+type ChatPayInput = z.infer<typeof ChatPayInput>;
+
+const ONE_MONEY_ACTION_PER_CHAT =
+  "A payment or approval request was already sent in this chat. Only one is made per message; it is never retried or repeated.";
+const NO_OWNER_AMOUNT =
+  'The owner\'s message does not state exactly one amount in USD, so nothing can be paid or requested. Ask the owner to say the amount, for example "Pay Karoo $30".';
+const NOT_NAMED_BY_OWNER = "The owner's message does not name this supplier. Only the supplier the owner named can be paid; ask the owner if unsure.";
+const OWNER_SUPPLIER_UNCLEAR =
+  "The owner's message does not name exactly one approved supplier, so nothing can be paid or requested. Ask the owner which supplier they mean.";
+
+/**
+ * Layer-1 checks shared by chat pay and chat request_approval: one money action per chat run (a payment
+ * sent or a payment approval requested), to the one supplier code resolved from the owner's message
+ * (and find_supplier matched confidently), for exactly the amount the owner wrote. The policy service
+ * and ledger enforce again.
+ */
+function refuseChatMoney(input: { supplierId: string; amount: string }, state: RunState): string | null {
+  const chat = state.chatMandate;
+  if (chat === null) return NO_OWNER_AMOUNT;
+  if (state.chatPayments.length > 0 || state.requestedApprovalKinds.has("payment")) return ONE_MONEY_ACTION_PER_CHAT;
+  if (!state.knownSupplierIds.has(input.supplierId)) return NOT_LOOKED_UP;
+  if (chat.supplierId === null) return OWNER_SUPPLIER_UNCLEAR;
+  if (input.supplierId !== chat.supplierId) return NOT_NAMED_BY_OWNER;
+  if (chat.amount === null) return NO_OWNER_AMOUNT;
+  if (toCents(input.amount) !== toCents(chat.amount))
+    return `The amount must be the one the owner wrote, ${chat.amount}. Ask the owner if they meant something else.`;
+  return null;
+}
+
+/** Words in a business name that don't identify the business. */
+const GENERIC_NAME_WORDS = new Set<string>(["the", "and", "company", "pay", ...LEGAL_FORM_WORDS]);
+/** Words that may follow a supplier's first word when the owner names it by that word alone ("Pay Karoo now $30"). */
+const AFTER_SHORT_NAME = new Set(["now", "please", "today", "asap", "again", "for", "the", "a", "an", "us", "usd", "rlusd", "dollar", "dollars"]);
+/** Any negation makes the message ambiguous about whom to pay ("Don't pay Karoo, pay Zambezi"). Conservative. */
+const NEGATION = /\b(?:not|never|dont)\b|n['’]t\b/iu;
+
+const wordsOf = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 0);
+
+/** A supplier name's identifying words, lower case, in order: its significant words that are not generic. */
+function identifyingWords(name: string): string[] {
+  const normalised = name.normalize("NFKC");
+  const significant = significantWords(normalised).map((w) => w.toLowerCase()).filter((w) => !GENERIC_NAME_WORDS.has(w));
+  return significant.length > 0 ? significant : wordsOf(normalised).filter((w) => !GENERIC_NAME_WORDS.has(w));
+}
+
+const containsRun = (tokens: string[], run: string[]) => tokens.some((_, i) => run.every((w, k) => tokens[i + k] === w));
+
+/** Named by its first identifying word alone: that word, followed by nothing, a number or a filler word, so "Pay African Spices" does not name "African Textiles". */
+const namedByFirstWord = (tokens: string[], words: string[]) =>
+  tokens.some((t, i) => t === words[0] && (tokens[i + 1] === undefined || /^\d/.test(tokens[i + 1]!) || AFTER_SHORT_NAME.has(tokens[i + 1]!)));
+
+/**
+ * The one approved supplier the owner's message names, resolved by code against the whole approved list
+ * from GET /rules, or null. A supplier whose identifying words all appear in order is named in full
+ * ("Pay Karoo Spices"); if none is, a supplier named by its first identifying word alone counts
+ * ("Pay Karoo $30"). Exactly one candidate is required, and no other supplier's first word may appear
+ * ("Pay Karoo and Zambezi"). Any negation in the message makes it null. Null means the model must ask
+ * the owner; nothing is paid.
+ */
+export function ownerSupplierFromMessage(message: string, suppliers: ReadonlyArray<{ id: string; name: string }>): string | null {
+  const text = message.normalize("NFKC");
+  if (NEGATION.test(text)) return null;
+  const tokens = wordsOf(text);
+  const named = suppliers.map((s) => ({ id: s.id, words: identifyingWords(s.name) })).filter((s) => s.words.length > 0);
+  const inFull = named.filter((s) => containsRun(tokens, s.words));
+  const candidates = inFull.length > 0 ? inFull : named.filter((s) => namedByFirstWord(tokens, s.words));
+  if (candidates.length !== 1) return null;
+  const chosen = candidates[0]!;
+  const otherMentioned = named.some((s) => s.id !== chosen.id && tokens.includes(s.words[0]!) && !chosen.words.includes(s.words[0]!));
+  return otherMentioned ? null : chosen.id;
+}
+
+function chatPayTool(backend: BackendClient, state: RunState) {
+  return tool({
+    description:
+      "Pay an APPROVED supplier the amount the owner wrote, by supplierId. amount is a decimal string in USD (RLUSD). The system assigns the invoice number. One payment per message.",
+    inputSchema: ChatPayInput,
+    execute: async (input) => {
+      const refusal = carriesAddress(input.reason) ? ADDRESS_IN_TEXT : refuseChatMoney(input, state);
+      if (refusal) return { refused: true, reason: refusal };
+      const request = PayRequest.parse({ ...input, invoiceNumber: chatInvoiceNumber() });
+      const attempt: RunState["chatPayments"][number] = { request, result: null };
+      state.chatPayments.push(attempt); // before the await, so parallel calls see it
+      const reply = await backend.pay(request);
+      if (!reply.ok) return reply;
+      const parsed = PayResult.safeParse(reply.body);
+      if (!parsed.success) return { error: "The payment service's answer was not understood. Do not retry; the owner will check the activity log." };
+      attempt.result = parsed.data;
+      state.payResults.push(parsed.data);
+      return parsed.data;
+    },
+  });
+}
+
+/** One number as written: digits, optional thousands commas, optional decimals. Validated further below. */
+const NUMBER_TOKEN = /\d+(?:,\d+)*(?:\.\d+)?/g;
+const PLAIN_AMOUNT = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/;
+/** What may stand right before an amount (or its "$" / "USD" marker), and right after it. */
+const OPENS = /[\s("':]$/;
+const CLOSES = /^[\s.,!?;:)"']/;
+/** The only currency markers accepted on the left of the number: "$", "US$", "USD ", "RLUSD " (any case, with the space). */
+const USD_BEFORE = /(?:(?:us)?\$|(?:rl)?usd\s+)$/i;
+/** ... and on the right: " USD", " RLUSD" (any case, with the space). */
+const USD_AFTER = /^\s+(?:rl)?usd(?![\p{L}\p{N}])/iu;
+/** Bidi controls can make a message render differently from what it says. */
+const BIDI_CONTROL = /[‪-‮⁦-⁩‎‏؜]/;
+const ASCII_OR_FULLWIDTH_DIGIT = /[0-9０-９]/;
+
+/** ISO 4217 codes from the runtime, plus the ones our region uses, in case the runtime lacks ICU data. USD excluded. */
+const CURRENCY_CODES = new Set(
+  [
+    ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("currency") : []),
+    ..."ZAR NAD BWP LSL SZL MZN ZMW MWK KES TZS UGX RWF ETB NGN GHS XOF XAF EGP MAD DZD TND AOA ZWL EUR GBP AUD CAD HKD MXN INR JPY CNY CHF".split(" "),
+  ]
+    .map((code) => code.toLowerCase())
+    .filter((code) => code !== "usd"),
+);
+/**
+ * Currency names and abbreviations that are not ISO codes. Any of these anywhere in the message makes
+ * the amount ambiguous: "30 in rand", "30 Kenyan shillings", "30 in South African currency".
+ */
+const CURRENCY_WORDS = new Set(
+  (
+    "rand rands ksh kshs shilling shillings kwacha birr dirham dirhams dinar dinars naira cedi cedis pula loti maloti " +
+    "lilangeni emalangeni metical meticais kwanza leone leones franc francs cfa euro euros pound pounds quid sterling yen yuan rmb " +
+    "renminbi peso pesos reais rupee rupees bucks buck usdc usdt xrp btc eth bitcoin ether ethereum currency currencies forex"
+  ).split(" "),
+);
+/** Short abbreviations that are ordinary words elsewhere ("R&D", "real"): they count only next to the number. */
+const CURRENCY_WORDS_NEXT_TO_AMOUNT = new Set(["r", "sh", "shs", "rs", "real"]);
+/** "dollar(s)" is USD only right after the number or after "US" / "U.S."; "Namibian dollars" is not. */
+const DOLLAR = /\bdollars?\b/giu;
+const USD_DOLLAR_BEFORE = /(?:\d|\bu\.?s\.?)\s*$/iu;
+
+/**
+ * True if the message names a currency other than USD anywhere: any currency symbol but "$", a currency
+ * word, an upper-case non-USD ISO code (so "all" and "top" don't count, but "ZAR-equivalent" does), or
+ * "dollar(s)" not tied to the amount or to US.
+ */
+function namesOtherCurrency(text: string): boolean {
+  for (const char of text) if (char !== "$" && /\p{Sc}/u.test(char)) return true;
+  for (const word of text.split(/[^\p{L}]+/u)) {
+    if (CURRENCY_WORDS.has(word.toLowerCase())) return true;
+    if (/^[A-Z]{3}$/.test(word) && CURRENCY_CODES.has(word.toLowerCase())) return true;
+  }
+  for (const match of text.matchAll(DOLLAR)) if (!USD_DOLLAR_BEFORE.test(text.slice(0, match.index))) return true;
+  return false;
+}
+
+/** True if a word next to an amount marks a currency other than USD: a currency symbol, a non-USD ISO code or a currency word. */
+function marksOtherCurrency(word: string | undefined): boolean {
+  if (word === undefined) return false;
+  if (/\p{Sc}/u.test(word)) return true;
+  const letters = word.replace(/[^\p{L}]/gu, "").toLowerCase();
+  return CURRENCY_CODES.has(letters) || CURRENCY_WORDS.has(letters) || CURRENCY_WORDS_NEXT_TO_AMOUNT.has(letters);
+}
+
+/**
+ * The single USD amount in the owner's chat message, as a canonical two-decimal string, or null.
+ * Allowlist: an amount is accepted only as a bare number, "$N", "US$N", "USD N", "N USD", "RLUSD N" or
+ * "N RLUSD" (USD and RLUSD in any case), standing apart from other words. It returns null when:
+ * - the message has no amount, several different ones, or any other number (a count, a date, the
+ *   digits of an invoice number), so the model has to ask;
+ * - anything else touches the number or its "$" ("N$30", "HK$30", "-$30", "R500", "30k", "3e1", "30$");
+ * - the word next to it marks another currency ("NAD 30", "30 kwacha", "30 ZMW", "€ 30", "30 bucks");
+ * - the message holds a bidi control, or NFKC would turn anything but an ASCII or fullwidth digit into
+ *   a digit ("¹30", "3⁰", "③").
+ * Pure; no model involved.
+ */
+export function ownerAmountFromMessage(message: string): string | null {
+  if (BIDI_CONTROL.test(message)) return null;
+  for (const char of message) {
+    if (/[0-9]/.test(char.normalize("NFKC")) && !ASCII_OR_FULLWIDTH_DIGIT.test(char)) return null;
+  }
+  const text = message.normalize("NFKC");
+  if (namesOtherCurrency(text)) return null;
+  const values = new Set<string>();
+  for (const match of text.matchAll(NUMBER_TOKEN)) {
+    const token = match[0];
+    const start = match.index;
+    const end = start + token.length;
+    if (!PLAIN_AMOUNT.test(token)) return null;
+
+    let left = text.slice(0, start);
+    const marker = USD_BEFORE.exec(left);
+    if (marker) left = left.slice(0, marker.index);
+    if (left.length > 0 && !OPENS.test(left)) return null;
+    if (marksOtherCurrency(/(\S+)\s*$/.exec(left)?.[1])) return null;
+
+    let right = text.slice(end);
+    const suffix = USD_AFTER.exec(right);
+    if (suffix) right = right.slice(suffix[0].length);
+    if (right.length > 0 && !CLOSES.test(right)) return null;
+    if (marksOtherCurrency(/^[\s.,!?;:)"']*(\S+)/.exec(right)?.[1])) return null;
+
+    const plain = token.replaceAll(",", "");
+    if (!Amount.safeParse(plain).success) return null;
+    values.add(fromCents(toCents(plain)));
+  }
+  return values.size === 1 ? [...values][0]! : null;
+}
+
+function allTools(backend: BackendClient, state: RunState, pay: ReturnType<typeof invoicePayTool> | ReturnType<typeof chatPayTool>) {
   return redactResults({
     get_rules: tool({
       description: "Read the owner's payment rules and remaining budget. Read-only.",
@@ -282,20 +523,7 @@ function allTools(backend: BackendClient, state: RunState) {
         return reply;
       },
     }),
-    pay: tool({
-      description: "Request payment to an APPROVED supplier by supplierId. amount is a decimal string in USD (RLUSD).",
-      inputSchema: PayRequest,
-      execute: async (request) => {
-        const refusal = refusePay(request, state);
-        if (refusal) return { refused: true, reason: refusal };
-        state.attemptedInvoices.add(request.invoiceNumber); // before the await, so parallel calls see it
-        const reply = await backend.pay(request);
-        if (!reply.ok) return reply;
-        const result = PayResult.parse(reply.body);
-        state.payResults.push(result);
-        return result;
-      },
-    }),
+    pay,
     propose_supplier: tool({
       description:
         "Ask the owner to approve this invoice's supplier when the system matched none. Give its name exactly as supplierName; the system adds the rest from the invoice.",
@@ -318,7 +546,10 @@ function allTools(backend: BackendClient, state: RunState) {
         if ("refusal" in built) return { refused: true, reason: built.refusal };
         state.requestedApprovalKinds.add("payment"); // before the await, so parallel calls see it
         const reply = await backend.createApproval(built.request);
-        if (reply.ok) state.approvals.push({ kind: "payment", approvalId: approvalIdOf(reply.body), ruleCode: built.ruleCode });
+        if (reply.ok) {
+          const { amount, supplierId } = built.request.payload as { amount: string; supplierId: string };
+          state.approvals.push({ kind: "payment", approvalId: approvalIdOf(reply.body), ruleCode: built.ruleCode, amount, supplierId });
+        }
         return reply;
       },
     }),
@@ -330,9 +561,35 @@ function allTools(backend: BackendClient, state: RunState) {
         to: z.string().optional(),
         status: z.enum(["settled", "blocked", "pending_approval"]).optional(),
       }),
-      execute: async (filter) => backend.queryLog(Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined)) as Record<string, string>),
+      execute: async (filter) =>
+        logForModel(await backend.queryLog(Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined)) as Record<string, string>)),
     }),
   });
+}
+
+/** The log fields the model may read. explanation, reason and any other free text stay on the dashboard. */
+const LOG_FIELDS_FOR_MODEL = ["seq", "ts", "event", "invoiceNumber", "supplierId", "amount", "ruleCode", "txHash"] as const;
+
+/**
+ * GET /log as the model sees it (T07, G8): each entry cut down to LOG_FIELDS_FOR_MODEL, and each kept
+ * value checked against its LogEntry field schema (else null), so free text can't ride in a kept field
+ * either. A reply that is not a list becomes an error.
+ */
+export function logForModel(reply: Awaited<ReturnType<BackendClient["queryLog"]>>) {
+  if (!reply.ok) return reply;
+  if (!Array.isArray(reply.body)) return { ok: false as const, error: "the log reply was not a list of entries" };
+  return {
+    ok: true as const,
+    body: reply.body.map((raw) => {
+      const entry = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      return Object.fromEntries(
+        LOG_FIELDS_FOR_MODEL.map((key) => {
+          const parsed = (LogEntry.shape[key] as z.ZodType).safeParse(entry[key]);
+          return [key, parsed.success ? parsed.data : null];
+        }),
+      );
+    }),
+  };
 }
 
 /** XRPL classic address shape: "r" plus 24-34 base58 characters (checksum not required). */

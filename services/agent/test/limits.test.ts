@@ -57,6 +57,10 @@ const findKaroo: ModelTurn = { toolCalls: [{ tool: "find_supplier", input: { nam
 const payKaroo: ModelTurn = {
   toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", invoiceNumber: "INV-1042", reason: "Cotton bolts" } }],
 };
+/** Chat pay takes no invoiceNumber; code generates a CHAT- number (T08). */
+const chatPayKaroo: ModelTurn = {
+  toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", reason: "Cotton bolts" } }],
+};
 const queryLog: ModelTurn = { toolCalls: [{ tool: "query_log", input: {} }] };
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -150,9 +154,9 @@ describe("limits: a hung backend fails closed and fast", () => {
   });
 
   it("chat: a hung pay is reported as outcome unknown and not retried", async () => {
-    const { agent, backend } = setup({ planner: [findKaroo, payKaroo, payKaroo], fetch: (b) => hangOn(b, "POST /payments") });
+    const { agent, backend } = setup({ planner: [findKaroo, chatPayKaroo, chatPayKaroo], fetch: (b) => hangOn(b, "POST /payments") });
 
-    const answer = await agent.chat("Pay Karoo 30.00 for INV-1042 now");
+    const answer = await agent.chat("Pay Karoo 30.00 now");
     await sleep(100);
 
     expect(answer.reply).toMatch(/outcome is unknown/i);
@@ -228,9 +232,9 @@ describe("limits: a payment whose answer can't be trusted is outcome unknown", (
   });
 
   it.each(cases)("chat: %s -> outcome unknown, sent once", async (_name, fetch) => {
-    const { agent, backend } = setup({ planner: [findKaroo, payKaroo, payKaroo], fetch });
+    const { agent, backend } = setup({ planner: [findKaroo, chatPayKaroo, chatPayKaroo], fetch });
 
-    const answer = await agent.chat("Pay Karoo 30.00 for INV-1042 now");
+    const answer = await agent.chat("Pay Karoo 30.00 now");
     await sleep(50);
 
     expect(backend.payments).toHaveLength(1);
@@ -263,9 +267,9 @@ describe("limits: a payment whose answer can't be trusted is outcome unknown", (
   });
 
   it("chat: a payment that settled before a stall is reported as gone through, with its tx hash", async () => {
-    const { agent } = setup({ planner: [findKaroo, payKaroo, { hang: true }] });
+    const { agent } = setup({ planner: [findKaroo, chatPayKaroo, { hang: true }] });
 
-    const answer = await agent.chat("Pay Karoo 30.00 for INV-1042 now");
+    const answer = await agent.chat("Pay Karoo 30.00 now");
 
     expect(answer.payments).toMatchObject([{ status: "settled", txHash: "TXHASH1" }]);
     expect(answer.reply).toMatch(/went through/);
@@ -343,10 +347,11 @@ describe("limits: response size", () => {
 
     await agent.chat("Show me the log");
 
-    const seen = plannerModel.everythingTheModelSaw.match(/LOGROW-\d+-END/g) ?? [];
+    // T07: query_log shows the model no free text (the note is dropped), so count the entries by seq.
+    const seen = [...plannerModel.everythingTheModelSaw.matchAll(/"seq":(\d+)/g)].map((m) => Number(m[1]));
     expect(new Set(seen).size).toBe(50);
-    expect(seen).toContain("LOGROW-50-END");
-    expect(seen).not.toContain("LOGROW-51-END");
+    expect(seen).toContain(50);
+    expect(seen).not.toContain(51);
   });
 
   it("an off-contract GET /log reply (not a list) is refused", async () => {

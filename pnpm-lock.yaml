@@ -38,6 +38,9 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.90
         version: 3.0.90(zod@4.6.7)
+      '@hono/node-server':
+        specifier: ^2.1.8
+        version: 2.1.8(hono@4.13.18)
       '@scure/bip39':
         specifier: ^2.4.0
         version: 2.4.0
@@ -47,12 +50,19 @@ importers:
       ai:
         specifier: ^7.0.170
         version: 7.0.170(zod@4.6.7)
+      hono:
+        specifier: ^4.13.18
+        version: 4.13.18
       ripple-address-codec:
         specifier: ^5.0.1
         version: 5.0.1
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   services/backend:
     dependencies:

@@ -1,4 +1,8 @@
+> **Branch-wide baseline review, 13 November 2026:** [Assigned Kanban](BASELINE_KANBAN.md) and [progress/evidence](BASELINE_PROGRESS.md) cover all 31 remote heads, including Cameron’s latest `feat/testnet` uploads. Scheduling and ledger history are now baseline; browser extensions are deferred. Review is pinned to `main@47b6c55`; historical results below were not rerun for this documentation assessment.
+
 # Shucamoxa implementation status and handoff
+
+> **Implementation review, 13 November 2026:** See [the current ticket backlog](IMPLEMENTATION_BACKLOG.md) for a source-checked inventory at `47b6c55`. It covers all 21 Markdown files, 13 completed implementation slices and 40 remaining tickets. Older sections below are historical snapshots and contain retired commands; they are not a current deployment inventory. No runtime or ledger tests were run for this documentation review.
 
 Updated: 13 November 2026 (Africa/Johannesburg).
 Source-inspection baseline commit: `c808928f075f5bc50c737924f3c480a9f56dd73b`.
@@ -38,11 +42,8 @@ integrate the policy/signer contract and validate ledger-enforced authorization.
 |---|---|---|
 | Shared contracts | Source present in `packages/shared/src/`; schema, money, constants and log helper tests present. Current name is `@shucamoxa/shared`. | Deployed services actually validate every response or implement every declared rule. |
 | TypeScript invoice agent | Source present in `services/agent/src/`; extraction/planning and six guarded tools; scripted-model/fake-backend tests. | Live autonomous XRPL payment or a compatible deployed backend. |
-| Local terminal/MCP host | Source present in `src/w3node/chat.py`; real SDK subprocess tests for empty discovery/echo plus scripted Ollama CLI tests. | The user's live Qwen selected/executed a tool correctly in a completed real-model test. |
-| Shared model instance | User-reported live SSH as `xhanti`, workspace write test and Ollama `/api/tags` listing `qwen3:1.7b-q4_K_M`. Earlier supplied output also shows a generated model response. | A live payment system, strong service isolation, current uptime or automatic team onboarding deployment. |
-| Model profiles/import | Source present in `model_build.py`; profile and GGUF blob flow tested with simulated APIs. | Fine-tuning, tensor editing, successful import of a real trained GGUF or actual live model rebuild. |
-| Component manifests | Source present in CLI `model pin/pull`; selective checksum verification/cache tests. | A populated registry/manifest for all deployed model bytes; initial downloader supports unauthenticated HTTPS only. |
-| Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
+| Legacy local terminal/MCP host | Removed on the Open WebUI feature branch. | Open WebUI is a UI, not a verified live model or payment runtime. |\n| Shared model instance | User-reported live SSH as `xhanti`, workspace write test and Ollama `/api/tags` listing `qwen3:1.7b-q4_K_M`. Earlier supplied output also shows a generated model response. | A live payment system, strong service isolation, current uptime or automatic team onboarding deployment. |
+| Legacy Qwen profiles/import | Removed on the Open WebUI feature branch. | No weights are bundled; users choose their own model. |\n| Legacy model artifact manifest | Removed on the Open WebUI feature branch. | Does not delete models cached on team devices. |\n| Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
 | Python payment MCP gateway | Source present in `mcp_gateway/`; seven tools and simulated backend tests. New transfer tools use a separate coordinator API. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
 | Independent policy/signing service (W2) | `CosignRequest`/`CosignResponse`, rule codes and target invariants present as shared contracts. | A deployed co-signer or ledger configuration making its approval mandatory. |
 | Payment service / XRPL execution (W3) | Shared contracts and target constants exist. | Live signer, durable operation store, submit/reconcile implementation or final Testnet settlement proof. |
@@ -61,7 +62,7 @@ Testnet XRP demonstration with temporary wallets and validated-result checks.
 This is not an RLUSD or agent payment and does not satisfy AC-01 or GAP-05/06.
 The confirmation predicate has simulated tests. A live Testnet run validated
 `tesSUCCESS` for 1 XRP, with matching sender, recipient and delivered amount:
-transaction `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
+transaction hash `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
 An earlier validated payment exposed the API's `DeliverMax` field and the demo
 correctly refused to claim success until the check was updated. Typecheck and
 391 shared/agent/backend tests passed on Node 24; 24 tests were skipped. The full
@@ -239,3 +240,47 @@ No universal 4xx no-submission guarantee, final signer topology, competition
 deadline or rubric weights have been verified. Next: integrate and independently
 verify the Testnet policy/signing/payment path, preserving each contract's exact
 authority and recovery semantics; keep high-severity audit findings open.
+
+## Open WebUI replacement (feature branch, 13 November 2026)
+
+Compose configuration, install guide, and removal of the Python chat/model experiment are source changes only. The UI has **not** been proven running on the user's PC. The finance TypeScript agent remains separate and requires an OpenAI-compatible upstream model and an authorized backend. Existing payment gateway API mismatch remains unresolved; no payment MCP tools are auto-registered.
+
+## 13 November 2026: adversarial-suite merge repair
+
+PR #20 integration exposed an obsolete NET-01 expected-vulnerability marker after
+T10 disabled redirects. Updated it to a blocked regression with a positive check
+that POST /payments reached the redirecting server and no request reached the
+capture server. Generated reports now identify the checked-out commit; the
+original assessment snapshot remains explicitly historical.
+
+Local validation: security and root typechecks passed; 1195 regular TypeScript
+tests passed, 39 skipped; 47 Python CLI tests and 10 MCP tests passed. Full
+adversarial runner passed: 43 BLOCKED, 11 VULNERABLE, 25 NOT_IMPLEMENTED, with
+expected-failure semantics preserved, checksum-pinned gitleaks clean, and zero
+validated ledger transactions. Local runtime was Node 24/Python 3.12; repository
+Node 22/Python 3.11 verification remains the GitHub CI gate. No financial control
+was weakened or new live payment claimed.
+
+## PR #22 conflict and security-check repair (13 November 2026)
+
+Merged current main (`3bb1abd`) into the Testnet demo branch, preserving both
+README sections: developer XRP demo and the assigned baseline plan. The original
+four demo/handoff commits remain in history.
+
+Both failing checks traced to the same full-history gitleaks finding in
+`da40269:docs/PROJECT_STATUS.md:43`: a public transaction identifier, not a key.
+A read-only query to the fixed public XRPL Testnet endpoint independently confirmed
+that recorded hash as a validated `Payment`, `tesSUCCESS`, with
+`delivered_amount = 1000000` drops (1 XRP). No transaction was submitted for this
+repair. `.gitleaksignore` excludes only the exact historical commit/file/rule/line
+fingerprint; scanner rules and full-history coverage are unchanged. This does
+not fix or conceal the separately documented R2 hash-label bypass.
+
+Local checks on Node 24/Python 3.12: root and security typechecks passed;
+1,414 regular TypeScript tests passed, 39 skipped. Full adversarial runner passed:
+44 BLOCKED, 9 VULNERABLE, 25 NOT_IMPLEMENTED. The latter two remain expected
+failures, not successful security controls. Gitleaks 8.30.1 (checksum verified)
+scanned the complete merged history clean. Removing the exception reproduced
+exactly the known finding; new raw-key/seed canaries and that same public value
+outside the historical fingerprint were still detected. Tracked-path and
+whitespace checks passed. Node 22/Python 3.11 results are the GitHub CI gate.

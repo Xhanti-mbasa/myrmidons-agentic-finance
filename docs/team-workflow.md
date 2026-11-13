@@ -1,12 +1,11 @@
-# Team instance and model workflow
+# Team instance onboarding workflow
 
 ## What this implements
 
 `w3node users add NAME` now starts onboarding on a teammate's computer.
 See [onboarding](onboarding.md) for automated account creation and device invitations.
 `w3node admin users` provides low-level SSH account administration on the instance.
-`w3node model` pins and fetches selected immutable model files by SHA256, with a
-local content-addressed cache. No cloud instance or model server is created.
+The legacy Python model pin/pull tools are retired. Use Open WebUI for agent/model configuration (see [Open WebUI](open-webui.md)).
 There are no runtime Python dependencies. Python 3.11+ is required.
 
 Git tracks code, prompts, MCP configuration templates, evaluation cases, training
@@ -84,84 +83,6 @@ GitHub access, cloud roles, API tokens, MCP sessions and delegated credentials
 must be revoked separately. Restoring a removed account requires administrator
 review; `add` deliberately refuses all existing accounts.
 
-## Version and selectively pull model changes
+## LLM configuration
 
-For each changed adapter/checkpoint/config file:
-
-```bash
-w3node model pin payments-adapter.safetensors --file ./checkpoints/adapter.safetensors --url https://YOUR-ARTIFACT-HOST/releases/v1/adapter.safetensors
-git add model.lock.json
-git commit -m 'Pin payments adapter v1'
-git push
-```
-
-`pin` computes the checksum from the local file and updates the manifest. It does
-not upload it. Upload those exact bytes to the URL using your storage provider's
-tools before teammates pull. Use immutable release paths. URLs must be HTTPS and
-must not contain embedded credentials or signed query strings. This initial
-downloader supports URLs accessible without authentication only; do not make
-private model weights public to accommodate it. For private/gated artifacts use
-the registry's authenticated download tooling until an appropriate provider
-adapter is configured. Keep credentials outside Git.
-
-Teammates can then run:
-
-```bash
-git pull --ff-only
-w3node model pull payments-adapter.safetensors
-w3node model pull
-```
-
-The first command pulls only the named component. The second pulls all pinned
-components. Each prints the verified cache path. Matching cached bytes are reused;
-checksum mismatch, size mismatch and HTTPS downgrade redirects fail without
-publishing partial downloads. Changing a component fetches that whole file; this
-is file-level selection, not tensor-level or block-level binary delta transfer.
-
-For a runnable build, pin the base model revision, tokenizer, model config, all
-required shards, adapter and runtime/training dependency versions together.
-An adapter depends on its compatible base model; arbitrary subsets of weight
-shards generally cannot run independently. This CLI intentionally does not load,
-merge, train or edit tensors: the correct build/serve command depends on the
-actual training workflow. The running instance uses Ollama with
-`qwen3:1.7b-q4_K_M`; training/adapter export is still a separate workflow.
-Use a separate adapter and branch per experiment; evaluate changes before merge.
-Rolling back the Git commit restores the old manifest and artifact selection.
-
-## MCP and payment backend integration
-
-`config/mcp.example.json` records server names, URLs and environment variable
-names only. It is a project template, not an automatically connected MCP client.
-The model's agent runtime must load it and implement the MCP client lifecycle,
-tool schemas, authentication and authorization. The exact wiring is pending the
-runtime name/version and the MCP servers' actual endpoints/auth methods.
-
-Backend developers should test through the same development model endpoint,
-using individual credentials and a sandbox payment backend. Keep payment tools
-in test mode during integration; never commit payment secrets or real customer
-data. Record evaluation inputs and expected tool behavior with each change.
-The tools/integrity layer should validate tool arguments and authorize each
-action independently of what the model asks for. Live payment execution belongs
-in a separately reviewed integration, not this account/model CLI.
-
-## Information needed to activate this on the real instance
-
-* Instance provider, hostname and an existing authorized administrator session.
-* Cam's Linux login, actual permissions and intended team group/role list.
-* Each teammate's exact Linux login and public SSH key.
-* Model ID, open-weight vs hosted API, base revision, runtime and artifact store.
-* MCP endpoints/authentication and development model/payment sandbox endpoints.
-
-No live accounts, instance permissions, MCP connections or model weights are
-changed merely by installing this project.
-
-## Validation
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-```
-
-Tests use temporary files and mocked system/network boundaries. They verify
-artifact selection, cache reuse/corruption, failed-download cleanup, URL rules,
-pinning, refusal to alter unmanaged accounts and the account revocation sequence.
-No tests provision live accounts or download actual model weights.
+Use [Open WebUI](open-webui.md) for custom model presets and PC-hosted inference. The TypeScript finance agent still uses its separate `MODEL_BASE_URL` / `MODEL_NAME` settings. Never store large weights or credentials in this repository.
