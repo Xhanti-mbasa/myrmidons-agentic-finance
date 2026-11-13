@@ -44,10 +44,16 @@ CI job is a regression/evidence job, **not a deployment security approval**.
 - `test_python.py`: actual stdio MCP child and loopback backend; gateway/parser tests;
   real gitleaks CLI with ephemeral synthetic canaries. No onboarding provisioning,
   GitHub API, Tailscale API or shared model-host connection occurs.
-- `missing-controls.test.ts`: concrete XRPL mutation vectors and safety assertions
-  tagged `NOT_IMPLEMENTED`. They stop at the missing production co-signer/wallet;
-  they are **not executed XRPL attacks**. New production implementations require
-  wiring the vectors into their real APIs. Do not turn these green with test doubles.
+- `missing-controls.test.ts` and `policy-probes.ts`: concrete mutations sent to
+  the actual T20 co-sign HTTP application using genuine local multisignatures,
+  plus production reservation/receipt checks using explicitly scripted transport
+  failures and ledger metadata. The integrated T20/T21 endpoint now checks supplier/destination, asset, transaction
+  fields, fees, caps and memo structure as well. Positive controls use approved
+  supplier records and a valid memo. The well-formed substituted memo hash, stale
+  expiry and replay probes still reproduce vulnerabilities.
+  Quorum, key custody, isolation and audit-anchor deployment gates remain
+  `NOT_IMPLEMENTED`. These are **not executed live XRPL attacks**; no permissive
+  fake co-signer or merely echoed receipt establishes a blocked result.
 
 No public XRPL node is contacted. There are **zero validated Testnet transaction
 hashes**. `tefBAD_QUORUM` and `tefMASTER_DISABLED` are rejection results, not successful

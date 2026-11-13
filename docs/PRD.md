@@ -236,3 +236,43 @@ Transfer extension agreed 13 November 2026: FR-20 through FR-22 add owner-initia
 transfers and scheduling alongside invoice payables. Semantic contact matching,
 incoming-wallet monitoring and live signing are separately integrated capabilities;
 their implementation is not established by the transfer coordinator.
+
+## 12. Separately authorized paid-resource extension (#32/#33)
+
+The owner subsequently authorized development against GitHub issues #32/#33.
+This extends the draft's original out-of-scope paid-x402 choice for an incremental
+Testnet prototype; it does not change AC-01 through AC-07 or establish release
+readiness. Article/API purchases require merchant/origin/resource binding, explicit
+pay/decline or an owner automatic-purchase mandate, independently enforced
+spending, duplicate/unknown-outcome recovery and paid-content delivery handling.
+
+Owner category/merchant mandates define per-purchase and owner-selected daily, weekly or monthly ZAR budgets,
+Monday 00:00 Africa/Johannesburg boundaries and no unused-capacity rollover.
+Unresolved reservations remain charged across periods. ZAR budget and RLUSD
+settlement are distinct: trusted expiring FX/fee evidence, conservative rounding
+and sufficient fixed-point precision are mandatory. R0.10 never implicitly means
+0.10 RLUSD. Existing cumulative transfer caps and revocation remain required.
+See [implementation backlog](IMPLEMENTATION_BACKLOG.md) for partial work and
+remaining integration gates. Purchasing access does not grant redistribution
+rights. No support by an arbitrary publisher is implied.
+
+## 13. Owner-requested harness extension (13 November 2026)
+
+The owner requested a reusable host for different tool-capable models, mandatory
+payment/policy/eligibility/audit primitives, optional workflows and bridge routing,
+and Open WebUI demonstration setup. This extends the original importer baseline.
+The invoice MVP's AC-01–AC-07 still require their original live evidence.
+
+| Requirement | Implemented contract / release boundary |
+|---|---|
+| FR-23 | OpenAPI and stdio MCP expose the same strict tool host; no model-supplied owner identity, endpoint, amount or payment destination. |
+| FR-24 | Owner-only, versioned eligibility grants and plugin toggles persist. Every execution verifies audit integrity and checks registered target/category/evidence expiry. Backend financial policy remains independently mandatory. |
+| FR-25 | Owner-defined finite workflows retain one durable execution claim, recheck gates between steps and stop on unknown/pending/refused outcomes. |
+| FR-26 | Optional bridge discovery/quote demo clearly distinguishes simulation from unavailable live providers; it cannot execute cross-chain transfers. |
+| FR-27 | A local owner console and WebUI registration script support demo setup. Installed models, WebUI administrator access and deployment on the target PC remain operator prerequisites. |
+
+Business profile names are labels. Actual eligibility grants and backend mandates
+determine authorization. The eligibility primitive evaluates owner-supplied
+attestations; it is not a complete jurisdiction-specific compliance engine.
+Native browser purchasing, a community plugin marketplace and live bridges are
+further integrations. See `HARNESS_DEMO.md` for the implemented boundaries.

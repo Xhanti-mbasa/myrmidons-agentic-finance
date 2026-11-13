@@ -1,0 +1,14 @@
+.git
+node_modules
+.venv
+.env
+.env.*
+secrets
+wallets
+artifacts
+*.db
+*.db-*
+*.token
+*.pem
+*.key
+__pycache__

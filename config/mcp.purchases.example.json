@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "purchases": {
+      "command": "{python}", "args": ["purchases.py"], "cwd": "../mcp_gateway",
+      "env": {
+        "SHUCAMOXA_BACKEND_URL": "http://127.0.0.1:8090",
+        "SHUCAMOXA_BACKEND_TOKEN": "${SHUCAMOXA_PURCHASE_AGENT_TOKEN}",
+        "SHUCAMOXA_BUSINESS_SCOPE": "${SHUCAMOXA_BUSINESS_SCOPE}"
+      }
+    }
+  }
+}

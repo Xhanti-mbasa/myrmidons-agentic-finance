@@ -45,3 +45,23 @@ tags = ["private-key"]
   description = "Hashes, not keys"
   regexTarget = "line"
   regexes = ['''(?i)(?:hash|digest|sha-?256|checksum)''']
+
+  # Main's T28/T29/T25 tests contain these public SHA-256/transaction fixtures.
+  # Exact value AND exact test file only; all other key detection stays enabled.
+  [[rules.allowlists]]
+  description = "Public genesis hash in the SQL audit fixture"
+  condition = "AND"
+  paths = ['''^packages/db/test/audit-log\.test\.ts$''']
+  regexes = ['''^0000000000000000000000000000000000000000000000000000000000000000$'''] # genesis hash
+
+  [[rules.allowlists]]
+  description = "Public audit known-answer hash"
+  condition = "AND"
+  paths = ['''^packages/db/test/log\.test\.ts$''']
+  regexes = ['''^03de26b9343749d04738c706e3b015f59e2c90233ab56ccac30f9e31b7dced43$'''] # audit hash
+
+  [[rules.allowlists]]
+  description = "Public scripted treasury transaction hash"
+  condition = "AND"
+  paths = ['''^scripts/test/setup-treasury\.test\.ts$''']
+  regexes = ['''^A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2$'''] # scripted transaction hash

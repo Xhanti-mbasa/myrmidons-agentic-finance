@@ -266,3 +266,134 @@ scanned the complete merged history clean. Removing the exception reproduced
 exactly the known finding; new raw-key/seed canaries and that same public value
 outside the historical fingerprint were still detected. Tracked-path and
 whitespace checks passed. Node 22/Python 3.11 results are the GitHub CI gate.
+
+## 13 November 2026: issues #30–#33 local integration snapshot
+
+On `work/payment-issues-30-33`, #30 added cap, reservation, policy-edit,
+kill-switch and rejection regression checks; #31 added signed permit/guard
+source; #33 added a weekly category budget coordinator; #32 added a restricted
+x402 purchase prototype. See `HANDOFF_ISSUE30.md` through
+`HANDOFF_ISSUE33.md` and `IMPLEMENTATION_BACKLOG.md`.
+
+Local Node 22.23.5/pnpm 10.28.0 typecheck and 66 payment tests passed.
+These tests use fake wallet, ledger, quote, merchant and outcome adapters.
+The earlier full TypeScript suite had two unchanged `ownerChat` test failures
+(1,416 passed; 39 skipped). No validated Testnet transaction, paid resource
+access, deployed independent signer, live FX feed or facilitator integration
+was observed. The x402 purchase and budget services use separate SQLite
+transactions; retry detects existing budget state and refuses a second execution,
+but orphan-reservation reconciliation remains unresolved. Existing
+transfer cumulative budget is not yet bound to x402 execution. Keep #31–#33
+open for the stated end-to-end evidence.
+
+Issue #30 verification was rerun on `c9d415b`: `pnpm typecheck` and all 67
+payment-project tests passed with loopback access. This completes the source,
+simulated-test and shared-handoff scope of #30. It does not establish deployed
+limits or validated Testnet payment; those remain #31 integration gates.
+
+## 13 November 2026: direct #32/#33 implementation update
+
+The x402 work now includes a pinned-origin HTTPS merchant transport for 402
+challenge retrieval and bounded article delivery. Owner category period edits
+retain settled spending in the newly selected current period. Typecheck and 70
+payment-project tests passed locally with scripted merchant, quote, wallet and
+ledger responses. This is not actual x402 payment integration: a live signed
+payload, verified facilitator/ledger settlement, trusted quote source and real
+paid-resource access remain with the wallet and deployment integration.
+
+## PR #34 merge repair (13 November 2026)
+
+Integrated main into the payment issues branch. Preserved the complete pinned
+B01–B40 backlog alongside the newer #30–#33 payment update, and retained both
+branches' status evidence. Fixed two integration typecheck errors: removed an
+unused test import of a retired supplier helper and explicitly narrowed the
+policy bearer-token regex capture before hashing. Authorization remains fail-closed.
+
+Validation on Node 24.22.1 with pinned pnpm 10.28.0: frozen-lockfile install,
+root typecheck and full regular suite passed (1,545 tests passed, 39 skipped).
+Tracked-path guard and conflict-file whitespace checks passed. No live payment,
+merchant unlock, deployed signer or FX integration was tested; Node 22 CI remains
+the repository-runtime gate. No new completion claim for #31–#33 is implied.
+
+## Issues #31–#33: guarded provider and purchase-host integration
+
+13 November 2026. `PAYMENT_INTEGRATION.md` is the current operator/AI handoff.
+The new Testnet transfer provider verifies independent Ed25519 permits, signs
+under the coordinator's final revocation DB gate, persists one transaction
+identity and verifies signed bytes/delivered amount on ledger lookup. The x402
+executor constructs a v2 presigned RLUSD payload, independently revalidates the
+registered merchant, checks periodic and aggregate purchase-wallet budgets,
+and exposes content only after exact ledger evidence. The private host and
+strict purchase/read/reconcile MCP tools keep owner policy, URLs, quotes and
+wallet keys out of tool arguments. Purchase wallets are separate from transfer
+treasuries; neither contract silently replaces the other.
+
+Recovery now persists the purchase binding and execution claim before budget
+adapter commits. Durable signer tombstones close a proven no-sign purchase;
+unknown signed outcomes remain reserved without re-signing. Confirmed ledger
+rejections retain converted payer-fee charges. Owner-signed short-lived quote
+packets bind rate and fee ceilings; there is no automatic market feed. Added
+private-file checks, deployment unit and configuration examples are source, not
+proof that isolation is installed on the operator's machine. Privy is unchanged.
+
+Validation: Node 22.23.5/pnpm 10.28.0 root typecheck and regular tests; Python
+3.12 gateway and onboarding tests; full adversarial reproduction with
+checksum-verified gitleaks 8.30.1. The current security probes exercise the actual
+merged T20 service instead of claiming it is absent: several unsafe mutations
+are accepted by its incomplete default pipeline and remain VULNERABLE. These
+adapters do not use that endpoint as their live signing gate. Team T21/T22 and
+other newly observed branches are separate work, not silently integrated.
+
+Read-only live checks: the fixed official HTTPS RPC reported XRPL Testnet
+network ID 1 and the preflight succeeded; t54's public /supported advertised
+v2 exact on xrpl:1. The WebSocket attempt failed, so the new transport uses
+fixed HTTPS RPC with bounds and no redirects. No wallet was loaded and no
+payment was submitted for these checks. A funded dedicated Testnet payer,
+approved compatible HTTPS merchant, deployed isolation and actual paid-resource
+allowed/blocked evidence are still needed. Keep #31–#33 open until that evidence
+exists. Signed-expiry recovery and final on-ledger/cross-service co-sign topology
+remain explicit gates; no Mainnet, real-value or blanket security readiness claim.
+
+Final local evidence for this integration: Node 22.23.5/pnpm 10.28.0 typecheck
+passed; 1,561 regular TypeScript tests passed, 39 skipped. Python 3.12: 25 CLI/
+onboarding tests and 11 gateway tests passed (including a real purchase MCP
+subprocess). The adversarial runner completed with 53 BLOCKED, 18 VULNERABLE,
+7 NOT_IMPLEMENTED; expected vulnerabilities are not security approvals. Both
+staged secret scanning and tracked-path/whitespace guards passed. Live validated
+payment count for this integration remains zero.
+
+## 13 November 2026: governed harness and WebUI demo
+
+The focused `work/harness-open-webui-demo` branch adds a runnable owner console,
+12 strict tools shared by OpenAPI and stdio MCP, mandatory policy/eligibility/audit
+gates, owner-registered actions, optional bridge-route simulation and bounded
+workflows with durable claims. It integrates payment source `50be2a9` and main
+through `ee40fa3`, preserving the team's new invoice payment, policy, treasury,
+kill-switch and DB work. The harness adapters explicitly retain the separate
+transfer and purchase contracts. See `HARNESS_DEMO.md` for setup.
+
+Validation on Node 22.23.0/pnpm 10.28.0: root typecheck and all 1,803 regular tests
+passed after the main integration, including the scanner-fixture regression. Python 3.12: 29 onboarding/setup and
+12 gateway tests passed. A real local HTTP host plus actual stdio MCP subprocess
+discovered all 12 tools, exercised allowed/duplicate/cap/eligibility outcomes,
+completed the university purchase workflow, read its local article and verified
+13 harness audit events. Settlement and content were simulated. No ledger node,
+merchant, faucet or real model was contacted for that smoke run.
+
+T21 required updated adversarial positive controls, not automatic reclassification
+from source names. Actual mutation probes now produce 60 BLOCKED,
+11 VULNERABLE and 7 NOT_IMPLEMENTED with a successful evidence runner and
+checksum-pinned full-history secret scan. A validly shaped substituted audit memo
+still passes the co-signer, so XRPL-12 remains VULNERABLE. Existing deployment,
+quorum, key custody, intake and audit-anchor gaps remain open. Narrow scanner
+fixture allowances apply only to three known public test hashes and exact files.
+
+The five-slide pitch is complete and explicitly labels simulated settlement.
+Docker/WebUI registration, UI browser rendering, model-driven tool use and
+installation on the owner's PC were not verified: this build environment has
+no Docker daemon or connected owner PC. A remote browser could not reach the
+build process's localhost. No public demo deployment or live payment is implied.
+Dedicated funded Testnet wallets, compatible approved publisher, reviewed fresh
+quote, deployed signing isolation and actual allowed/blocked settlement evidence
+remain release gates. Live cross-chain bridging and native browser purchasing
+remain further integrations; profile labels do not establish legal compliance.

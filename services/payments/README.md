@@ -1,11 +1,18 @@
 # Deterministic transfer core
 
 This is a Testnet transfer coordinator, private HTTP adapter and MCP `pay` bridge.
-It has **no live wallet, signer or policy co-signer implementation**. It cannot move
-funds until a trusted host supplies both adapters. Tests use explicitly fake
-policy/ledger responses, not blockchain settlement. Nothing listens by default.
-Use Node 22.13+ (the repo pins Node 22), SQLite on private local persistent storage,
-and the existing workspace toolchain. No new package dependencies are required.
+The concrete permit-verified Testnet wallet adapter now lives in
+`services/backend/src/transfer-wallet.ts`; signed policy adapters live in
+`src/signing.ts`. A trusted private host must compose and configure them.
+See [payment integration](../../docs/PAYMENT_INTEGRATION.md) for signing,
+quote/merchant setup and recovery, and [harness demo](../../docs/HARNESS_DEMO.md)
+for the owner console, scoped OpenAPI/MCP tools and WebUI registration.
+
+The local harness demo uses the real coordinator with an explicitly simulated
+ledger. Source adapters and generated-key tests do not establish deployed
+independent signing, funded-wallet settlement or an on-ledger signer topology.
+Use Node 22 and private local SQLite storage. Nothing in this module listens or
+moves funds by default.
 
 ## Pay flow
 
@@ -123,9 +130,9 @@ RLUSD reservation; uncertain/absent transactions remain reserved. Expiry-proof
 recovery is intentionally not implemented; it requires complete ledger evidence.
 
 The existing `CosignRequest` invoice API is **not** automatically this adapter.
-Final signer topology, cryptographic permit format, ledger memo construction and
-live RPC integration still need to be implemented and verified by the wallet and
-policy workstreams. A permissive fake adapter is suitable only for tests.
+Signed Ed25519 permits, trusted memo construction and fixed Testnet RPC adapters
+now exist in the integration guide. Final independently deployed signer topology
+and actual ledger acceptance evidence remain required. A permissive fake adapter is suitable only for tests.
 
 XRPL references:
 

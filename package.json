@@ -15,7 +15,9 @@
     "db:seed": "pnpm --filter @shucamoxa/db seed",
     "dev:mock": "SHUCAMOXA_MOCK=1 pnpm --filter @shucamoxa/mock-backend start",
     "mutate": "pnpm --filter @shucamoxa/agent mutate",
-    "xrpl": "tsx services/backend/src/xrpl-demo.ts"
+    "xrpl": "tsx services/backend/src/xrpl-demo.ts",
+    "harness:demo": "tsx services/backend/src/harness/main.ts --demo",
+    "harness:start": "tsx services/backend/src/harness/main.ts"
   },
   "devDependencies": {
     "@shucamoxa/shared": "workspace:*",

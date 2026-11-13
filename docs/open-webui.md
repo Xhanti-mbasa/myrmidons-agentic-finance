@@ -1,5 +1,9 @@
 # Open WebUI: local / teammate-hosted model workspace
 
+For the new guarded tool host, owner console, optional plugins and registration
+script, start with [HARNESS_DEMO.md](HARNESS_DEMO.md). The older setup below
+describes the underlying workspace.
+
 Open WebUI replaces the old W3Node Python Ollama chat/model-profile experiment.
 It provides a browser UI, model presets (agent title, description, system prompt),
 conversation history, knowledge and integrations. It does **not** replace
@@ -14,7 +18,7 @@ LLM server or Ollama on your computer. There are no checked-in model weights.
 ```bash
 cp deploy/open-webui.env.example .env
 # Edit .env: use a unique WEBUI_SECRET_KEY from: openssl rand -hex 32
-docker compose --env-file .env -f deploy/open-webui.compose.yml up -d
+sh scripts/start-harness-demo.sh
 docker compose --env-file .env -f deploy/open-webui.compose.yml logs -f open-webui
 ```
 
@@ -76,7 +80,9 @@ and tested before any live Testnet payment claim.
 
 ## 5. MCP and payment safety
 
-Open WebUI supports MCP integrations; add compatible authenticated MCP HTTP
+The reviewed harness adapter now exposes scoped tools through OpenAPI and a
+separate stdio MCP transport. See HARNESS_DEMO.md for registration; the legacy
+gateway below remains a distinct contract. Open WebUI supports MCP integrations; add compatible authenticated MCP HTTP
 servers through its admin/tool settings. The existing `mcp_gateway/server.py`
 is a **stdio** MCP server and uses a different API than the TypeScript agent.
 It is intentionally **not connected automatically**, because it includes

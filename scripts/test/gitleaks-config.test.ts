@@ -187,3 +187,17 @@ describe("allowlists stay narrow", () => {
     }
   });
 });
+
+it('allows only the exact public upstream hash fixtures at their test paths', () => {
+  const bare = rule('hex-private-key-64');
+  const paths = ['packages/db/test/audit-log.test.ts', 'packages/db/test/log.test.ts', 'scripts/test/setup-treasury.test.ts'];
+  const sources = paths.map(path => readFileSync(join(REPO_ROOT, path), 'utf8'));
+  const values = ['0'.repeat(64), sources[1]!.match(/const KNOWN_ANSWER_HASH\s*=\s*"([a-f0-9]+)"/)![1]!,
+    sources[2]!.match(/"(A1B2C3D4E5F6[A-F0-9]{52})"/)![1]!];
+  for (let i = 0; i < paths.length; i++) {
+    const finding = { path: paths[i]!, secret: values[i]!, line: '"' + values[i] + '"' };
+    expect(allowed(bare, finding)).toBe(true);
+    expect(allowed(bare, { ...finding, path: 'services/backend/src/signing.ts' })).toBe(false);
+    expect(allowed(bare, { ...finding, secret: 'c'.repeat(64), line: '"' + 'c'.repeat(64) + '"' })).toBe(false);
+  }
+});
