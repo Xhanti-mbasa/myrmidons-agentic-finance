@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createAgent } from "../src/agent";
-import { ownerAmountFromMessage, ownerNamesSupplier, ownerSupplierFromMessage } from "../src/tools";
+import { ownerAmountFromMessage, ownerSupplierFromMessage } from "../src/tools";
 import { chatInvoiceNumber } from "../src/ids";
 import { logForModel } from "../src/tools";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";

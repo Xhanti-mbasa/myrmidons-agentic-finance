@@ -63,9 +63,9 @@ export function createPolicyServer(deps: PolicyServerDeps) {
   app.get("/health", (c) => c.json({ ok: true }));
 
   app.use("*", async (c, next) => {
-    const match = /^Bearer (\S+)$/.exec(c.req.header("Authorization") ?? "");
-    const matches = match ? timingSafeEqual(digest(match[1]), expectedTokenDigest) : false;
-    if (!match || !matches) {
+    const token = /^Bearer (\S+)$/.exec(c.req.header("Authorization") ?? "")?.[1];
+    const matches = token !== undefined && timingSafeEqual(digest(token), expectedTokenDigest);
+    if (!matches) {
       log({ event: "request_refused", status: 401 });
       return c.json({ error: "unauthorized", message: "A valid bearer token is required." }, 401);
     }
