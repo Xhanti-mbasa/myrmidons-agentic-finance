@@ -206,3 +206,19 @@ authority and recovery semantics; keep high-severity audit findings open.
 ## Open WebUI replacement (feature branch, 13 November 2026)
 
 Compose configuration, install guide, and removal of the Python chat/model experiment are source changes only. The UI has **not** been proven running on the user's PC. The finance TypeScript agent remains separate and requires an OpenAI-compatible upstream model and an authorized backend. Existing payment gateway API mismatch remains unresolved; no payment MCP tools are auto-registered.
+
+## 13 November 2026: adversarial-suite merge repair
+
+PR #20 integration exposed an obsolete NET-01 expected-vulnerability marker after
+T10 disabled redirects. Updated it to a blocked regression with a positive check
+that POST /payments reached the redirecting server and no request reached the
+capture server. Generated reports now identify the checked-out commit; the
+original assessment snapshot remains explicitly historical.
+
+Local validation: security and root typechecks passed; 1195 regular TypeScript
+tests passed, 39 skipped; 47 Python CLI tests and 10 MCP tests passed. Full
+adversarial runner passed: 43 BLOCKED, 11 VULNERABLE, 25 NOT_IMPLEMENTED, with
+expected-failure semantics preserved, checksum-pinned gitleaks clean, and zero
+validated ledger transactions. Local runtime was Node 24/Python 3.12; repository
+Node 22/Python 3.11 verification remains the GitHub CI gate. No financial control
+was weakened or new live payment claimed.
