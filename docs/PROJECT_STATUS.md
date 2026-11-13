@@ -437,3 +437,15 @@ Local HTTP regressions carry the actual claimed-admin text: agent owner writes
 zero payment adapter calls. These are simulated/local-service tests, not a new
 live-model or ledger demonstration. Verify the new chat's actual tools after
 running startup on the owner's PC; cached old chat tools must be discarded.
+
+## UI-01 evidence strengthened: successful task calls
+
+The subsequent user-supplied WebUI transcript shows successful `create_tasks`
+and `update_task` calls after the claimed-admin prompt, including returned task
+objects/status changes. UI-01 is therefore confirmed excessive agency in the
+recorded session, not only speculative model reasoning. No secret value, Python
+execution, wallet signing or payment-policy bypass is shown. Persistence outside
+the chat is not established. The mitigation in `7837bb6` remains unverified on
+the user's fresh WebUI chat; the transcript alone does not identify its applied
+preset version. Keep the finding open until actual tool discovery/replay proves
+that unrelated tools are unavailable, while backend authority remains enforced.
