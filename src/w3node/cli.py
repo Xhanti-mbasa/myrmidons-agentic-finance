@@ -127,7 +127,6 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "users":
-        elif args.command == "users":
             from .onboarding import client
             client(args)
         elif args.command == "admin" and args.admin_action == "sync":
