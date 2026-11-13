@@ -3,10 +3,12 @@ import { z } from "zod";
 import { Rules as RulesContract, ruleExplanation, type PayResult, type ExtractedInvoice, type RuleCode } from "@shucamoxa/shared";
 import { backendClient, type BackendClient, type BackendDeps } from "./backend";
 import { extractInvoice } from "./extraction";
+import { describeStall, PAYMENT_OUTCOME_UNKNOWN, resolveLimits, RunGuard } from "./limits";
 import { agentTools, isConfident, newRunState, overLimit, redactAddresses, supplierMatch, type Limits, type RunState } from "./tools";
 
 export { MIN_SUPPLIER_CONFIDENCE } from "./tools";
 
+/** limits (from BackendDeps) also bounds model calls and the whole run; see limits.ts. */
 export type AgentDeps = BackendDeps & { extractionModel: LanguageModel; plannerModel: LanguageModel };
 
 export type AgentFlag = "ADDRESS_ON_INVOICE_IGNORED" | "SUSPICIOUS_TEXT";
@@ -43,16 +45,34 @@ const RulesCore = z.looseObject({ perPaymentCap: RulesContract.shape.perPaymentC
 type Rules = { perPaymentCap: string; killSwitch: boolean; remaining: string | null };
 
 export function createAgent(deps: AgentDeps) {
-  const backend = backendClient(deps);
+  const limits = resolveLimits(deps.limits);
 
+  /**
+   * Every run has a deadline (limits.runMs) and each backend and model call its own timeout. The first
+   * one to run out stops the run: nothing more is sent, and the outcome is needs_review naming the stage.
+   */
   async function processInvoice(rawText: string): Promise<AgentOutcome> {
-    const extraction = await extractInvoice(rawText, { model: deps.extractionModel });
+    const run = new RunGuard(limits);
+    const progress: InvoiceProgress = { base: { invoiceNumber: null, flags: [] }, state: null };
+    try {
+      return await run.within(invoiceRun(rawText, run, backendClient(deps, run), progress));
+    } catch (error) {
+      if (!run.stalled) throw error;
+      return stalledOutcome(run, progress);
+    }
+  }
+
+  async function invoiceRun(rawText: string, run: RunGuard, backend: BackendClient, progress: InvoiceProgress): Promise<AgentOutcome> {
+    const extraction = await run.stage("invoice extraction", limits.modelMs, (abortSignal) =>
+      extractInvoice(rawText, { model: deps.extractionModel, abortSignal }),
+    );
     if (extraction.status === "needs_review") {
       return { invoiceNumber: null, decision: "needs_review", ruleCode: null, explanation: extraction.reason, flags: [] };
     }
     const invoice = extraction.invoice;
     const flags = flagsFor(invoice);
     const base = { invoiceNumber: invoice.invoiceNumber, flags };
+    progress.base = base;
 
     // Deterministic, before the model is involved: no confirmed-off kill switch, no run.
     const rules = await readRules(backend);
@@ -71,33 +91,59 @@ export function createAgent(deps: AgentDeps) {
       },
       limitsOf(rules),
     );
-    await generateText({
-      model: deps.plannerModel,
-      system: PLANNER_SYSTEM,
-      prompt: plannerPrompt(invoice, resolvedSupplierId),
-      tools: agentTools(backend, state),
-      stopWhen: isStepCount(STEP_LIMIT),
-      temperature: 0,
-    });
+    progress.state = state;
+    await run.stage("the planner model", limits.modelMs, (abortSignal) =>
+      generateText({
+        model: deps.plannerModel,
+        system: PLANNER_SYSTEM,
+        prompt: plannerPrompt(invoice, resolvedSupplierId),
+        tools: agentTools(backend, state),
+        stopWhen: isStepCount(STEP_LIMIT),
+        temperature: 0,
+        abortSignal,
+      }),
+    );
 
     return { ...base, ...decide(state) };
   }
 
   /** Owner chat: questions answered from the log, or "pay X now", under the same tool guards. */
   async function chat(message: string): Promise<ChatAnswer> {
+    const run = new RunGuard(limits);
+    const progress: { state: RunState | null } = { state: null };
+    try {
+      return await run.within(chatRun(message, run, backendClient(deps, run), progress));
+    } catch (error) {
+      if (!run.stalled) throw error;
+      const payments = progress.state?.payResults ?? [];
+      const settled = payments.flatMap((r) => (r.status === "settled" ? [r.txHash] : []));
+      // A payment the backend already settled is reported, so the owner never pays it again by hand.
+      const before = settled.length > 0 ? ` Before that, ${settled.length === 1 ? "a payment" : `${settled.length} payments`} went through (tx ${settled.join(", ")}).` : "";
+      const reply = run.paymentOutcomeUnknown
+        ? `${PAYMENT_OUTCOME_UNKNOWN}${before}`
+        : `I stopped because ${describeStall(run.stalled)}.${before || " Nothing further was done."}`;
+      return { reply, payments };
+    }
+  }
+
+  async function chatRun(message: string, run: RunGuard, backend: BackendClient, progress: { state: RunState | null }): Promise<ChatAnswer> {
     const rules = await readRules(backend);
     if (!rules) return { reply: "I could not confirm the kill switch is off, so I am not acting right now.", payments: [] };
     if (rules.killSwitch) return { reply: ruleExplanation("KILL_SWITCH_ON"), payments: [] };
 
     const state = newRunState(null, limitsOf(rules));
-    const { text } = await generateText({
-      model: deps.plannerModel,
-      system: PLANNER_SYSTEM,
-      prompt: message,
-      tools: agentTools(backend, state),
-      stopWhen: isStepCount(STEP_LIMIT),
-      temperature: 0,
-    });
+    progress.state = state;
+    const { text } = await run.stage("the planner model", limits.modelMs, (abortSignal) =>
+      generateText({
+        model: deps.plannerModel,
+        system: PLANNER_SYSTEM,
+        prompt: message,
+        tools: agentTools(backend, state),
+        stopWhen: isStepCount(STEP_LIMIT),
+        temperature: 0,
+        abortSignal,
+      }),
+    );
     return { reply: text, payments: state.payResults };
   }
 
@@ -105,6 +151,22 @@ export function createAgent(deps: AgentDeps) {
 }
 
 export type ChatAnswer = { reply: string; payments: PayResult[] };
+
+/** What an invoice run had established when it stopped, so a stalled run can still report the facts. */
+type InvoiceProgress = { base: Pick<AgentOutcome, "invoiceNumber" | "flags">; state: RunState | null };
+
+/**
+ * A stalled run is needs_review naming the stage, with two exceptions that report what the backend
+ * said: a payment it already settled stays "paid", and a cut-off pay says its outcome is unknown.
+ */
+function stalledOutcome(run: RunGuard, { base, state }: InvoiceProgress): AgentOutcome {
+  if (state?.payResults.some((r) => r.status === "settled")) return { ...base, ...decide(state) };
+  const stall = describeStall(run.stalled!);
+  const explanation = run.paymentOutcomeUnknown
+    ? PAYMENT_OUTCOME_UNKNOWN
+    : `${stall[0]!.toUpperCase()}${stall.slice(1)}, so the run stopped. No payment was made. A person should look at this invoice.`;
+  return { ...base, decision: "needs_review", ruleCode: null, explanation };
+}
 
 /**
  * What the planner is shown: the validated fields without the pay-to address (only whether there was

@@ -39,7 +39,8 @@ with tempfile.TemporaryDirectory(prefix="shucamoxa-security-results-") as folder
             codes.append(1)
     suite_sources = sorted(p for p in (ROOT / "security").iterdir() if p.suffix in {".ts", ".py", ".json"})
     suite_digest = hashlib.sha256(b"".join(p.name.encode() + b"\0" + p.read_bytes() + b"\0" for p in suite_sources)).hexdigest()
-    report = {"suite_source_sha256": suite_digest, "assessed_base": "04b0adc738e0507d531b73f427e3f044508f4785", "runtime_node": subprocess.check_output([node, "--version"], text=True).strip(),
+    assessed_base = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    report = {"suite_source_sha256": suite_digest, "assessed_base": assessed_base, "runtime_node": subprocess.check_output([node, "--version"], text=True).strip(),
               "runtime_python": subprocess.check_output([python, "--version"], text=True).strip(), "gitleaks": version,
               "commands_successful": all(code == 0 for code in codes), "counts": counts, "validated_testnet_transactions": [], "tests": results}
     output = ROOT / "artifacts/security"; output.mkdir(parents=True, exist_ok=True)

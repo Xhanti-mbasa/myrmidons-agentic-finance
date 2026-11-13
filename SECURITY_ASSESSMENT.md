@@ -1,5 +1,18 @@
 # Shucamoxa adversarial security assessment
 
+## Integration update — 13 November 2026
+
+The assessment and retained evidence below describe the original `04b0adc`
+baseline. Current main includes T10, which rejects backend redirects and bounds
+requests. NET-01 is now a BLOCKED regression probe: it proves POST /payments
+reached the redirecting loopback server, no request reached the capture listener,
+and the client did not report success. The old expected-vulnerability marker
+caused PR #20's integration check to fail because this control now works.
+Other findings remain open unless separately verified. Current generated reports
+record the checked-out commit instead of labelling every run as `04b0adc`.
+The historical counts and V-05 text below are retained as baseline evidence,
+not current claims about the redirect control.
+
 **13 November 2026 — branch `security/adversarial-suite`.** Assessed production
 baseline: `04b0adc738e0507d531b73f427e3f044508f4785` (current main when work began).
 The payment coordinator had already been merged by PR #12. Its payment source

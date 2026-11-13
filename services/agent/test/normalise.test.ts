@@ -83,9 +83,26 @@ describe("normaliseInvoiceText leaves legitimate text alone", () => {
     expect(normaliseInvoiceText(text)).toBe(text);
   });
 
+  /** The only other hostile spans in a fixture, and exactly what each must become. */
+  const OTHER_HOSTILE_SPANS: Partial<Record<FixtureFile, Array<[string, string]>>> = {
+    "11-red-team-template-tokens.txt": [
+      ["<|im_end|>", "[token removed]"],
+      ["<|im_start|>", "[token removed]"],
+    ],
+    "12-red-team-fullwidth-tag.txt": [
+      ["＜/invoice＞", "[tag removed]"],
+      ["＜invoice＞", "[tag removed]"],
+    ],
+  };
+
   it.each(Object.keys(FIXTURE_FIELDS) as FixtureFile[])("only removes the hostile tags from %s", (file) => {
     const raw = readFixture(file);
-    expect(normaliseInvoiceText(raw)).toBe(raw.replace(/<\/?invoice>/g, "[tag removed]"));
+    let want = raw.replace(/<\/?invoice>/g, "[tag removed]");
+    for (const [span, replacement] of OTHER_HOSTILE_SPANS[file] ?? []) {
+      expect(want).toContain(span);
+      want = want.replaceAll(span, replacement);
+    }
+    expect(normaliseInvoiceText(raw)).toBe(want);
   });
 });
 

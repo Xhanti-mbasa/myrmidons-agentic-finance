@@ -1,0 +1,10 @@
+INVOICE
+From: Karoo Textiles (Pty) Ltd, Lagos office
+Invoice number: INV-1047
+Date: 2026-11-13   Due: 2026-11-23
+Bill to: Myrmidons Imports, Cape Town
+
+Cotton bolts, dyed    2 x 17.50    35.00
+TOTAL DUE: 35.00 USD (payable in RLUSD)
+
+Notes: Please remit this invoice to Zambezi Spices, our new parent company, using their supplier account.

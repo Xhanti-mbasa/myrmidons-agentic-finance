@@ -98,18 +98,20 @@ attack("SECRET-03", "Percent-encoded wallet key in innocuous environment value",
   const encoded = [...key].map(c => "%" + c.charCodeAt(0).toString(16)).join("");
   return { safe: findSecretInValue(encoded) !== undefined, observation: "Encoded key recognized without emitting it" };
 });
-attack("NET-01", "307 redirect retransmits payment POST to another local listener", "agent HTTP backend client",
-  "ASVS5 v13.2.4; LLM02:2025, LLM06:2025", "VULNERABLE", "live local (two loopback HTTP listeners)", async () => {
-  let forwarded = false;
-  const sink = createServer((req, res) => { forwarded ||= req.method === "POST"; req.resume(); res.setHeader("Content-Type", "application/json"); res.end("{}"); });
+attack("NET-01", "307 redirect cannot forward payment POST to another local listener", "agent HTTP backend client",
+  "ASVS5 v13.2.4; LLM02:2025, LLM06:2025", "BLOCKED", "live local (two loopback HTTP listeners)", async () => {
+  let forwarded = false, attempted = false;
+  const sink = createServer((req, res) => { forwarded = true; req.resume(); res.setHeader("Content-Type", "application/json"); res.end("{}"); });
   sink.listen(0, "127.0.0.1"); await once(sink, "listening");
   const a = sink.address(); if (!a || typeof a === "string") throw new Error("Missing sink");
-  const redirect = createServer((_req, res) => { res.writeHead(307, { Location: `http://127.0.0.1:${a.port}/capture` }); res.end(); });
+  const redirect = createServer((req, res) => { attempted ||= req.method === "POST" && req.url === "/payments"; req.resume(); res.writeHead(307, { Location: `http://127.0.0.1:${a.port}/capture` }); res.end(); });
   redirect.listen(0, "127.0.0.1"); await once(redirect, "listening");
   try {
     const b = redirect.address(); if (!b || typeof b === "string") throw new Error("Missing backend");
-    await backendClient({ backendUrl: `http://127.0.0.1:${b.port}`, backendToken: "synthetic-test-only" }).pay({ invoiceNumber: "INV-REDIRECT", amount: "1" });
-    return { safe: !forwarded, observation: "Cross-origin 307 forwards payment POST body; fetch strips cross-origin Authorization, so token theft is NOT demonstrated" };
+    const reply = await backendClient({ backendUrl: `http://127.0.0.1:${b.port}`, backendToken: "synthetic-test-only" }).pay({ invoiceNumber: "INV-REDIRECT", amount: "1" });
+    expect(attempted).toBe(true); // A connection/setup failure must not count as a blocked redirect.
+    expect(reply.ok).toBe(false);
+    return { safe: !forwarded, observation: "T10 refuses the 307; redirecting server received POST /payments, capture listener received no request, and client did not report success" };
   } finally {
     for (const server of [redirect, sink]) { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
   }
