@@ -30,12 +30,28 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.client.start()
         self.addCleanup(self.client.stop)
 
-    async def test_five_discoverable_tools(self):
+    async def test_seven_discoverable_tools(self):
         tools = await server.mcp.list_tools()
         self.assertEqual({t.name for t in tools}, {
-            "get_mandate", "get_balance", "get_invoice", "pay_invoice", "get_payment_status"})
+            "get_mandate", "get_balance", "get_invoice", "pay_invoice", "get_payment_status",
+            "pay", "get_transfer_status"})
         payment = next(t for t in tools if t.name == "pay_invoice")
         self.assertEqual(set(payment.inputSchema["properties"]), {"invoice_id", "reason"})
+
+    async def test_pay_only_forwards_stored_intent_id(self):
+        intent_id = "ad2ae810-0787-49f2-a458-1c57bff0fb11"
+        self.reply = httpx.Response(200, json={"intentId": intent_id, "status": "submitted", "code": "OK"})
+        result = await server.pay(intent_id)
+        self.assertEqual(result["status"], "submitted")
+        self.assertEqual(self.requests[0].url.path, "/transfers/pay")
+        self.assertEqual(self.requests[0].content, b'{"intentId":"ad2ae810-0787-49f2-a458-1c57bff0fb11"}')
+
+    async def test_transfer_timeout_is_unknown_without_retry(self):
+        self.reply = httpx.ReadTimeout("private upstream detail")
+        result = await server.pay("ad2ae810-0787-49f2-a458-1c57bff0fb11")
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["code"], "EXECUTION_UNKNOWN")
+        self.assertEqual(len(self.requests), 1)
 
     async def test_policy_rejection_and_stable_retry_key(self):
         result = await server.pay_invoice("INV-001", "Due today")

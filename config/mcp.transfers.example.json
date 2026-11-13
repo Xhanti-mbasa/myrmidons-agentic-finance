@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "transfers": {
+      "command": "{python}",
+      "args": ["transfers.py"],
+      "cwd": "../mcp_gateway",
+      "env": {
+        "SHUCAMOXA_BACKEND_URL": "${SHUCAMOXA_BACKEND_URL}",
+        "SHUCAMOXA_BACKEND_TOKEN": "${SHUCAMOXA_BACKEND_TOKEN}",
+        "SHUCAMOXA_BUSINESS_SCOPE": "${SHUCAMOXA_BUSINESS_SCOPE}"
+      }
+    }
+  }
+}

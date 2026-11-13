@@ -63,7 +63,8 @@ or emerging XRPL features are not required for the MVP.
 ## 4. MVP scope
 
 **In scope:** invoice intake and structured extraction; approved-supplier lookup;
-test RLUSD payments; externally enforced caps and budgets; duplicate prevention;
+test RLUSD invoice payments and owner-authorized internal/person/vendor transfers;
+scheduled execution; externally enforced caps and budgets; duplicate prevention;
 owner exception handling and revocation; audit/ledger evidence; an owner-facing
 control surface; local developer MCP/model testing; reproducible repository
 context and versioned configuration/artifact references.
@@ -126,6 +127,9 @@ implementation status is maintained separately.
 | FR-17 | Demonstrate the safety story. | The prescribed happy path, over-cap/budget, unknown supplier, duplicate, injected invoice and kill-switch scenarios have reproducible evidence. |
 | FR-18 (P1) | Make team/model development reproducible. | Individual keys, scoped onboarding and local MCP discovery work; profiles and artifact checksums are versioned; developers can reproduce tests without sharing keys. |
 | FR-19 (P1) | Preserve context across LLM sessions. | A new session reading AGENTS, PRD, spec and status can name the customer, MVP, authority boundary, current gaps and next task without relying on prior chats. |
+| FR-20 | Support owner-authorized internal wallet transfers and payments to approved people/vendors. | Authenticated intent binds exact payer, recipient, asset and amount; name matching alone grants no authority; the agent cannot edit it or owner policy. |
+| FR-21 | Schedule authorized payments. | Due execution rechecks current policy, budget, recipient binding and expiry; schedule creation is not settlement. |
+| FR-22 | Suspend compromised payment authority. | Repeated rejected authenticated requests can lock that principal's payment capability; only the owner can unlock; untrusted invoice text cannot lock another account. |
 
 ## 7. Owner experience requirements
 
@@ -227,3 +231,8 @@ Update this PRD when product scope/acceptance changes; update the technical spec
 when contracts or boundaries change; update project status when implementation
 or evidence changes. Keep proposed decisions visibly proposed until agreed.
 Requirements and source code are versioned together through reviewed changes.
+
+Transfer extension agreed 13 November 2026: FR-20 through FR-22 add owner-initiated
+transfers and scheduling alongside invoice payables. Semantic contact matching,
+incoming-wallet monitoring and live signing are separately integrated capabilities;
+their implementation is not established by the transfer coordinator.

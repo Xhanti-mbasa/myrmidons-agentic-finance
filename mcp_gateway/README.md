@@ -50,3 +50,22 @@ The model server and MCP gateway are different processes. Run this gateway in yo
 ```
 
 Tests use simulated backend responses: they do not move funds or establish that a real backend implements the policy and idempotency contract.
+
+## Stored transfer intents
+
+The gateway also exposes `pay(intent_id)` -> `POST /transfers/pay` with
+`{intentId}`, and `get_transfer_status(intent_id)` -> `GET /transfers/{intentId}`.
+These use the new `services/payments/` coordinator and are not aliases for the
+legacy invoice routes above. Configure a host that serves the needed routes;
+no such host is started by launching this MCP subprocess. Owner creation of
+intents, policy updates, recipient approval and unlock are never model tools.
+
+An intent binds the approved source, recipient, RLUSD amount and optional
+schedule outside the model. A timeout is unknown and is not retried. Wallet
+and independent-policy adapters remain to be integrated; see
+[the payment core guide](../services/payments/README.md).
+
+For a transfer-only host, use `transfers.py` and
+`config/mcp.transfers.example.json`. This low-level SDK server exposes only the
+two transfer tools and rejects extra fields/invalid IDs before HTTP dispatch.
+The integration test uses a real MCP subprocess and a scripted HTTP backend.

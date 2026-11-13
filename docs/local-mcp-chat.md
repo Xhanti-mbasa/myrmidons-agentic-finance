@@ -119,8 +119,9 @@ This first bridge supports stdio, not HTTP/SSE MCP endpoints, resources, prompts
 sampling, elicitation or multimodal tool output. Text/JSON tool output is the
 supported initial path. Do not assume protocol support beyond tool discovery/call.
 
-The merged `mcp_gateway/server.py` is a separate payment-backend adapter with five
-tools. It is not enabled by the default config. Its proposed backend contract is
+The merged `mcp_gateway/server.py` has seven tools: five legacy invoice-backend tools plus `pay` and transfer
+status for the new coordinator. See `services/payments/README.md` for the separate
+transfer API and required wallet/policy adapters. It is not enabled by the default config. Its proposed backend contract is
 different from the existing TypeScript agent's backend client; they are not
 silently interchangeable. See `mcp_gateway/README.md` before any integration.
 `config/mcp.payments.example.json` shows how to connect it locally later, with
