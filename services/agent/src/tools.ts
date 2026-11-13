@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { isValidClassicAddress, isValidXAddress } from "ripple-address-codec";
-import { Amount, ApprovalRequest, fromCents, XrplAddress, PayRequest, PayResult, Reason, SupplierLookup, toCents, type RuleCode } from "@shucamoxa/shared";
+import { Amount, ApprovalRequest, fromCents, LogEntry, XrplAddress, PayRequest, PayResult, Reason, SupplierLookup, toCents, type RuleCode } from "@shucamoxa/shared";
 import type { BackendClient } from "./backend";
 import { chatInvoiceNumber } from "./ids";
 
@@ -93,7 +93,7 @@ function refusePay(request: PayRequest, state: RunState): string | null {
     return NOT_LOOKED_UP;
   }
   if (state.mandate && request.invoiceNumber !== state.mandate.invoiceNumber)
-    return `This run may only pay invoice ${state.mandate.invoiceNumber}.`;
+    return "This run may only pay the invoice being processed.";
   if (state.mandate && toCents(request.amount) !== toCents(state.mandate.amount))
     return `The amount must equal the invoice total, ${state.mandate.amount}. Amounts mentioned elsewhere in the invoice are ignored.`;
   if (state.attemptedInvoices.has(request.invoiceNumber))
@@ -197,7 +197,7 @@ function paymentApproval(input: PaymentApprovalInput, state: RunState): { refusa
   if (mandate) {
     if (mandate.supplierId === null || input.supplierId !== mandate.supplierId)
       return { refusal: "Approval can only be requested for this invoice's own supplier, matched by the system. Use propose_supplier if it is new." };
-    if (input.invoiceNumber !== mandate.invoiceNumber) return { refusal: `This run may only ask about invoice ${mandate.invoiceNumber}.` };
+    if (input.invoiceNumber !== mandate.invoiceNumber) return { refusal: "This run may only ask about the invoice being processed." };
     if (toCents(input.amount) !== toCents(mandate.amount))
       return { refusal: `The amount must equal the invoice total, ${mandate.amount}. Amounts mentioned elsewhere in the invoice are ignored.` };
   } else if (!state.knownSupplierIds.has(input.supplierId)) {
@@ -330,9 +330,35 @@ function allTools(backend: BackendClient, state: RunState) {
         to: z.string().optional(),
         status: z.enum(["settled", "blocked", "pending_approval"]).optional(),
       }),
-      execute: async (filter) => backend.queryLog(Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined)) as Record<string, string>),
+      execute: async (filter) =>
+        logForModel(await backend.queryLog(Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined)) as Record<string, string>)),
     }),
   });
+}
+
+/** The log fields the model may read. explanation, reason and any other free text stay on the dashboard. */
+const LOG_FIELDS_FOR_MODEL = ["seq", "ts", "event", "invoiceNumber", "supplierId", "amount", "ruleCode", "txHash"] as const;
+
+/**
+ * GET /log as the model sees it (T07, G8): each entry cut down to LOG_FIELDS_FOR_MODEL, and each kept
+ * value checked against its LogEntry field schema (else null), so free text can't ride in a kept field
+ * either. A reply that is not a list becomes an error.
+ */
+export function logForModel(reply: Awaited<ReturnType<BackendClient["queryLog"]>>) {
+  if (!reply.ok) return reply;
+  if (!Array.isArray(reply.body)) return { ok: false as const, error: "the log reply was not a list of entries" };
+  return {
+    ok: true as const,
+    body: reply.body.map((raw) => {
+      const entry = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      return Object.fromEntries(
+        LOG_FIELDS_FOR_MODEL.map((key) => {
+          const parsed = (LogEntry.shape[key] as z.ZodType).safeParse(entry[key]);
+          return [key, parsed.success ? parsed.data : null];
+        }),
+      );
+    }),
+  };
 }
 
 /** XRPL classic address shape: "r" plus 24-34 base58 characters (checksum not required). */

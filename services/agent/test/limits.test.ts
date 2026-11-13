@@ -343,10 +343,11 @@ describe("limits: response size", () => {
 
     await agent.chat("Show me the log");
 
-    const seen = plannerModel.everythingTheModelSaw.match(/LOGROW-\d+-END/g) ?? [];
+    // T07: query_log shows the model no free text (the note is dropped), so count the entries by seq.
+    const seen = [...plannerModel.everythingTheModelSaw.matchAll(/"seq":(\d+)/g)].map((m) => Number(m[1]));
     expect(new Set(seen).size).toBe(50);
-    expect(seen).toContain("LOGROW-50-END");
-    expect(seen).not.toContain("LOGROW-51-END");
+    expect(seen).toContain(50);
+    expect(seen).not.toContain(51);
   });
 
   it("an off-contract GET /log reply (not a list) is refused", async () => {
