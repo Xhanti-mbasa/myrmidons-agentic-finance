@@ -25,7 +25,7 @@ source/tests. See [PRD](PRD.md) and [technical specification](TECHNICAL_SPEC.md)
 | Model profiles/import | Source present in `model_build.py`; profile and GGUF blob flow tested with simulated APIs. | Fine-tuning, tensor editing, successful import of a real trained GGUF or actual live model rebuild. |
 | Component manifests | Source present in CLI `model pin/pull`; selective checksum verification/cache tests. | A populated registry/manifest for all deployed model bytes; initial downloader supports unauthenticated HTTPS only. |
 | Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
-| Python payment MCP gateway | Source present in `mcp_gateway/`; five tools and simulated backend tests. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
+| Python payment MCP gateway | Source present in `mcp_gateway/`; seven tools and simulated backend tests. New transfer tools use a separate coordinator API. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
 | Independent policy/signing service (W2) | `CosignRequest`/`CosignResponse`, rule codes and target invariants present as shared contracts. | A deployed co-signer or ledger configuration making its approval mandatory. |
 | Payment service / XRPL execution (W3) | Shared contracts and target constants exist. | Live signer, durable operation store, submit/reconcile implementation or final Testnet settlement proof. |
 | Backend/auth/audit service (W4) | Client expectations, schema/log primitives and fake backend tests exist. | Running authenticated owner/agent APIs, atomic reservations or durable audit persistence. |
@@ -136,6 +136,34 @@ groups to report bounded Ollama HTTP errors, timeout and connection failures.
 Regression tests simulate those failures; no successful local inference or
 benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
 specific error if it fails; compare `--no-mcp` and direct Ollama inference.
+
+## 13 November 2026: deterministic pay implementation
+
+FR-20/21/22 and part of GAP-05: `services/payments/src/payment.ts` adds a durable
+SQLite transfer coordinator; `http.ts` fixes identity/scope from private server
+credentials. `packages/shared/src/transfers.ts` defines new strict contracts,
+without silently replacing invoice APIs. MCP adds `pay` and transfer status.
+The agent references a separately owner-authorized stored intent, not arbitrary
+addresses/amounts. Owner-specific caps, cumulative budgets, persistent reservation
+and deduplication, due execution, credential lockout, audit and reconciliation
+are implemented and covered by simulated tests. No live signer is bundled.
+
+Tests use temporary SQLite, fake policy/ledger adapters and a real local HTTP
+listener. Existing shared/agent and Python tooling tests are checked separately.
+This is not evidence of real blockchain settlement, incoming-wallet monitoring,
+contact identity verification, legal compliance or OS isolation deployment.
+Remaining: friend-owned wallet adapter, mandatory independent policy/signing
+verification, trusted owner UI/backend, ledger recovery/anchors and timer
+deployment. The existing invoice agent and `/v1` gateway routes still require
+explicit integration; the new coordinator does not implement those routes.
+
+Validation for the transfer change: 486 TypeScript tests passed, 24 optional live
+evaluations skipped; typecheck passed. The new transfer project contributes 21
+tests. Python CLI tests: 47 passed; MCP gateway tests: 10 passed, including a
+real strict transfer MCP subprocess against a scripted HTTP backend. Local
+installation reported the existing lockfile `ws@8.23.0` minimum-release-age
+policy; installed compiler/test binaries were used without changing dependencies
+or relaxing that policy. GitHub CI remains the clean-install verification.
 
 ## 13 November 2026: finance/Islamic-finance/AI governance research
 

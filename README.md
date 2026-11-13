@@ -30,6 +30,11 @@ an administrator to install the sync, configure the member allowlist and supply 
 
 ## Develop
 
+The [deterministic payment core](services/payments/README.md) provides owner-authorized
+internal/person/vendor transfer intents, policy checks, persistent reservations,
+scheduling and audit. MCP exposes `pay(intent_id)`; live wallet/policy adapters
+must be supplied separately. Tests do not move funds.
+
 Requires Node 22 (see `.nvmrc`) and pnpm.
 
 ```bash

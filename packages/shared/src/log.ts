@@ -94,6 +94,15 @@ function encode(value: unknown, ancestors: Set<object>): string {
 
 const LOWER_HEX_64 = /^[0-9a-f]{64}$/;
 
+/** Shared hash preimage for invoice and transfer audit chains; suitable for synchronous DB writers. */
+export function auditHashInput(prevHash: string, entryWithoutHash: { prevHash: string }): string {
+  if (!LOWER_HEX_64.test(prevHash) || entryWithoutHash.prevHash !== prevHash ||
+      Object.prototype.hasOwnProperty.call(entryWithoutHash, "hash")) {
+    throw new TypeError("auditHashInput: invalid chain link or unexpected hash field");
+  }
+  return prevHash + canonicalJson(entryWithoutHash);
+}
+
 /**
  * hash = SHA-256(prevHash + canonicalJson(entry)) as 64 lower-case hex characters. The entry is the row
  * without its hash and includes its own prevHash, seq and ts. Async because it uses Web Crypto
@@ -111,7 +120,7 @@ export async function hashLogEntry(prevHash: string, entryWithoutHash: Omit<LogE
   }
   const subtle = globalThis.crypto?.subtle;
   if (!subtle) throw new Error("hashLogEntry: Web Crypto is unavailable (needs Node 20+ or a browser secure context)");
-  const bytes = new TextEncoder().encode(prevHash + canonicalJson(entryWithoutHash));
+  const bytes = new TextEncoder().encode(auditHashInput(prevHash, entryWithoutHash));
   const digest = new Uint8Array(await subtle.digest("SHA-256", bytes));
   return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
 }

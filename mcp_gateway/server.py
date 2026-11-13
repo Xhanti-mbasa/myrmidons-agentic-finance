@@ -104,6 +104,26 @@ async def get_payment_status(invoice_id: Identifier) -> dict[str, Any]:
     return await backend("GET", f"/v1/invoices/{invoice_id}/payment")
 
 
+@mcp.tool(annotations=WRITE)
+async def pay(intent_id: Identifier) -> dict[str, Any]:
+    """Execute or schedule an owner-authorized stored transfer intent.
+
+    The backend, not the model, owns the source account, approved recipient,
+    exact RLUSD amount, due time and policy. Never supply a raw destination or
+    change the stored intent. Unknown is not failure: check get_transfer_status.
+    """
+    result = await backend("POST", "/transfers/pay", payload={"intentId": intent_id})
+    if result.get("code") == "BACKEND_OUTCOME_UNKNOWN":
+        return {"intentId": intent_id, "status": "unknown", "code": "EXECUTION_UNKNOWN"}
+    return result
+
+
+@mcp.tool(annotations=READ)
+async def get_transfer_status(intent_id: Identifier) -> dict[str, Any]:
+    """Read a transfer's durable status; a submitted hash is not validated settlement."""
+    return await backend("GET", f"/transfers/{intent_id}")
+
+
 if __name__ == "__main__":
     # No public listener. Cameron's harness launches this as a subprocess.
     mcp.run(transport="stdio")
