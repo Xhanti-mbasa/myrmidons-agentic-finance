@@ -1,0 +1,4 @@
+# Public XRPL Testnet transaction identifier recorded in the original XRP demo.
+# Exact historical finding only: do not exempt a whole file, rule, or future commit.
+# This is ledger metadata, not a signing credential.
+da402696d87309289c47280f8c5c1841283f6c3c:docs/PROJECT_STATUS.md:hex-private-key-64:43
