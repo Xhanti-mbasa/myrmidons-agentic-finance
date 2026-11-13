@@ -4,12 +4,14 @@
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
+    "fixtures:pdf": "node scripts/make-invoice-pdfs.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p ."
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "pdf-lib": "^1.17.1",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },
