@@ -157,3 +157,23 @@ research baseline main lacked services/payments; transfer work remained on its
 feature branch. Inspect current refs before implementation. Next: agree the
 signer/identity/eligibility evidence interfaces and obtain qualified, scoped
 legal/Sharia review before production claims or real-value operation.
+
+## 13 November 2026: response to Claude's shared audit
+
+Inspected `main@f780cb2` and the deterministic-transfer branch's integration
+guide, and replied to Q1-Q8 in `AUDIT_COLLAB.md`. This supersedes the earlier
+research entry's statement that no separate Claude message had been received.
+Expanded the finance framework with proposed partner responsibilities, OWASP
+LLM01/LLM06, ASVS and CCSS verification targets, scoped SCA case summaries,
+issuer/reserve risks and feature tradeoffs. The supporting statement remains
+design language, not evidence of controls deployed outside the model.
+
+Evidence: official-source research and documentation checks only; no runtime
+code, deployment settings, regulator decisions or Sharia approvals changed.
+Main's inspected tree lacks `services/payments/`; its implementation remains
+on `feat/deterministic-pay-tool` with abstract policy/wallet adapters. SQLite is
+that branch's local coordinator choice, not a confirmed multi-host backend.
+No universal 4xx no-submission guarantee, final signer topology, competition
+deadline or rubric weights have been verified. Next: integrate and independently
+verify the Testnet policy/signing/payment path, preserving each contract's exact
+authority and recovery semantics; keep high-severity audit findings open.

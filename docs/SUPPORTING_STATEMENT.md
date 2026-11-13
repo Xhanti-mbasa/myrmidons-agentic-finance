@@ -1,12 +1,14 @@
 # Supporting statement
 
-Shucamoxa is being designed to make AI-assisted payments accountable through
-owner-defined mandates, deterministic policy checks, independent signing and
-traceable execution. Its proposed governance approach draws on FATF financial-crime
-standards, AAOIFI and IFSB Islamic-finance guidance, and NIST AI risk management.
-The model proposes actions; it cannot grant itself spending authority. Trust must
-come from tested controls, verified settlement, independent review and applicable
-legal and Sharia approvals—not a claim that the AI cannot make mistakes.
+Shucamoxa's design puts payment authority in owner-approved mandates,
+deterministic policy checks and independent signing. AI proposes actions;
+trusted services must verify the recipient, amount, asset and permission before
+funds move, then reconcile settlement and retain audit evidence. Our recommended
+governance baseline combines applicable financial law, FATF standards and AI
+security guidance, with a separately reviewed AAOIFI/IFSB-informed Islamic-finance
+profile. Trust depends on demonstrated controls and accountable review. Live
+enforcement and legal or Sharia approval must be established before those claims
+are made.
 
 Status: design rationale, not a compliance or certification claim. See
 [the sourced framework](FINANCE_TRUST_FRAMEWORK.md) for applicability, implementation

@@ -35,6 +35,39 @@ the actual operative instruments before real-money operation. Tax, consumer,
 payment-service and other-country requirements also need activity-specific review;
 this is a prioritised starting map, not an exhaustive jurisdictional opinion.
 
+### Proposed operating model and responsibilities
+
+Start by evaluating business software supplied to an appropriately authorised
+payment/CASP partner. This is a recommended commercial model, not a named or
+contracted partner, and it does not exempt Shucamoxa from its own obligations.
+Counsel must classify the actual service, including who initiates transfers and
+controls signing. FIC registration and FSCA licensing are separate questions.
+
+| Area | Proposed operational responsibility | Evidence needed |
+|---|---|---|
+| Identity, beneficial ownership and applicable sanctions checks | Regulated partner's compliance function; supplier provides evidence; Shucamoxa enforces the resulting scoped decision. | Due-diligence agreement, trusted evidence, expiry/re-screening rules and accountable reviewer. |
+| Travel Rule and regulatory reporting | Each legally obliged entity retains its duties; partner operates the required exchange/reporting process. | Applicability assessment, secure counterparty channel, missing-data handling and report records; no personal payload in a blockchain memo. |
+| Mandates, limits and recipient changes | Business owner authorises; independent policy/signing service enforces. | Exact transaction binding, owner authentication, revocation and recorded approval provenance. |
+| Audit and retention | Each party retains its own required records; Shucamoxa supplies protected exports and reconciliation evidence. | Contracted access, retention by record class, legal holds, restore/export checks and a current legal retention assessment. |
+| Privacy and incidents | Determine POPIA responsible-party/operator roles from the actual processing, then document them. | Data inventory, processing agreement where applicable, privacy notice, access controls and incident responsibilities. |
+
+Outsourcing implementation is not outsourcing statutory accountability. Do not
+hard-code a universal retention period from this table. FIC publishes GN 7B
+[25], while its general compliance page still links older guidance; confirm the
+operative text and retention triggers before adopting a production schedule.
+
+### Payment diversion and legal liability
+
+The SCA's official summaries verify both cases proposed by Claude [22]. In
+*Intengo Imoto v Zoutpansberg Motor Wholesalers* [2025] ZASCA 93, the payer
+failed to establish payment to the correct account and remained liable on the
+facts. *Edward Nathan Sonnenberg Inc v Hawarden* [2024] ZASCA 90 concerned a
+delictual pure-economic-loss claim: the SCA rejected liability in the circumstances.
+It is not the same contractual holding. These summaries support verification of
+payment instructions; they do not decide every fraud dispute or establish the
+legal effect of an XRPL transfer. Full judgments and later treatment need legal
+review before a liability claim in marketing or contracts.
+
 ## 2. Islamic-finance policy baseline
 
 Use AAOIFI for relevant contract/ethics/governance standards and IFSB for
@@ -67,6 +100,20 @@ a Testnet demo does not approve the live asset or its issuer arrangements.
 Keep any Sharia policy profile explicitly scoped and versioned; do not silently
 apply an unreviewed universal religious classification to every customer.
 
+The current issuer terms list Treasury bills, reverse repos, government
+money-market funds and deposits as possible reserves, and distinguish ordinary
+holders from customers eligible for direct redemption [12]. Supply those terms
+and current disclosures to the Sharia reviewer. Holding a token and earning
+interest are distinct questions; this research makes no halal/haram ruling from
+the reserve list alone. Keep financing, lending and investment products outside
+this payment scope until their actual contracts receive separate approval.
+
+Issuer controls also matter: the terms permit freezing and burning in specified
+circumstances [12], and Ripple's XRPL implementation documentation identifies
+clawback support [24]. A validated settlement record is not a promise that the
+holder can never face a later freeze, clawback or redemption restriction. Monitor
+those later events and retain them separately from the original payment record.
+
 ## 3. Earning trust in AI-assisted finance
 
 Use NIST AI RMF 1.0 and its Generative AI Profile to organise risks, evidence,
@@ -96,6 +143,24 @@ A prompt-injection detector or confidence score is not a spending authorisation.
 No finite test set proves an LLM never makes mistakes. The release claim should
 describe tested controls and known residual risks, with accountable humans for
 exceptions, incident response and legal/Sharia decisions.
+
+### Security references mapped to verification
+
+These are recommended engineering references, not claims of certification or of
+completed conformance. Pin the edition and applicable requirements in a future
+assurance plan, with evidence for each implemented control.
+
+| Reference | Application here | Verification target |
+|---|---|---|
+| OWASP LLM01:2025 Prompt Injection [18] | Treat invoice/document/tool content as untrusted; isolate authority from prompts. | A manipulated model cannot change approved recipients, mandates or exact payable fields. |
+| OWASP LLM06:2025 Excessive Agency [19] | Minimum tools/permissions; downstream authorisation on every request. | Direct API and signer calls have the same constraints as MCP; owner recovery stays separate. |
+| OWASP ASVS 5.0.0 [20] | Owner UI/API authentication, sessions, access control and input handling; target applicable Level 2 requirements as a proposed starting scope. | Tenant isolation, privilege separation, policy-change authorisation and API security tests. |
+| C4 CCSS v9.0 [21] | Crypto-specific key lifecycle, operational controls and governance alongside broader security controls. | Document generation/storage, use, recovery, compromise response and independent custody review. No CCSS level is claimed. |
+
+OWASP explicitly notes limits to prompt-injection prevention [18]; the design
+must limit consequences even when the model is manipulated. CCSS certification
+is scoped to a system, not blanket certification of every activity of a business
+[21]. Neither framework proves the legal or Sharia acceptability of a payment.
 
 ## 4. Integration plan and honest release gates
 
@@ -127,12 +192,50 @@ records off public blockchains, outside Git and outside model context. Audit
 references/hashes support traceability but do not replace protected source records
 or a legally adequate recordkeeping programme.
 
+### Priorities agreed for discussion with Claude
+
+Build and verify the independent payment/policy/signing path before adding
+standout features. The existing transfer-core branch is a coordinator with
+fake-adapter tests, not proof of a live signer. A minimum release evidence pack
+should show an actual Testnet success, agent-only and master-key bypass refusal,
+policy revocation before signing, duplicate/restart recovery and amount-verified
+reconciliation. Audit failures before signing must block payment; uncertain
+post-submission outcomes must retain their identity/reservations.
+
+For the proposed XRPL signer, allow only the exact supported Payment shape;
+deny unknown transaction types/fields, partial payments and currency-conversion
+paths. Bound fees/expiry and verify the signed bytes. Reconciliation must inspect
+validated ledger evidence and `delivered_amount`, matching destination/tag,
+asset/issuer and amount [23]. These are implementation requirements, not checks
+added by this documentation commit.
+
+The suggested agent weight 1 + policy weight 1 + owner weight 2, quorum 2
+topology permits owner-only spending and administration. It prevents agent-only
+spending, but does not make policy approval mandatory for the owner. If universal
+policy enforcement is the requirement, choose a different reviewed topology.
+Disable/remove unintended master/regular-key paths and design recovery before
+activating restrictions. Ledger quorum alone cannot restrict transaction type;
+the policy signer must refuse account-administration transactions [23].
+
+| Proposal | Recommendation and limit |
+|---|---|
+| Supplier address continuity | Prioritise authenticated onboarding and out-of-band change verification. Later add signatures bound to business/network, old/new wallet and tag, nonce, expiry and approval version, with independent recovery. A signature proves control of a key; compromised keys and mistaken initial identity remain risks. |
+| Proof of refusal | Add independent signed checkpoints/export verification after durable audit exists. A ledger anchor can reveal alteration of committed history, not omitted events or truthful/legal decisions. Use a valid, tested anchoring transaction; direct self-payments are rejected as redundant [23]. Low-entropy invoice hashes can still disclose personal information through guessing. |
+| Anti-splitting controls | Prioritise atomic aggregate recipient/owner period budgets, then bounded velocity holds. A pattern is a risk signal, not proof of money laundering or authority to freeze all accounts. Compliance staff own reporting decisions. |
+
+For any optional XRPL Credentials extension, verify amendment support, issuer
+trust, acceptance, expiry and revocation. Credentials attest to a statement; they
+do not independently perform KYC. Deposit Authorization controls what a recipient
+can receive; it does not implement the payer's supplier allowlist [23]. None of
+these optional features is claimed implemented or scheduled against an unverified
+competition deadline.
+
 ## Primary-source register
 
 Official sources checked 13 November 2026. Full ISO/AAOIFI clause-level conformity
 was not assessed from public summaries/catalogues. Recheck laws before launch.
 
-1. FATF, virtual assets: https://www.fatf-gafi.org/en/topics/virtual-assets.html
+1. FATF, virtual assets and current Recommendations: https://www.fatf-gafi.org/en/topics/virtual-assets.html ; https://www.fatf-gafi.org/en/publications/Fatfrecommendations/Fatf-recommendations.html
 2. FIC, CASP scope: https://www.fic.gov.za/accountable-institut/crypto-asset-service-providers/
 3. FIC, Directive 9 and commencement: https://www.fic.gov.za/document/directive-9-travel-rule-relating-to-crypto-asset-transfers/ ; https://www.fic.gov.za/wp-content/uploads/2024/11/Media-release-FIC-publishes-Directive-9-relating-to-the-implementation-of-the-travel-rule-by-CASPs.pdf
 4. FSCA, authorisation: https://www.fsca.co.za/New-Financial-Service-Provider/
@@ -149,3 +252,11 @@ was not assessed from public summaries/catalogues. Recheck laws before launch.
 15. ISO/IEC 27001: https://www.iso.org/standard/27001
 16. AICPA, SOC resources: https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2
 17. Basel Committee, operational resilience: https://www.bis.org/committees/bcbs/basel-consolidated-guidelines/module/orr/20
+18. OWASP, LLM01:2025 Prompt Injection: https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+19. OWASP, LLM06:2025 Excessive Agency: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+20. OWASP, ASVS 5.0.0: https://asvs.owasp.org/ ; https://asvs.owasp.org/downloads/
+21. C4, CCSS scope and v9.0: https://cryptoconsortium.org/cryptocurrency-security-standard-ccss/ ; https://cryptoconsortium.org/cryptocurrency-security-standard-documentation/ccss-details-v9/
+22. SCA, official media summaries (not substitutes for judgments): https://www.supremecourtofappeal.org.za/images/SCA2025_93ms.pdf ; https://www.supremecourtofappeal.org.za/images/SCA2024-90ms.pdf
+23. XRPL, protocol references: https://xrpl.org/docs/concepts/accounts/multi-signing ; https://xrpl.org/docs/references/protocol/transactions/types/payment ; https://xrpl.org/docs/references/protocol/transactions/metadata ; https://xrpl.org/docs/references/protocol/transactions/transaction-results/tem-codes ; https://xrpl.org/docs/concepts/decentralized-storage/credentials ; https://xrpl.org/docs/concepts/accounts/depositauth
+24. Ripple, XRPL issuer settings (inspect actual network/account state separately): https://github.com/ripple/RLUSD-Implementation/blob/main/doc/rlusd-xrpl-settings.md
+25. FIC, GN 7B publication listing: https://www.fic.gov.za/document/guidance-note-7b-implementation-of-various-aspects-of-the-fic-act/ (listing verified; PDF returned an access error, so no new clause-level retention conclusion is asserted).
