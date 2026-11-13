@@ -12,13 +12,15 @@ import {
   type AgentErrorCode,
   type RuleCode,
 } from "@shucamoxa/shared";
-import { createAgent } from "./agent";
+import { createAgent, type AgentOutcome } from "./agent";
 import { loadAgentServerConfig, type AgentConfig } from "./config";
 import { invoiceResponse } from "./explanation";
 import type { RunLimits } from "./limits";
+import { decodeAndValidatePdf, extractPdfText, InvalidPdfError, PdfTooLargeError } from "./pdf";
 
 /** Largest request body read, in bytes, counted as it streams in. */
 export const MAX_REQUEST_BYTES = 1024 * 1024;
+export const MAX_PDF_REQUEST_BYTES = 10 * 1024 * 1024;
 
 /** What the service logs. Only IDs, decisions, codes, counts and timings: never invoice text, tokens or model output. */
 export type AgentLogEntry =
@@ -99,20 +101,102 @@ export function createAgentServer(deps: AgentServerDeps) {
     if (!match || !matches) return fail(c, "unauthorized");
     await next();
   });
-  app.use("*", bodyLimit({ maxSize: MAX_REQUEST_BYTES, onError: (c) => fail(c, "payload_too_large") }));
+  app.use("*", async (c, next) => {
+    if (!c.req.raw.body) return next();
+    const rawHeaders = c.req.raw.headers;
+    const hasTransferEncoding = rawHeaders.has("transfer-encoding");
+    const contentLength = rawHeaders.has("content-length") && !hasTransferEncoding
+      ? parseInt(rawHeaders.get("content-length") || "0", 10)
+      : null;
+
+    if (contentLength !== null && contentLength > MAX_PDF_REQUEST_BYTES) {
+      return fail(c, "payload_too_large");
+    }
+
+    let size = 0;
+    let buffer = new Uint8Array(0);
+    const rawReader = c.req.raw.body.getReader();
+    let checkedType = false;
+    let maxSize = MAX_REQUEST_BYTES;
+
+    for (;;) {
+      const { done, value } = await rawReader.read();
+      if (done) break;
+      const offset = size;
+      size += value.length;
+
+      if (!checkedType) {
+        const prefix = new TextDecoder().decode(value.subarray(0, 1024));
+        if (prefix.includes('"pdfBase64"')) {
+          maxSize = MAX_PDF_REQUEST_BYTES;
+        }
+        checkedType = true;
+        if (contentLength !== null && contentLength > maxSize) {
+          await rawReader.cancel();
+          return fail(c, "payload_too_large");
+        }
+      }
+
+      if (size > maxSize) {
+        await rawReader.cancel();
+        return fail(c, "payload_too_large");
+      }
+
+      if (size > buffer.length) {
+        const grown = new Uint8Array(Math.min(maxSize, Math.max(size, buffer.length * 2)));
+        grown.set(buffer.subarray(0, offset));
+        buffer = grown;
+      }
+      buffer.set(value, offset);
+    }
+
+    c.req.raw = new Request(c.req.raw, { body: buffer.subarray(0, size) });
+    return next();
+  });
 
   app.post("/agent/invoices", async (c) => {
     const body = await readJson(c);
     if (!body.ok) return fail(c, "invalid_json");
     const request = ProcessInvoiceRequest.safeParse(body.value);
     if (!request.success) return fail(c, "invalid_request");
-    const { invoiceId, text } = request.data;
+    const { invoiceId, text: rawText, pdfBase64 } = request.data;
     if (inFlight.has(invoiceId)) return fail(c, "invoice_in_flight");
+
+    let pdfBytes: Uint8Array | undefined;
+    if (pdfBase64 !== undefined) {
+      try {
+        pdfBytes = decodeAndValidatePdf(pdfBase64);
+      } catch (err) {
+        if (err instanceof PdfTooLargeError) return fail(c, "payload_too_large");
+        return fail(c, "invalid_request");
+      }
+    }
 
     inFlight.add(invoiceId);
     const started = performance.now();
     try {
-      const response = ProcessInvoiceResponse.parse(invoiceResponse(await serially(() => agent.processInvoice(text))));
+      let invoiceText: string;
+      if (pdfBytes !== undefined) {
+        const extraction = await extractPdfText(pdfBytes);
+        if (extraction.status === "needs_review") {
+          const outcome: AgentOutcome = {
+            invoiceNumber: null,
+            decision: "needs_review",
+            ruleCode: null,
+            explanation: extraction.reason,
+            flags: [],
+            suspiciousText: [],
+          };
+          const response = ProcessInvoiceResponse.parse(invoiceResponse(outcome));
+          log({ event: "invoice_processed", invoiceId, decision: "needs_review", ruleCode: null, durationMs: since(started) });
+          return c.json(response);
+        }
+        invoiceText = extraction.text;
+      } else {
+        invoiceText = rawText!;
+      }
+
+      const response = ProcessInvoiceResponse.parse(invoiceResponse(await serially(() => agent.processInvoice(invoiceText))));
       const { decision, ruleCode } = response.outcome;
       log({ event: "invoice_processed", invoiceId, decision, ruleCode, durationMs: since(started) });
       return c.json(response);

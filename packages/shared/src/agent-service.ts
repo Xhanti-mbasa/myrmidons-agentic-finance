@@ -12,11 +12,17 @@ export const MAX_INVOICE_TEXT_CHARS = 20_000;
 export const AgentInvoiceId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, "invoice ID must be 1-64 ASCII letters, digits, _ or -");
 export type AgentInvoiceId = z.infer<typeof AgentInvoiceId>;
 
-/** POST /agent/invoices body. */
-export const ProcessInvoiceRequest = z.strictObject({
-  invoiceId: AgentInvoiceId,
-  text: z.string().min(1).max(MAX_INVOICE_TEXT_CHARS),
-});
+/** POST /agent/invoices body. Accepts either raw text or a base64-encoded PDF. */
+export const ProcessInvoiceRequest = z
+  .strictObject({
+    invoiceId: AgentInvoiceId,
+    text: z.string().min(1).max(MAX_INVOICE_TEXT_CHARS).optional(),
+    pdfBase64: z.string().min(1).optional(),
+  })
+  .refine(
+    (req) => (req.text !== undefined) !== (req.pdfBase64 !== undefined),
+    "exactly one of text or pdfBase64 must be provided",
+  );
 export type ProcessInvoiceRequest = z.infer<typeof ProcessInvoiceRequest>;
 
 export const AgentFlag = z.enum(["ADDRESS_ON_INVOICE_IGNORED", "SUSPICIOUS_TEXT"]);
