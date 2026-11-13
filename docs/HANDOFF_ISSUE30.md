@@ -1,6 +1,7 @@
 # Issue #30: existing spending controls verified
 
-13 November 2026. Baseline inspected: `47b6c55` on main. This is local
+13 November 2026. Baseline inspected: `47b6c55` on main; verification rerun on
+`c9d415b` (`work/payment-issues-30-33`). This is local
 source/test evidence, not a deployed payment or validated ledger transaction.
 
 ## Existing behavior preserved
@@ -38,7 +39,7 @@ authorization, so the caller must retain business identity correctly.
 
 ## Changes and reproducible evidence
 
-Added six tests in `services/payments/test/payment.test.ts` covering stricter
+Added seven regression checks in `services/payments/test/payment.test.ts` covering stricter
 recipient override, exact budget boundary and first over-budget cent; combined
 spent/unknown reservations through edits/restart/calendar advancement; independent
 connections contending for capacity; enabled-policy version changes while
@@ -57,8 +58,8 @@ python -m unittest discover -s mcp_gateway -p 'test_*.py' -v
 sh scripts/check-tracked-paths.sh
 ```
 
-Initial typecheck and 26 payment tests passed. After #31 integration and the
-review additions, typecheck and 40 payment/signing tests passed. All 10 gateway
+Initial typecheck and 26 payment tests passed. On `c9d415b`, typecheck and all
+67 payment-project tests passed with loopback access. All 10 gateway
 tests and the tracked-path guard passed. The full pre-integration suite had two
 failures in unchanged ownerChat server tests (1,416 passed, 39 skipped). Tests use
 temporary SQLite databases, fake policy/wallet adapters and a loopback HTTP
@@ -69,11 +70,11 @@ running OS processes or a deployment crash drill.
 
 Independent provider/signing deployment, signer bypass prevention, source-control
 verification and actual Testnet success/blocked ledger evidence remain required.
-The independent policy workstream (#31) must implement its boundary without
-weakening these tests. Weekly/category micropayment budgets (#33) are a separate
+The independent policy workstream (#31) must preserve this boundary without
+weakening these tests. Owner-selected period/category micropayment budgets (#33) are a separate
 extension and must preserve these cumulative transfer semantics. x402 (#32)
 requires an explicitly composed purchase path; the invoice APIs are separate.
 
-No keys, provider account or production configuration are added here. Next run
-the coordinator suite against the integrated policy branch, then collect live
-Testnet evidence through the approved wallet workstream.
+No keys, provider account or production configuration are added here. The #30
+verification and handoff are complete at simulated-test evidence level. Next
+collect live Testnet evidence through the approved wallet workstream for #31.

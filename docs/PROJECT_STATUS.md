@@ -241,3 +241,8 @@ transactions; retry detects existing budget state and refuses a second execution
 but orphan-reservation reconciliation remains unresolved. Existing
 transfer cumulative budget is not yet bound to x402 execution. Keep #31–#33
 open for the stated end-to-end evidence.
+
+Issue #30 verification was rerun on `c9d415b`: `pnpm typecheck` and all 67
+payment-project tests passed with loopback access. This completes the source,
+simulated-test and shared-handoff scope of #30. It does not establish deployed
+limits or validated Testnet payment; those remain #31 integration gates.
