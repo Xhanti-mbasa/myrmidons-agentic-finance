@@ -336,3 +336,13 @@ describe("POST /v1/chat/completions: answers", () => {
     for (const value of ["How much budget", BUDGET_TEXT, INBOUND_TOKEN, AGENT_TOKEN]) expect(output).not.toContain(value);
   });
 });
+
+describe("one chat surface", () => {
+  it("has no /agent/chat route", async () => {
+    const { app, plannerModel } = setup();
+    const res = await app.request("/agent/chat", { method: "POST", headers: { ...AUTH, "Content-Type": "application/json" }, body: JSON.stringify({ message: "hi" }) });
+    expect(res.status).toBe(404);
+    expect(AgentError.parse(await res.json()).error).toBe("not_found");
+    expect(plannerModel.calls).toHaveLength(0);
+  });
+});
