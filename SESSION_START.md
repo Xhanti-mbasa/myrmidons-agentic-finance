@@ -7,7 +7,8 @@ assistant to read it. Provide repository/file access if the assistant lacks it.
 > `Xhanti-mbasa/myrmidons-agentic-finance`.
 >
 > First read `AGENTS.md`, `docs/PRD.md`, `docs/TECHNICAL_SPEC.md`, and
-> `docs/PROJECT_STATUS.md`. Inspect the current branch, latest relevant source
+> `docs/PROJECT_STATUS.md`, `docs/FINANCE_TRUST_FRAMEWORK.md` and
+> `docs/TEAM_HANDOFF.md`. Inspect the current branch, latest relevant source
 > and tests; the status file is a dated snapshot. Do not assume a feature is live
 > because a schema, mock, SDK adapter or earlier chat says it exists.
 >

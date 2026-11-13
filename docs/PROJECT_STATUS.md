@@ -136,3 +136,24 @@ groups to report bounded Ollama HTTP errors, timeout and connection failures.
 Regression tests simulate those failures; no successful local inference or
 benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
 specific error if it fails; compare `--no-mcp` and direct Ollama inference.
+
+## 13 November 2026: finance/Islamic-finance/AI governance research
+
+`FINANCE_TRUST_FRAMEWORK.md` maps international standards, South African
+regulatory questions, AAOIFI/IFSB governance and AI assurance to proposed controls
+and release evidence. `SUPPORTING_STATEMENT.md` gives the short design rationale.
+`TEAM_HANDOFF.md` records the owner's direct-push collaboration instruction and
+integration work for the next contributor; no separate Claude-session message
+has been received by Codex. Claude-coauthored main commit `3d2acce` was
+observed and preserved as the parent baseline; it concerns agent environment
+hardening. AGENTS/session guidance links these documents.
+
+Evidence: official-source research and document/link review only; no runtime
+behaviour, signing authority, regulatory status or Sharia approval changed.
+SARB cross-border proposals remain labelled as drafts in the reviewed sources;
+current legal applicability and final instruments require specialist verification.
+RLUSD Sharia approval and legal compliance have not been established. At the
+research baseline main lacked services/payments; transfer work remained on its
+feature branch. Inspect current refs before implementation. Next: agree the
+signer/identity/eligibility evidence interfaces and obtain qualified, scoped
+legal/Sharia review before production claims or real-value operation.
