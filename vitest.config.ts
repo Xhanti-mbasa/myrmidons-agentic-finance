@@ -9,6 +9,7 @@ export default defineConfig({
       "services/payments",
       "services/backend",
       "services/mock-backend",
+      "services/api",
       "scripts",
     ],
   },

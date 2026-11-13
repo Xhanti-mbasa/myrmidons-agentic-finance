@@ -83,6 +83,34 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
+  services/api:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.1.8
+        version: 2.1.8(hono@4.13.18)
+      '@shucamoxa/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@shucamoxa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      better-sqlite3:
+        specifier: ^11.8.1
+        version: 11.10.0
+      hono:
+        specifier: ^4.13.18
+        version: 4.13.18
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   services/backend:
     dependencies:
       '@shucamoxa/shared':
