@@ -1,5 +1,5 @@
 {
-  "name": "@payguard/agent",
+  "name": "@shucamoxa/agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.90",
-    "@payguard/shared": "workspace:*",
+    "@shucamoxa/shared": "workspace:*",
     "ai": "^7.0.170",
     "zod": "^4.6.7"
   }

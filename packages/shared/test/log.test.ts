@@ -219,15 +219,15 @@ describe("verifyChain", () => {
 
 describe("toHex and fromHex", () => {
   it("encodes the memo type as upper-case hex, as XRPL returns it", () => {
-    expect(toHex(MEMO_TYPE)).toBe("70617967756172642F6C6F67");
+    expect(toHex(MEMO_TYPE)).toBe("73687563616D6F78612F6C6F67");
   });
 
-  it.each(["payguard/log", "", "Société", "日本"])("round-trips %j", (text) => {
+  it.each(["shucamoxa/log", "", "Société", "日本"])("round-trips %j", (text) => {
     expect(fromHex(toHex(text))).toBe(text);
   });
 
   it("decodes lower-case hex too", () => {
-    expect(fromHex("7061796775617264")).toBe("payguard");
+    expect(fromHex("73687563616D6F7861")).toBe("shucamoxa");
   });
 
   it.each(["0", "zz", "70 61", "C3"])("fromHex refuses %j (odd length, not hex, or not UTF-8)", (hex) => {

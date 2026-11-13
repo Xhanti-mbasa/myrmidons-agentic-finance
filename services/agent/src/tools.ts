@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { Amount, PayRequest, PayResult } from "@payguard/shared";
+import { Amount, PayRequest, PayResult } from "@shucamoxa/shared";
 import type { BackendClient } from "./backend";
 
 /** What the tools observed during one run. The outcome is built from this, never from model text. */

@@ -24,7 +24,7 @@ describe("loadAgentConfig refuses secrets the agent must never hold", () => {
     ["a treasury seed variable", { TREASURY_WALLET_SEED: "anything" }],
     ["the policy key", { POLICY_KEY: "anything" }],
     ["a policy private key", { POLICY_PRIVATE_KEY: "anything" }],
-    ["a database URL", { DATABASE_URL: "postgres://user:pw@db/payguard" }],
+    ["a database URL", { DATABASE_URL: "postgres://user:pw@db/shucamoxa" }],
     ["a Supabase service-role key", { SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOi" }],
     ["a mnemonic", { WALLET_MNEMONIC: "abandon abandon abandon" }],
     ["an XRPL seed hidden under an innocent name", { NOTES: "sEdTM1uX8pu2do5XvTnutH6HsouMaM2" }],

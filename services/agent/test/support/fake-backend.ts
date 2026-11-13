@@ -1,5 +1,5 @@
 /**
- * An in-memory stand-in for the PayGuard backend (W3 payment service + W4 API), reached through an
+ * An in-memory stand-in for the Shucamoxa backend (W3 payment service + W4 API), reached through an
  * injected fetch. It records every request, so tests assert on what actually reached the backend,
  * which is the observable thing that matters for security, not on what the model said.
  *

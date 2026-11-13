@@ -4,7 +4,7 @@ import type { AgentConfig } from "./config";
 /** The one place that picks the model: the teammate's laptop over Tailscale, or the named hosted fallback. */
 export function modelFromConfig(config: AgentConfig) {
   const provider = createOpenAICompatible({
-    name: "payguard-model",
+    name: "shucamoxa-model",
     baseURL: config.modelBaseUrl,
     apiKey: config.modelApiKey,
     supportsStructuredOutputs: true,

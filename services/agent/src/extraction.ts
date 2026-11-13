@@ -1,5 +1,5 @@
 import { generateText, Output, type LanguageModel } from "ai";
-import { ExtractedInvoice } from "@payguard/shared";
+import { ExtractedInvoice } from "@shucamoxa/shared";
 
 export type ExtractionResult =
   | { status: "extracted"; invoice: ExtractedInvoice }

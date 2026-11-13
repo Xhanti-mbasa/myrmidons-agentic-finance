@@ -1,4 +1,4 @@
-/** @payguard/shared: the contracts every PayGuard service imports. See ../README.md for who uses what. */
+/** @shucamoxa/shared: the contracts every Shucamoxa service imports. See ../README.md for who uses what. */
 export * from "./money";
 export * from "./ids";
 export * from "./constants";

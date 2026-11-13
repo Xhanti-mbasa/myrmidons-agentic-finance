@@ -3,7 +3,7 @@
  * the hosted fallback), with the fake backend standing in for W2-W4. Not part of the normal run.
  *
  *   MODEL_BASE_URL=http://100.x.y.z:11434/v1 MODEL_NAME=<tag> BACKEND_URL=http://backend.test \
- *   AGENT_BACKEND_TOKEN=agent-scoped-token RUN_EVAL=1 pnpm --filter @payguard/agent test:eval
+ *   AGENT_BACKEND_TOKEN=agent-scoped-token RUN_EVAL=1 pnpm --filter @shucamoxa/agent test:eval
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
