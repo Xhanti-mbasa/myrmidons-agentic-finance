@@ -8,12 +8,13 @@ describe("Security headers in next.config", () => {
     expect(headerConfigs.length).toBeGreaterThan(0);
 
     const allRoutes = headerConfigs.find(
-      (h) => h.source === "/:path*" || h.source === "/(.*)",
+      (h: { source?: string; headers: Array<{ key: string; value: string }> }) =>
+        h.source === "/:path*" || h.source === "/(.*)",
     );
     expect(allRoutes).toBeDefined();
 
     const headersMap = new Map(
-      allRoutes!.headers.map((h) => [h.key.toLowerCase(), h.value]),
+      allRoutes!.headers.map((h: { key: string; value: string }) => [h.key.toLowerCase(), h.value]),
     );
 
     // 1. Content-Security-Policy

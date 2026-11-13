@@ -6,6 +6,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
+    "allowJs": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "jsx": "preserve",
     "types": ["node"],

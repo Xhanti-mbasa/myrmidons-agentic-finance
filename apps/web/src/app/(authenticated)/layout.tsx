@@ -66,6 +66,19 @@ export default function AuthenticatedLayout({
               Rules
             </Link>
             <Link
+              href="/suppliers"
+              style={{
+                padding: "8px 12px",
+                borderRadius: 6,
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#334155",
+              }}
+            >
+              Suppliers
+            </Link>
+            <Link
               href="/approvals"
               style={{
                 padding: "8px 12px",

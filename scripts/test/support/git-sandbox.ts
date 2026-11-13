@@ -22,8 +22,9 @@ export function gitSandbox() {
       }
       git("add", "-f", "--", ...paths);
     },
-    run(script: string, env: NodeJS.ProcessEnv = process.env) {
-      const r = spawnSync("sh", [script], { cwd: dir, env, encoding: "utf8" });
+    run(script: string, env: Record<string, string | undefined> = process.env) {
+      const mergedEnv: NodeJS.ProcessEnv = { NODE_ENV: "test", ...env };
+      const r = spawnSync("sh", [script], { cwd: dir, env: mergedEnv, encoding: "utf8" });
       return { code: r.status, stdout: r.stdout, stderr: r.stderr };
     },
     cleanup() {
