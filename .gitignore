@@ -40,3 +40,10 @@ artifacts/
 
 # Dev mock backend state (T15): approvals queue file
 .mock/
+
+# SQLite databases and persistent data
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
