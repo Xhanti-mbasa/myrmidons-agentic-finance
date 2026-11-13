@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createAgent, MIN_SUPPLIER_CONFIDENCE, tradingName } from "../src/agent";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";
 import { AGENT_TOKEN, BACKEND_URL, fakeBackend } from "./support/fake-backend";
-import { KAROO_FIELDS, KAROO_INVOICE } from "./support/invoices";
+import { ATLAS_INVOICE, KAROO_FIELDS, KAROO_INVOICE, KAROO_OVER_CAP_INVOICE } from "./support/invoices";
 
 type Setup = {
   planner: ModelTurn[];
@@ -220,7 +220,7 @@ describe("processInvoice: outcomes come from the backend's rule code, not the mo
 });
 
 describe("processInvoice: things only the owner can decide", () => {
-  const atlas = { ...KAROO_FIELDS, supplierName: "Atlas Freight Brokers", invoiceNumber: "INV-7781", amount: "20.00", payToAddressOnInvoice: "rAtlasFreight22222222222222222" };
+  const atlas = { ...KAROO_FIELDS, supplierName: "Atlas Freight Brokers", invoiceNumber: "INV-7781", amount: "20.00", payToAddressOnInvoice: "rAtlasFreight22222222222222222", lineItems: [{ description: "Customs clearance fee", amount: "20.00" }] };
 
   it("proposes an unknown supplier to the owner, with the invoice's address as evidence, and pays nothing", async () => {
     const { agent, backend } = setup({
@@ -231,7 +231,7 @@ describe("processInvoice: things only the owner can decide", () => {
       ],
     });
 
-    const outcome = await agent.processInvoice(KAROO_INVOICE);
+    const outcome = await agent.processInvoice(ATLAS_INVOICE);
 
     expect(backend.payments).toHaveLength(0);
     expect(backend.approvals.map((r) => r.body)).toEqual([
@@ -250,7 +250,7 @@ describe("processInvoice: things only the owner can decide", () => {
       ],
     });
 
-    const outcome = await agent.processInvoice(KAROO_INVOICE);
+    const outcome = await agent.processInvoice(KAROO_OVER_CAP_INVOICE);
 
     expect(backend.payments).toHaveLength(0);
     expect(backend.approvals.map((r) => r.body.kind)).toEqual(["payment"]);
