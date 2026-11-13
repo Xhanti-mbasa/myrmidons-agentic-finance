@@ -48,3 +48,7 @@ No checkout/model installation grants payment authority. Never commit wallet
 seeds, private keys, provider credentials, database URLs or local WebUI secrets.
 CI and pre-commit checks are described in `.github/workflows/ci.yml` and
 `.githooks/pre-commit`.
+
+## Assigned baseline plan
+
+See the [team Kanban](docs/BASELINE_KANBAN.md), [progress and evidence review](docs/BASELINE_PROGRESS.md), and [interactive offline board](docs/planning/baseline-kanban.html). The review includes all remote branch heads and Cameron’s latest handoff uploads; percentages are dated planning estimates, not live readiness metrics.

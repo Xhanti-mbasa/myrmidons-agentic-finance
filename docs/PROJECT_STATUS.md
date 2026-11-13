@@ -1,3 +1,5 @@
+> **Branch-wide baseline review, 13 November 2026:** [Assigned Kanban](BASELINE_KANBAN.md) and [progress/evidence](BASELINE_PROGRESS.md) cover all 31 remote heads, including Cameron’s latest `feat/testnet` uploads. Scheduling and ledger history are now baseline; browser extensions are deferred. Review is pinned to `main@47b6c55`; historical results below were not rerun for this documentation assessment.
+
 # Shucamoxa implementation status and handoff
 
 > **Implementation review, 13 November 2026:** See [the current ticket backlog](IMPLEMENTATION_BACKLOG.md) for a source-checked inventory at `47b6c55`. It covers all 21 Markdown files, 13 completed implementation slices and 40 remaining tickets. Older sections below are historical snapshots and contain retired commands; they are not a current deployment inventory. No runtime or ledger tests were run for this documentation review.

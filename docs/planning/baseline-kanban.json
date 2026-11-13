@@ -1,0 +1,2410 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-11-13",
+  "base_main": "47b6c55f6c33c5ce3f4e518245e12cd85082ad92",
+  "latest_cameron_branch": "feat/testnet",
+  "latest_cameron_sha": "9f94e536043acbe50af518fd1afc819f4b548065",
+  "scope": "Open WebUI guarded chat, XRPL Testnet RLUSD supplier payments, scheduling, payment/ledger history, owner controls and audit",
+  "rubric": {
+    "0": "Absent beyond prose; no implemented capability.",
+    "25": "Contract/interface or initial scaffold.",
+    "50": "Substantive partial implementation; known acceptance gaps.",
+    "75": "Merged bounded implementation with automated test sources; integration/operational proof remains.",
+    "100": "Acceptance complete with retained evidence appropriate to capability, including live product path where required."
+  },
+  "columns": [
+    "Ready",
+    "Partial",
+    "Review",
+    "Blocked",
+    "Done",
+    "Deferred"
+  ],
+  "tickets": [
+    {
+      "id": "T01",
+      "title": "Workspace, agent and initial fixtures",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Node/pnpm workspace and existing agent sources are on main.",
+      "evidence": "main@7e90d79",
+      "acceptance": "Fresh install, typecheck and targeted tests reproduce on the supported runtime.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T02",
+      "title": "CI and secret/path guardrails",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Pinned workflows, scanner and tracked-path guard exist; R2 remains SEC01.",
+      "evidence": "main@1d44270",
+      "acceptance": "Retain the current CI checks; close scanner bypass separately under SEC01.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T03",
+      "title": "Shared contracts, money and audit primitives",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Shared schemas, bigint cents and canonical hashes exist.",
+      "evidence": "main@825ec9c",
+      "acceptance": "Consumers import shared contracts; contract integration is C01, not implied by this library.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T03b",
+      "title": "Product rename to Shucamoxa",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Rename landed; older history remains historical.",
+      "evidence": "main@c808928",
+      "acceptance": "Current source imports use @shucamoxa naming.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T04",
+      "title": "Bind invoice payments to code-resolved supplier",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Supplier binding and confidence threshold exist; extraction spoofing is T06b.",
+      "evidence": "main@f800e55",
+      "acceptance": "Preserve supplier-ID/confidence attack regressions.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T05",
+      "title": "Bind approvals and supplier proposals to invoice",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Bound requests and one-per-kind restrictions exist; no production approval UI.",
+      "evidence": "main@e1870ac",
+      "acceptance": "Preserve exact invoice/amount/supplier binding; real decisions remain T31/T32.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T06",
+      "title": "Ground extraction and neutralise invoice tags",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Initial grounding/normalisation implemented; sender/items bypasses remain T06b.",
+      "evidence": "main@dbaffa2",
+      "acceptance": "Keep unicode/template/amount boundary regressions; do not call all grounding solved.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T07",
+      "title": "Minimise planner input and bound free text",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "plannerView and bounded reasons implemented; tool-read projections need SEC02.",
+      "evidence": "main@7ca8db5",
+      "acceptance": "Descriptions/suspicious-text canaries stay out of planner; revalidate all read outputs.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T09",
+      "title": "Agent environment and backend-origin checks",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Startup checks reject key-shaped values and unsafe backend origins.",
+      "evidence": "main@3d2acce",
+      "acceptance": "No unsafe bypass flag; credentials never appear in errors.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T10",
+      "title": "Timeouts, redirects and response-size limits",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Bounded calls, redirect rejection and conservative payment-unknown handling exist.",
+      "evidence": "main@3ccb949",
+      "acceptance": "Keep no-retry unknown behavior and redirect credential-isolation tests.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T12",
+      "title": "Authenticated invoice HTTP agent service",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "/health, /agent/invoices, serial queue and ownerChat seam are on main.",
+      "evidence": "main@47b6c55",
+      "acceptance": "Retain auth/body-limit/duplicate-inflight tests; chat transport remains T13.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T15",
+      "title": "Explicit development mock backend",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Five agent API routes and contract tests exist; hashes/state are simulated.",
+      "evidence": "main@679617a",
+      "acceptance": "Keep SHUCAMOXA_MOCK opt-in and visible mock labeling; never count as settlement.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T16",
+      "title": "Demo invoice PDFs and red-team fixtures",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Done",
+      "priority": "P1",
+      "dependencies": [],
+      "current_state": "Fixture generation and expected outcomes exist.",
+      "evidence": "main@4eeccaa",
+      "acceptance": "Retain deterministic fixtures; live-model replay remains T17.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T06b",
+      "title": "Finish sender and text-line-item grounding",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Review",
+      "priority": "P0",
+      "dependencies": [
+        "T06",
+        "T16"
+      ],
+      "current_state": "Branch implementation exists; review notes identify skipped digit lines, negative/credit handling and sender-block ambiguity.",
+      "evidence": "fix/t06b-grounding-supplier-and-line-items@a86e00e; wip/t06b-review-fixes@1c69c12",
+      "acceptance": "Fail closed for notes impersonation, empty/invented items, skipped digit lines, negative/CR/DR items and duplicate/misplaced From blocks; rerun fixtures 09/10 and LLM-07 before integrating.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T08",
+      "title": "Reconcile merged chat guards with outstanding review",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Review",
+      "priority": "P0",
+      "dependencies": [
+        "T04"
+      ],
+      "current_state": "Base chat guards merged; later handoff still reports currency/payee parsing blockers.",
+      "evidence": "main@a080cc7; wip/t08-review-fixes@3350d7b; latest handoff",
+      "acceptance": "Reproduce every currency case and ambiguous/negated payee example; reject unsupported/ambiguous currency and payee; one payment attempt; deterministic summary. Do not replace a settled record with a generic model error.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T11",
+      "title": "Mutation hardening and typed tool-read outputs",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Ready",
+      "priority": "P1",
+      "dependencies": [
+        "T07",
+        "T09",
+        "T10"
+      ],
+      "current_state": "Archived mutation review predates fixes; no fresh mutation score found.",
+      "evidence": "services/agent/TESTING.md; archived T11; latest handoff",
+      "acceptance": "Reproduce surviving mutants; validate Rules/SupplierLookup/LogFilter and read results; cover redaction, temperature/retries and mid-run kill switch; publish dated mutation results without reusing old scores.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T13",
+      "title": "OpenAI-compatible guarded-agent chat adapter",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T08",
+        "T12"
+      ],
+      "current_state": "ownerChat accepts latestOwnerTurn in-process; no HTTP chat adapter.",
+      "evidence": "services/agent/src/server.ts; latest handoff supersedes archived T13 SSE design",
+      "acceptance": "Expose authenticated /v1/chat/completions and model discovery for Open WebUI; derive authority only from latest authenticated owner turn; retain shared queue, deadlines and deterministic payment summary; ignore forged history/system/tool authority. Safe disconnect/stream errors must preserve unknown or settled results.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T14",
+      "title": "Bounded PDF intake and invoice CLI fallback",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Ready",
+      "priority": "P1",
+      "dependencies": [
+        "T12"
+      ],
+      "current_state": "PDF fixtures are generated; invoice service accepts text, not PDF parsing.",
+      "evidence": "services/agent/src/server.ts; archived T14",
+      "acceptance": "Exactly one text/PDF input; verify PDF magic, 2MB decoded/5-page/10s limits; encrypted/no-text goes to review; feed identical guarded path; CLI token from environment. Test normalisation parity on fixture PDFs.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T17",
+      "title": "Repeatable real-model finance evaluation",
+      "owner": "Cameron",
+      "reviewer": "Tran",
+      "column": "Blocked",
+      "priority": "P1",
+      "dependencies": [
+        "T06b",
+        "T08",
+        "T13"
+      ],
+      "current_state": "Opt-in tests and fixtures exist; no current qualified finance run on local Qwen.",
+      "evidence": "services/agent/eval/; scripts/model-smoke-test.ts",
+      "acceptance": "Pinned model/prompt/tool revisions; fixtures 01-14 and history/payment/refused-policy-change chat; repeated runs with decision, actual calls, exact amounts, latency and failures; never count model claims as payment evidence.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T18",
+      "title": "Local model smoke gate and shared prompts",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Ready",
+      "priority": "P1",
+      "dependencies": [
+        "T01"
+      ],
+      "current_state": "User supplied local Qwen chat output; finance tool reliability not demonstrated.",
+      "evidence": "scripts/model-smoke-test.ts; local chat supplied by user",
+      "acceptance": "Use selected local model, shared production prompts and actual tool schemas; record digest/context/latency; prove harmless repository read first and guarded mock pay next. No hosted fallback required unless team chooses it.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T19",
+      "title": "Conditional simplified approval toolset",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Deferred",
+      "priority": "P2",
+      "dependencies": [
+        "T18"
+      ],
+      "current_state": "Only needed if measured model confusion justifies it.",
+      "evidence": "Archived T19",
+      "acceptance": "Implement only after failed tool-selection evidence; preserve all T05 bindings.",
+      "scope": "conditional"
+    },
+    {
+      "id": "T20",
+      "title": "Independent co-signer: auth and signed-byte verification",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T03",
+        "C01"
+      ],
+      "current_state": "Cosign schemas and coordinator policy interface exist; no service implementation.",
+      "evidence": "packages/shared/src/policy.ts; services/payments/src/payment.ts; audit P1",
+      "acceptance": "Isolated Testnet signer authenticates payment service only; decode actual blob, verify expected signer/signature and canonical equality; enforce Payment/treasury; sign exactly checked bytes, never mutable caller JSON; fail closed on exceptions/log failure.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T21",
+      "title": "Strict XRPL payment transaction checks",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T20"
+      ],
+      "current_state": "No deployed policy check pipeline found.",
+      "evidence": "Archived T21; audit X1-X6/P1",
+      "acceptance": "Allowlist type/fields/flags; cap Fee; exact genuine test RLUSD issuer/currency/cents and approved destination/tag; forbid partial payment/DEX routing; exactly bound memo and expiry. Test every substitution and non-Payment type offline with real generated keys.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T22",
+      "title": "Atomic budgets, duplicate protection and reservation lifecycle",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T21",
+        "T28"
+      ],
+      "current_state": "SQLite coordinator has reservations/deduplication; not integrated into a real cosign service.",
+      "evidence": "services/payments/src/payment.ts",
+      "acceptance": "Use one authoritative durable reservation state; concurrent requests cannot overspend; no second submit per obligation; retain unknown reservations across timeout/restart. Replace archived unconditional TTL release with proven definitive rejection/expiry rules.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T23",
+      "title": "Policy version, stale-ledger, memo and rate checks",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T22",
+        "T29"
+      ],
+      "current_state": "Policy versions are checked in coordinator; final transaction/memo/ledger checks absent.",
+      "evidence": "services/payments/src/payment.ts; archived T23",
+      "acceptance": "Recheck policy/kill switch/reservation at signing and before submission; current < LastLedgerSequence <= current+20; exact unused pending-entry memo; bounded rate window. Durable payment safety cannot depend on a resettable in-memory counter.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T24",
+      "title": "Policy decision audit and hostile replay",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T23",
+        "T16"
+      ],
+      "current_state": "Adversarial missing-control tests exist; no real co-signer path to replay.",
+      "evidence": "security/missing-controls.test.ts; archived T24",
+      "acceptance": "Audit allowed and blocked decisions before releasing signature; no audit write means no sign; replay fixtures and transaction attacks through actual service, including direct calls without agent.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T25",
+      "title": "Fresh Testnet RLUSD treasury and recovery-safe multisig",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T03"
+      ],
+      "current_state": "feat/testnet has separate fresh-wallet 1-XRP demo; RLUSD multisig treasury setup absent.",
+      "evidence": "feat/testnet@9f94e53; services/backend/src/; reported XRP hash in branch status",
+      "acceptance": "Testnet guard; trusted issuer and trustlines; establish recovery before master disable; verify signer list/quorum and no alternate key bypass. Generate keys at runtime, isolate service stores, print no seeds; prove RLUSD delivered_amount with a validated transaction.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T26",
+      "title": "Real wallet adapter, transaction build/sign/submit/reconcile",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T20",
+        "T21",
+        "T22",
+        "T25",
+        "T28",
+        "T29",
+        "C01"
+      ],
+      "current_state": "Durable coordinator implemented; wallet.submit/lookup and policy.authorize are interfaces.",
+      "evidence": "services/payments/src/payment.ts; http.ts; audit P1/P4",
+      "acceptance": "Persist final transaction/hash/signing attempt before send; no post-approval mutation; verify policy signature and identical bytes; exact validated delivered_amount/issuer/destination/tag; unknown stays reserved and reconciles on restart without replacement transfer.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T27",
+      "title": "Kill switch and ledger revocation evidence",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T25",
+        "T31"
+      ],
+      "current_state": "Coordinator flag/lockout exists; no ledger revoke/restore flow.",
+      "evidence": "services/payments/src/payment.ts; archived T27",
+      "acceptance": "Owner-only revoke/restore; recheck in-flight policy; document already-submitted transaction limits; capture ledger signer state and actual agent-only/master-key/revoked-signer submission rejections. Non-applied tef failures need RPC+ledger-state evidence, not a fictitious validated failure hash. Fix archived contradictory resume ordering by testing one fail-closed state machine.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T28",
+      "title": "Extend durable storage and versioned migrations",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T03",
+        "C01"
+      ],
+      "current_state": "Coordinator SQLite exists; business invoices/rules/suppliers/approvals API persistence incomplete.",
+      "evidence": "services/payments/src/payment.ts; archived T28",
+      "acceptance": "Reuse existing coordinator rather than duplicate budgets; persist tenant-bound invoices, suppliers, policy versions, approvals, attempts and audit; migration/restart/concurrency tests; exact cents; agent cannot access database.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T29",
+      "title": "Durable multi-service audit writer and verification",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T28"
+      ],
+      "current_state": "Shared chain and payment audit gate exist; mock log in memory; external writer/anchors incomplete.",
+      "evidence": "packages/shared/src/log.ts; services/payments/src/payment.ts; security/audit.test.ts",
+      "acceptance": "Serialized appends across processes; log allow/block/unknown/settle and owner changes; owner-only bounded export; preserve canonical schema. A locally valid chain alone cannot prove no suffix deletion or complete rewrite; complete H02 before claiming that.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T30",
+      "title": "Authenticated real agent-facing API and status/history reads",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T28",
+        "T29",
+        "C01"
+      ],
+      "current_state": "T15 mock has five routes; MCP /v1 and /transfers differ; production API missing.",
+      "evidence": "services/mock-backend/; mcp_gateway/; services/payments/src/http.ts",
+      "acceptance": "One explicit versioned route/status/role map; real storage + coordinator; request schemas and bounded projections; agentApiContract passes; least-privilege token denied every owner route; transport error cannot imply payment failed or safely retryable.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T31",
+      "title": "Owner-only mandate, suppliers, approval and kill-switch API",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T30"
+      ],
+      "current_state": "Core owner credential restrictions exist; full owner login/decision API absent.",
+      "evidence": "services/payments/src/http.ts; archived T31",
+      "acceptance": "Owner auth/session/Origin/CSRF/expiry plus narrow script credentials; versioned rules; supplier address/tag changes require independent re-verification; auditable decisions; no model/WebUI inference token carries owner authority.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T32",
+      "title": "Single-use owner-approved exception payment",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P1",
+      "dependencies": [
+        "T26",
+        "T31"
+      ],
+      "current_state": "Approval request schemas and core owner exceptions exist; complete signing flow absent.",
+      "evidence": "packages/shared/src/approvals.ts; archived T32",
+      "acceptance": "Approve exact obligation/recipient/amount/version/expiry once; owner signs outside agent/API; verify returned bytes and identity; budget accounting includes owner payments; distinguish owner authority from independent policy enforcement.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T33",
+      "title": "Harden Open WebUI workspace and owner-session boundary",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T03"
+      ],
+      "current_state": "Compose and user-local chat exist; image uses mutable main tag; finance auth separate.",
+      "evidence": "deploy/open-webui.compose.yml; docs/open-webui.md; latest handoff",
+      "acceptance": "Use Open WebUI baseline rather than rebuild archived Next.js chat; pin reviewed image digest; restrict unnecessary direct connections/web loading/code execution; private binding and separate owner controls. Review version-specific advisories; no claim installed version is vulnerable without evidence.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T34",
+      "title": "Owner control surface for rules, suppliers and approvals",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T31",
+        "T33"
+      ],
+      "current_state": "Generic WebUI settings are not finance owner controls.",
+      "evidence": "Archived T34; docs/PRD.md",
+      "acceptance": "Small authenticated owner UI or companion view; show cap/budget/spent/reserved, approved payees and pending decisions; render untrusted evidence literally; re-verification workflow; no owner writes as model tools.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T35",
+      "title": "Owner kill-switch and trustworthy activity view",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T27",
+        "T29",
+        "T33",
+        "H01"
+      ],
+      "current_state": "No integrated activity/kill-switch screen found.",
+      "evidence": "Archived T35; packages/shared/src/log.ts",
+      "acceptance": "Immediate stop-new-payments control; explicit submitted/unknown limits; independent verify/export; safe Testnet links only; distinguish chain continuity from external anchoring and complete ledger history. Paginated windows need checkpoint context, not verifyChain on reversed newest-first rows.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T36",
+      "title": "Connect Open WebUI chat and invoice upload to guarded agent",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T13",
+        "T14",
+        "T33"
+      ],
+      "current_state": "Local general chat works; no repo-finance connector registered.",
+      "evidence": "docs/open-webui.md; services/agent/src/server.ts",
+      "acceptance": "Configure adapter as guarded agent endpoint; WebUI cannot bypass it via raw pay MCP. Upload passes bounded intake; deterministic payment record visibly separate from model prose; demonstrate authenticated read then mock payment before live Testnet.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T37",
+      "title": "Cross-service baseline acceptance and Testnet evidence",
+      "owner": "Cameron",
+      "reviewer": "Tran",
+      "column": "Blocked",
+      "priority": "P0",
+      "dependencies": [
+        "T06b",
+        "T08",
+        "T24",
+        "T26",
+        "T30",
+        "T36",
+        "S02",
+        "H01"
+      ],
+      "current_state": "Agent/mock/core tests and adversarial suite exist; full deployed pipeline unproved.",
+      "evidence": "security/; services/agent/test/; services/payments/test/",
+      "acceptance": "Boot actual services against temporary DB, verify authority and concurrency attacks; then fresh-wallet Testnet RLUSD allowed/blocked/scheduled/history journeys with sanitized evidence. Simulator results labeled simulated; tef failure proof separate from validated success. Never invent passing policy implementation inside tests.",
+      "scope": "baseline"
+    },
+    {
+      "id": "T38",
+      "title": "Current runbook, evidence-backed pitch and demo package",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Partial",
+      "priority": "P1",
+      "dependencies": [
+        "T37"
+      ],
+      "current_state": "Docs and supporting statement exist; commands/status and final evidence need reconciliation.",
+      "evidence": "README.md; docs/PROJECT_STATUS.md; SECURITY_ASSESSMENT.md; archived T38",
+      "acceptance": "Update active docs and remove retired commands; one-command local stack with explicit mock/Testnet modes; cite exact SHA/results; verify official submission requirements separately. State tested against only; no infallibility/certification/legal or Sharia approval claims.",
+      "scope": "baseline"
+    },
+    {
+      "id": "C01",
+      "title": "Freeze one invoice-to-intent and API contract",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T03"
+      ],
+      "current_state": "Three incompatible contracts exist; archived hybrid recommendation is not implemented.",
+      "evidence": "MCP README; shared transfers.ts; archived contract-conflict.md; audit P2",
+      "acceptance": "Xhanti writes route/status/role map; Tran signs off execution, Cameron signs off client. Persist grounded trusted payable and immutable ID; narrowly scoped intake may register obligation but cannot set policy/recipient/unlock/approve. Model pay carries ID, not arbitrary payee/amount; dedupe across invoice revisions and UI retries.",
+      "scope": "baseline"
+    },
+    {
+      "id": "M01",
+      "title": "Align MCP tools with selected guarded backend",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Partial",
+      "priority": "P1",
+      "dependencies": [
+        "C01",
+        "T30",
+        "SEC02"
+      ],
+      "current_state": "Seven stdio tools and strict two-tool transfer entry point exist; not attached to real backend/WebUI.",
+      "evidence": "mcp_gateway/server.py; transfers.py; tests",
+      "acceptance": "Contract tests cover canonical backend, error/unknown/status handling, scoped auth, output allowlists and extra-field refusal. Keep optional raw finance MCP for separately authorized clients; baseline WebUI uses guarded T13 agent, not direct payment tool access.",
+      "scope": "baseline"
+    },
+    {
+      "id": "S01",
+      "title": "Owner scheduling/cancel/reschedule tools and records",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "C01",
+        "T30",
+        "T31"
+      ],
+      "current_state": "Core executeAt exists; no bounded chat schedule/cancel/status journey.",
+      "evidence": "services/payments/src/payment.ts; user baseline overrides old scheduling exclusion",
+      "acceptance": "Authenticated owner request binds trusted intent, amount/payee, timezone and UTC due instant; clarify ambiguous date/time and confirm interpretation; cancel/reschedule cannot race execution or change settled/unknown history. Agent cannot create arbitrary authority; persist scheduling changes and responses.",
+      "scope": "baseline"
+    },
+    {
+      "id": "S02",
+      "title": "Deploy durable due-payment worker and recovery",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Partial",
+      "priority": "P0",
+      "dependencies": [
+        "T26",
+        "T31",
+        "S01"
+      ],
+      "current_state": "executeDue and /transfers/due exist; no deployed timer/worker.",
+      "evidence": "services/payments/src/payment.ts; services/payments/src/http.ts",
+      "acceptance": "Bounded authenticated worker; due-time policy/kill/recipient/expiry checks, atomic claim and restart-safe once-only execution. Two workers and repeated timer ticks cannot duplicate; unknown retains reservation; surface missed/delayed/cancelled status.",
+      "scope": "baseline"
+    },
+    {
+      "id": "H01",
+      "title": "Payment/transaction history and balance tools",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "C01",
+        "T26",
+        "T29",
+        "T30"
+      ],
+      "current_state": "query_log and legacy balance/status adapters exist; complete validated XRPL history absent.",
+      "evidence": "services/agent/src/tools.ts; mcp_gateway/server.py; user baseline",
+      "acceptance": "Paginated, tenant-authorized status/history and genuine RLUSD balance from validated ledger; distinguish intent/audit/settled/on-chain events; include incoming/out-of-band transactions for selected treasury, ledger cursor/reconnect/dedupe; bounded filters and privacy-safe results. Live answers reference actual records/hashes, never model memory.",
+      "scope": "baseline"
+    },
+    {
+      "id": "H02",
+      "title": "Independent audit heads and ledger memo verifier",
+      "owner": "Xhanti",
+      "reviewer": "Tran",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T29"
+      ],
+      "current_state": "Local chain detects many edits but not full rewrite/suffix deletion without independent head.",
+      "evidence": "security/audit.test.ts; audit A6/Feature B",
+      "acceptance": "Persist authenticated checkpoints outside payment DB; match actual payment memo to durable request entry; detect deletion/rollback/full recomputation against checkpoint; disclose unanchored blocked-event suffixes. Never expose invoice or personal data in memo.",
+      "scope": "baseline"
+    },
+    {
+      "id": "SEC01",
+      "title": "Close secret scanner hash-label bypass (R2)",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T02"
+      ],
+      "current_state": "Raw 64-hex exemption for hash/digest/checksum remains open.",
+      "evidence": ".gitleaks.toml; security/test_python.py; audit R2",
+      "acceptance": "Real scanner regressions catch runtime canary with deceptive labels/comments; exact legitimate hashes remain usable; no real secrets; CI remains green without relaxing scanner.",
+      "scope": "baseline"
+    },
+    {
+      "id": "SEC02",
+      "title": "Bound and sanitise every tool-read response",
+      "owner": "Cameron",
+      "reviewer": "Xhanti",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T07"
+      ],
+      "current_state": "Address redaction/minimisation exists; backend dictionaries/free-text paths need typed projection.",
+      "evidence": "services/agent/src/tools.ts; mcp_gateway/server.py; historical V-02",
+      "acceptance": "Strict schemas and field allowlists for log/rules/supplier/status/balance; canary credentials and untrusted instruction strings never reach next model prompt/logs/errors; owner detail view separate. Test TS and Python paths.",
+      "scope": "baseline"
+    },
+    {
+      "id": "OPS01",
+      "title": "Isolate keys/services and record current security evidence",
+      "owner": "Tran",
+      "reviewer": "Cameron",
+      "column": "Ready",
+      "priority": "P0",
+      "dependencies": [
+        "T20",
+        "T25",
+        "T26"
+      ],
+      "current_state": "Config guards/tests exist; actual runtime filesystem/network/key isolation not proved.",
+      "evidence": "AGENTS.md; audit R6/P4; security/README.md",
+      "acceptance": "Separate signer/agent/policy identities and storage; no signer seeds in WebUI/agent; private binds and no public model/tool ports; exercise restart/restore and compromised-agent containment; rerun current adversarial suite on pinned runtime and retain SHA/results. Deployment dependency blocks final closure, not the initial isolation plan.",
+      "scope": "baseline"
+    },
+    {
+      "id": "LATER01",
+      "title": "Firefox/Chrome sidebar extension",
+      "owner": "Xhanti",
+      "reviewer": "Cameron",
+      "column": "Deferred",
+      "priority": "P2",
+      "dependencies": [
+        "T37"
+      ],
+      "current_state": "Requested later, no extension implementation found.",
+      "evidence": "User baseline decision",
+      "acceptance": "Only after baseline acceptance; scoped read-only page intake/explicit actions and same guarded authority boundary.",
+      "scope": "later"
+    },
+    {
+      "id": "LATER02",
+      "title": "Broader banking, FX, escrow, yield and commercial rollout",
+      "owner": "Tran",
+      "reviewer": "Xhanti",
+      "column": "Deferred",
+      "priority": "P2",
+      "dependencies": [
+        "T37"
+      ],
+      "current_state": "Roadmap aspirations and governance research; not baseline banking parity.",
+      "evidence": "docs/PRD.md; FINANCE_TRUST_FRAMEWORK.md; original technical plan",
+      "acceptance": "Separate product requirements and legal/custody/Sharia review when applicable; no bank/compliance certification claims from Testnet.",
+      "scope": "later"
+    }
+  ],
+  "scores": [
+    {
+      "id": "UI1",
+      "capability": "WebUI deployment configuration",
+      "owner": "Xhanti",
+      "area": "Chat / interface",
+      "weight": 3,
+      "score": 75,
+      "evidence": "Compose exists and user supplied running UI; finance connector absent.",
+      "tickets": [
+        "T33"
+      ]
+    },
+    {
+      "id": "UI2",
+      "capability": "Guarded chat transport",
+      "owner": "Xhanti",
+      "area": "Chat / interface",
+      "weight": 7,
+      "score": 25,
+      "evidence": "ownerChat seam only; no HTTP/OpenAI adapter.",
+      "tickets": [
+        "T13",
+        "T36"
+      ]
+    },
+    {
+      "id": "UI3",
+      "capability": "Upload and deterministic finance presentation",
+      "owner": "Xhanti",
+      "area": "Chat / interface",
+      "weight": 5,
+      "score": 25,
+      "evidence": "Invoice HTTP schema and summaries exist; no WebUI finance journey.",
+      "tickets": [
+        "T14",
+        "T36"
+      ]
+    },
+    {
+      "id": "AI1",
+      "capability": "Shared typed contracts and exact money",
+      "owner": "Cameron",
+      "area": "Agent",
+      "weight": 4,
+      "score": 75,
+      "evidence": "Merged library/tests; complete consuming integration absent.",
+      "tickets": [
+        "T03"
+      ]
+    },
+    {
+      "id": "AI2",
+      "capability": "Bounded extraction/planning and HTTP isolation",
+      "owner": "Cameron",
+      "area": "Agent",
+      "weight": 6,
+      "score": 75,
+      "evidence": "Merged agent, queue, auth and tests inspected.",
+      "tickets": [
+        "T04",
+        "T05",
+        "T09",
+        "T10",
+        "T12"
+      ]
+    },
+    {
+      "id": "AI3",
+      "capability": "Adversarial grounding/chat intent binding",
+      "owner": "Cameron",
+      "area": "Agent",
+      "weight": 6,
+      "score": 50,
+      "evidence": "Substantive merged guards; T06b and T08 review gaps open.",
+      "tickets": [
+        "T06b",
+        "T08",
+        "T11",
+        "SEC02"
+      ]
+    },
+    {
+      "id": "AI4",
+      "capability": "Real-model finance qualification",
+      "owner": "Cameron",
+      "area": "Agent",
+      "weight": 4,
+      "score": 25,
+      "evidence": "Eval/smoke scaffolding; no current baseline run.",
+      "tickets": [
+        "T17",
+        "T18"
+      ]
+    },
+    {
+      "id": "PAY1",
+      "capability": "Durable intent/dedupe/unknown coordinator",
+      "owner": "Tran",
+      "area": "Payments",
+      "weight": 8,
+      "score": 75,
+      "evidence": "Merged SQLite core and focused test sources; live adapters absent.",
+      "tickets": [
+        "T26",
+        "T28"
+      ]
+    },
+    {
+      "id": "PAY2",
+      "capability": "Actual RLUSD build, wallet and reconciliation",
+      "owner": "Tran",
+      "area": "Payments",
+      "weight": 8,
+      "score": 25,
+      "evidence": "Interfaces/contracts exist; branch XRP demo is different asset/path.",
+      "tickets": [
+        "T25",
+        "T26"
+      ]
+    },
+    {
+      "id": "PAY3",
+      "capability": "Validated guarded RLUSD payment proof",
+      "owner": "Tran",
+      "area": "Payments",
+      "weight": 4,
+      "score": 0,
+      "evidence": "No independently reviewed integrated RLUSD evidence found.",
+      "tickets": [
+        "T25",
+        "T37"
+      ]
+    },
+    {
+      "id": "POL1",
+      "capability": "Deterministic mandate/budget checks",
+      "owner": "Tran",
+      "area": "Policy",
+      "weight": 5,
+      "score": 75,
+      "evidence": "Coordinator controls implemented with test sources.",
+      "tickets": [
+        "T22"
+      ]
+    },
+    {
+      "id": "POL2",
+      "capability": "Independent final-byte policy co-signing",
+      "owner": "Tran",
+      "area": "Policy",
+      "weight": 8,
+      "score": 25,
+      "evidence": "Cosign contracts and attack specifications only.",
+      "tickets": [
+        "T20",
+        "T21",
+        "T23",
+        "T24"
+      ]
+    },
+    {
+      "id": "POL3",
+      "capability": "Ledger-enforced revocation and key-bypass proof",
+      "owner": "Tran",
+      "area": "Policy",
+      "weight": 2,
+      "score": 0,
+      "evidence": "No implementation/evidence found for product treasury.",
+      "tickets": [
+        "T27"
+      ]
+    },
+    {
+      "id": "HIS1",
+      "capability": "Canonical chain primitives",
+      "owner": "Xhanti",
+      "area": "History / audit",
+      "weight": 4,
+      "score": 75,
+      "evidence": "Merged shared chain implementation/tests.",
+      "tickets": [
+        "T03",
+        "T29"
+      ]
+    },
+    {
+      "id": "HIS2",
+      "capability": "Durable cross-service event lifecycle",
+      "owner": "Xhanti",
+      "area": "History / audit",
+      "weight": 4,
+      "score": 50,
+      "evidence": "Core persistent audit exists; mock/integration events incomplete.",
+      "tickets": [
+        "T29"
+      ]
+    },
+    {
+      "id": "HIS3",
+      "capability": "Complete usable ledger history and balance",
+      "owner": "Xhanti",
+      "area": "History / audit",
+      "weight": 5,
+      "score": 0,
+      "evidence": "No integrated treasury-history endpoint/view.",
+      "tickets": [
+        "H01",
+        "T35"
+      ]
+    },
+    {
+      "id": "HIS4",
+      "capability": "Independent audit checkpoint verification",
+      "owner": "Xhanti",
+      "area": "History / audit",
+      "weight": 2,
+      "score": 0,
+      "evidence": "Proposed; local-chain rewrite limitations remain.",
+      "tickets": [
+        "H02"
+      ]
+    },
+    {
+      "id": "SCH1",
+      "capability": "Durable scheduled-intent core",
+      "owner": "Tran",
+      "area": "Scheduling",
+      "weight": 4,
+      "score": 75,
+      "evidence": "executeAt/executeDue and core test sources exist.",
+      "tickets": [
+        "S02"
+      ]
+    },
+    {
+      "id": "SCH2",
+      "capability": "Authorised chat schedule/cancel/reschedule",
+      "owner": "Tran",
+      "area": "Scheduling",
+      "weight": 3,
+      "score": 0,
+      "evidence": "User-facing journey absent; Xhanti implements S01 client.",
+      "tickets": [
+        "S01"
+      ]
+    },
+    {
+      "id": "SCH3",
+      "capability": "Running worker and recovery demonstration",
+      "owner": "Tran",
+      "area": "Scheduling",
+      "weight": 3,
+      "score": 0,
+      "evidence": "No configured worker found.",
+      "tickets": [
+        "S02"
+      ]
+    },
+    {
+      "id": "E2E1",
+      "capability": "Fixtures, contract and adversarial infrastructure",
+      "owner": "Cameron",
+      "area": "Acceptance",
+      "weight": 2,
+      "score": 75,
+      "evidence": "Merged machinery; historical expected failures are not controls.",
+      "tickets": [
+        "T16",
+        "T37"
+      ]
+    },
+    {
+      "id": "E2E2",
+      "capability": "Full baseline integration and live evidence",
+      "owner": "Cameron",
+      "area": "Acceptance",
+      "weight": 3,
+      "score": 0,
+      "evidence": "No complete product-path evidence found.",
+      "tickets": [
+        "T37"
+      ]
+    }
+  ],
+  "branches": [
+    {
+      "branch": "chore/t01-repo-bootstrap",
+      "sha": "7d615fe5d5c134c964a798c52dfd734f415ce070",
+      "behind_main": 37,
+      "ahead_main": 0,
+      "markdown_files": 2
+    },
+    {
+      "branch": "chore/t03b-rename-shucamoxa",
+      "sha": "4a1880cd9d4fd187651026e3a2fcfddeef61b49f",
+      "behind_main": 24,
+      "ahead_main": 1,
+      "markdown_files": 7
+    },
+    {
+      "branch": "ci/t02-ci-and-secret-guardrails",
+      "sha": "e9fc4ee000925ec053a9fdd91df07880b7347d94",
+      "behind_main": 36,
+      "ahead_main": 0,
+      "markdown_files": 2
+    },
+    {
+      "branch": "codex/shucamoxa-mcp",
+      "sha": "1b71c2a894ba085e9f7134ad4d812a249779f019",
+      "behind_main": 37,
+      "ahead_main": 0,
+      "markdown_files": 2
+    },
+    {
+      "branch": "collab/security-audit",
+      "sha": "39446b361e70c84769678d86bb76c9440b58aa9b",
+      "behind_main": 17,
+      "ahead_main": 1,
+      "markdown_files": 13
+    },
+    {
+      "branch": "docs/implementation-backlog",
+      "sha": "d32079533c282519dae567e43e4588d7200fd89b",
+      "behind_main": 0,
+      "ahead_main": 1,
+      "markdown_files": 22
+    },
+    {
+      "branch": "feat/deterministic-pay-tool",
+      "sha": "bcd08de864ca37494ad41ba1c8c05d44378e4e69",
+      "behind_main": 10,
+      "ahead_main": 3,
+      "markdown_files": 17
+    },
+    {
+      "branch": "feat/local-ollama-development",
+      "sha": "2c622c4de0e433d880bfd58ba795a12a6349378f",
+      "behind_main": 22,
+      "ahead_main": 2,
+      "markdown_files": 12
+    },
+    {
+      "branch": "feat/open-webui-agent-workspace",
+      "sha": "f62a0359d33598d7a3670bf78e3a6059c8570c0d",
+      "behind_main": 6,
+      "ahead_main": 4,
+      "markdown_files": 19
+    },
+    {
+      "branch": "feat/t03-shared-contracts-v1",
+      "sha": "f175d6622aaf7481baabe72dd09906cacab0c348",
+      "behind_main": 36,
+      "ahead_main": 1,
+      "markdown_files": 3
+    },
+    {
+      "branch": "feat/t15-dev-mock-backend",
+      "sha": "4f823149abbb94d016a194d93e40b3822c0498f0",
+      "behind_main": 7,
+      "ahead_main": 1,
+      "markdown_files": 19
+    },
+    {
+      "branch": "feat/t16-demo-invoices",
+      "sha": "039cb36452d42f9d5d9eb31047f8bda24f5a35e1",
+      "behind_main": 9,
+      "ahead_main": 1,
+      "markdown_files": 18
+    },
+    {
+      "branch": "feat/team-access-model-versioning",
+      "sha": "865ccfaa2765191b073a2fdc9e0f69fb25649e4d",
+      "behind_main": 33,
+      "ahead_main": 0,
+      "markdown_files": 4
+    },
+    {
+      "branch": "feat/testnet",
+      "sha": "9f94e536043acbe50af518fd1afc819f4b548065",
+      "behind_main": 0,
+      "ahead_main": 4,
+      "markdown_files": 24
+    },
+    {
+      "branch": "fix/ollama-chat-errors",
+      "sha": "3b3bf6d9910365892d64e622a2a2ce0e3b70709c",
+      "behind_main": 21,
+      "ahead_main": 1,
+      "markdown_files": 12
+    },
+    {
+      "branch": "fix/security-ci-deps",
+      "sha": "00a3ef09af58885bca3a3cfb57a72e59c4cd9793",
+      "behind_main": 4,
+      "ahead_main": 1,
+      "markdown_files": 21
+    },
+    {
+      "branch": "fix/t04-agent-bind-supplier",
+      "sha": "581f01e2e03c4218199269dcdea3edf309769311",
+      "behind_main": 23,
+      "ahead_main": 1,
+      "markdown_files": 7
+    },
+    {
+      "branch": "fix/t05-agent-bind-approvals",
+      "sha": "ec713ee0b38158a5b11d6d68c9dbadbb09c89f25",
+      "behind_main": 15,
+      "ahead_main": 1,
+      "markdown_files": 15
+    },
+    {
+      "branch": "fix/t06-extraction-grounding",
+      "sha": "0add99d612c0810e2f897ac7c10e9dcfdbc3e813",
+      "behind_main": 17,
+      "ahead_main": 1,
+      "markdown_files": 12
+    },
+    {
+      "branch": "fix/t06b-grounding-supplier-and-line-items",
+      "sha": "a86e00ef6925dd74a77d7ea4ea8b9bf33ce83e13",
+      "behind_main": 4,
+      "ahead_main": 1,
+      "markdown_files": 21
+    },
+    {
+      "branch": "fix/t07-planner-input-minimisation",
+      "sha": "e0e84d2189fd49ffcf00e630db4ba4bc55f5af75",
+      "behind_main": 3,
+      "ahead_main": 1,
+      "markdown_files": 21
+    },
+    {
+      "branch": "fix/t09-agent-config-hardening",
+      "sha": "2056be3a92a46108440df5a0b73df3e07706e1c0",
+      "behind_main": 18,
+      "ahead_main": 1,
+      "markdown_files": 12
+    },
+    {
+      "branch": "fix/t10-agent-timeouts-and-limits",
+      "sha": "41ca649c6fbc19818e8c15b45d0209b2b93695c0",
+      "behind_main": 8,
+      "ahead_main": 1,
+      "markdown_files": 18
+    },
+    {
+      "branch": "integration/local-mcp-terminal",
+      "sha": "f533a2df29af592622e9e1fb2b86398e3caba471",
+      "behind_main": 26,
+      "ahead_main": 0,
+      "markdown_files": 6
+    },
+    {
+      "branch": "main",
+      "sha": "47b6c55f6c33c5ce3f4e518245e12cd85082ad92",
+      "behind_main": 0,
+      "ahead_main": 0,
+      "markdown_files": 21
+    },
+    {
+      "branch": "onboarding/201154159/johnson-d5ff6c41436f380b",
+      "sha": "dcb8d65b4d2869a5bcff86c92903144a6281e1ca",
+      "behind_main": 34,
+      "ahead_main": 0,
+      "markdown_files": 4
+    },
+    {
+      "branch": "security/adversarial-suite",
+      "sha": "4e7cd9ee59b69b0b5982ac00dec0d42cba78507f",
+      "behind_main": 5,
+      "ahead_main": 5,
+      "markdown_files": 21
+    },
+    {
+      "branch": "swarm-t08-fixer-bfebe860",
+      "sha": "9f94e536043acbe50af518fd1afc819f4b548065",
+      "behind_main": 0,
+      "ahead_main": 4,
+      "markdown_files": 24
+    },
+    {
+      "branch": "swarm-t11-builder-c4c3d667",
+      "sha": "9f94e536043acbe50af518fd1afc819f4b548065",
+      "behind_main": 0,
+      "ahead_main": 4,
+      "markdown_files": 24
+    },
+    {
+      "branch": "wip/t06b-review-fixes",
+      "sha": "1c69c12b00d10d8b90c84e250a61d3535ad1ded6",
+      "behind_main": 2,
+      "ahead_main": 2,
+      "markdown_files": 21
+    },
+    {
+      "branch": "wip/t08-review-fixes",
+      "sha": "3350d7b2ed6f97dfac914c4126d57543c3a89f4e",
+      "behind_main": 2,
+      "ahead_main": 2,
+      "markdown_files": 21
+    }
+  ],
+  "markdown_inventory": [
+    {
+      "sha": "b339602090374a0f4db5175010cfd21001529d0e",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/chore/t01-repo-bootstrap"
+      ],
+      "lines": 19,
+      "bytes": 389
+    },
+    {
+      "sha": "9d17ce64a9b6dbd7bcaf20f5ed81c2382ffc5fcf",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/chore/t01-repo-bootstrap",
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/ci/t02-ci-and-secret-guardrails",
+        "origin/feat/local-ollama-development",
+        "origin/feat/t03-shared-contracts-v1",
+        "origin/feat/team-access-model-versioning",
+        "origin/fix/ollama-chat-errors",
+        "origin/integration/local-mcp-terminal",
+        "origin/onboarding/201154159/johnson-d5ff6c41436f380b"
+      ],
+      "lines": 17,
+      "bytes": 1514
+    },
+    {
+      "sha": "77cf585067a65c719a164248532b630b1d5cfccc",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/integration/local-mcp-terminal"
+      ],
+      "lines": 70,
+      "bytes": 3535
+    },
+    {
+      "sha": "e12403f9abc8b5d525cb85e74a54de729d187c06",
+      "paths": [
+        "docs/local-mcp-chat.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/integration/local-mcp-terminal"
+      ],
+      "lines": 182,
+      "bytes": 8444
+    },
+    {
+      "sha": "eafa2be23f0698a46ecaa97f2ac1107d11154819",
+      "paths": [
+        "docs/onboarding.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/collab/security-audit",
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/local-ollama-development",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/team-access-model-versioning",
+        "origin/feat/testnet",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t09-agent-config-hardening",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/integration/local-mcp-terminal",
+        "origin/main",
+        "origin/onboarding/201154159/johnson-d5ff6c41436f380b",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 226,
+      "bytes": 11377
+    },
+    {
+      "sha": "2122680e1a8a83cd419a52251d960aaca9f15436",
+      "paths": [
+        "docs/team-workflow.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/collab/security-audit",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/local-ollama-development",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/team-access-model-versioning",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/integration/local-mcp-terminal",
+        "origin/onboarding/201154159/johnson-d5ff6c41436f380b"
+      ],
+      "lines": 167,
+      "bytes": 8052
+    },
+    {
+      "sha": "f27d5f07cfd3f976a48a45672729ce1f3cd7f434",
+      "paths": [
+        "mcp_gateway/README.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/codex/shucamoxa-mcp",
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening",
+        "origin/integration/local-mcp-terminal"
+      ],
+      "lines": 52,
+      "bytes": 4210
+    },
+    {
+      "sha": "8c5c258746297bc9d4fd27764b2df402b8264899",
+      "paths": [
+        "packages/shared/README.md"
+      ],
+      "refs": [
+        "origin/chore/t03b-rename-shucamoxa",
+        "origin/collab/security-audit",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/local-ollama-development",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t04-agent-bind-supplier",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 82,
+      "bytes": 6835
+    },
+    {
+      "sha": "7a04bfa6ba38b922167d8192f9d13a312d3204d3",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/ci/t02-ci-and-secret-guardrails",
+        "origin/feat/t03-shared-contracts-v1"
+      ],
+      "lines": 59,
+      "bytes": 2588
+    },
+    {
+      "sha": "de5dcfc6cc9a87ae277d0f4f69e6820d7eae2c3f",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/codex/shucamoxa-mcp"
+      ],
+      "lines": 7,
+      "bytes": 147
+    },
+    {
+      "sha": "a52864481fa0052ab48241bb4c9935062abacbfd",
+      "paths": [
+        "AGENTS.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 86,
+      "bytes": 4868
+    },
+    {
+      "sha": "aa1139ed5b3b5edff80a61430a84e334bc489a59",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 82,
+      "bytes": 4235
+    },
+    {
+      "sha": "503f0a2c06ff41bf0a943b3405d173c0e72e3262",
+      "paths": [
+        "SESSION_START.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 33,
+      "bytes": 1825
+    },
+    {
+      "sha": "415100e295f7eaa2e1105116db0ea4894377af37",
+      "paths": [
+        "docs/AUDIT_COLLAB.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit"
+      ],
+      "lines": 201,
+      "bytes": 18323
+    },
+    {
+      "sha": "c108fdaa03e1d2633329016d69acde00ffbc7849",
+      "paths": [
+        "docs/PRD.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 229,
+      "bytes": 19366
+    },
+    {
+      "sha": "928c12d4a0d3ceae1e36032425ee5fff9f66f167",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 138,
+      "bytes": 10931
+    },
+    {
+      "sha": "190aee5480ca4c9f42d28e7f27b34a90d4e0908c",
+      "paths": [
+        "docs/TECHNICAL_SPEC.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 218,
+      "bytes": 13177
+    },
+    {
+      "sha": "a0ae08c490652c1d8c4efbd4c391e42c7c5e35b6",
+      "paths": [
+        "docs/local-mcp-chat.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/feat/local-ollama-development",
+        "origin/fix/ollama-chat-errors",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 225,
+      "bytes": 11140
+    },
+    {
+      "sha": "5141d06fb297bc12e909c51b32562826b0dcdefc",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/collab/security-audit",
+        "origin/fix/t06-extraction-grounding",
+        "origin/fix/t09-agent-config-hardening"
+      ],
+      "lines": 17,
+      "bytes": 1877
+    },
+    {
+      "sha": "8e6f1abeff5a0551e733638dd038d3d623700b0f",
+      "paths": [
+        "AGENTS.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 88,
+      "bytes": 5262
+    },
+    {
+      "sha": "04437bdb36a199de4c6385fbf787314e917d1fb5",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog"
+      ],
+      "lines": 50,
+      "bytes": 1999
+    },
+    {
+      "sha": "484d35279f248502d29b5bec56ff9d4a1207f4e2",
+      "paths": [
+        "SECURITY_ASSESSMENT.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 440,
+      "bytes": 39375
+    },
+    {
+      "sha": "7f4fb316c92d3d667d16da3492c5391bb4a43cfa",
+      "paths": [
+        "SESSION_START.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 34,
+      "bytes": 1889
+    },
+    {
+      "sha": "ff8024cd22147e7e3bc557c8b9579a3b7d599593",
+      "paths": [
+        "docs/AUDIT_COLLAB.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 509,
+      "bytes": 42463
+    },
+    {
+      "sha": "88ae6819f21979fa56c815733a7227a672305bbe",
+      "paths": [
+        "docs/FINANCE_TRUST_FRAMEWORK.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 262,
+      "bytes": 23267
+    },
+    {
+      "sha": "fb262aff01a3043b0f0e60beff6b877433dc0ab6",
+      "paths": [
+        "docs/IMPLEMENTATION_BACKLOG.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog"
+      ],
+      "lines": 806,
+      "bytes": 53300
+    },
+    {
+      "sha": "0322010e1384e1b8dc2a0aa9dadc9d0a27948564",
+      "paths": [
+        "docs/PRD.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 238,
+      "bytes": 20402
+    },
+    {
+      "sha": "4cdf176526f7e13c482f3c20e6443bb4e1274c7b",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog"
+      ],
+      "lines": 226,
+      "bytes": 17053
+    },
+    {
+      "sha": "fa9f64bb5483056398d8e98aa5ae2a1113423408",
+      "paths": [
+        "docs/SUPPORTING_STATEMENT.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 15,
+      "bytes": 866
+    },
+    {
+      "sha": "a6fab554cab717db151a48e0890cb2febd46c88b",
+      "paths": [
+        "docs/TEAM_HANDOFF.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 92,
+      "bytes": 5443
+    },
+    {
+      "sha": "b51e0bd52205f6e822ff317f7bc3793c6550f73c",
+      "paths": [
+        "docs/TECHNICAL_SPEC.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 260,
+      "bytes": 15902
+    },
+    {
+      "sha": "0f3b0f3537bf52927d8605cc2e27c7acaf75def7",
+      "paths": [
+        "docs/open-webui.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 105,
+      "bytes": 4944
+    },
+    {
+      "sha": "746a9613a8e0b069e80d34ec942231b0f6a48faf",
+      "paths": [
+        "docs/team-workflow.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 88,
+      "bytes": 4224
+    },
+    {
+      "sha": "108926025901fe1fe3582d30fa004cacd62f1b50",
+      "paths": [
+        "fixtures/red-team/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 64,
+      "bytes": 8179
+    },
+    {
+      "sha": "a6b9dac50c3d8894e5e5baa2adc1fc1322dc82a5",
+      "paths": [
+        "mcp_gateway/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 71,
+      "bytes": 5259
+    },
+    {
+      "sha": "4ddabf603ee89bbe226bce8d44ece1913f436aba",
+      "paths": [
+        "packages/shared/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/testnet",
+        "origin/main",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 85,
+      "bytes": 7525
+    },
+    {
+      "sha": "db1b81dc8c1407185f610f5c19ca0b57a5755c69",
+      "paths": [
+        "security/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 63,
+      "bytes": 3570
+    },
+    {
+      "sha": "83f323e0dc3e9c446b8916d4163f5f6a2d2a9914",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/testnet",
+        "origin/main",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 19,
+      "bytes": 3924
+    },
+    {
+      "sha": "87b264826d578009ba0453a427d13f517351ce4e",
+      "paths": [
+        "services/mock-backend/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 37,
+      "bytes": 2061
+    },
+    {
+      "sha": "3c2731ad4dacfb5c24f255a64d7d9b6c1841d2ec",
+      "paths": [
+        "services/payments/README.md"
+      ],
+      "refs": [
+        "origin/docs/implementation-backlog",
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/feat/testnet",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 179,
+      "bytes": 11095
+    },
+    {
+      "sha": "4b00de9c13ab2ebdbfaba6b9585245add7ae8bbd",
+      "paths": [
+        "AGENTS.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t05-agent-bind-approvals",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 88,
+      "bytes": 5208
+    },
+    {
+      "sha": "f84869ca537941cce389dd0d6665588f7f0e17fd",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 87,
+      "bytes": 4539
+    },
+    {
+      "sha": "076a3f584de15363f752e393c3a6d6340a611f41",
+      "paths": [
+        "docs/AUDIT_COLLAB.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 467,
+      "bytes": 39682
+    },
+    {
+      "sha": "96f579a60c0dfb31f4d7a0b758f27f98c5f345e0",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 207,
+      "bytes": 15499
+    },
+    {
+      "sha": "cc74556ce764a888cfd096493786a689ab230cef",
+      "paths": [
+        "docs/local-mcp-chat.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t10-agent-timeouts-and-limits"
+      ],
+      "lines": 226,
+      "bytes": 11293
+    },
+    {
+      "sha": "e66099a79e4f9d5d6c18b977260073994566ee08",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/feat/deterministic-pay-tool",
+        "origin/feat/t16-demo-invoices",
+        "origin/fix/t05-agent-bind-approvals"
+      ],
+      "lines": 17,
+      "bytes": 2390
+    },
+    {
+      "sha": "47572f7d4553dff50e23f9b211b5e2b090de80de",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/feat/open-webui-agent-workspace",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 48,
+      "bytes": 1889
+    },
+    {
+      "sha": "1931185618d62d785acab7ce0b4460ef58099aea",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/feat/open-webui-agent-workspace"
+      ],
+      "lines": 208,
+      "bytes": 15669
+    },
+    {
+      "sha": "518581e907729c6d4a0cfe8300a9a93197b227fc",
+      "paths": [
+        "packages/shared/README.md"
+      ],
+      "refs": [
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/security/adversarial-suite",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 83,
+      "bytes": 7054
+    },
+    {
+      "sha": "4428284a865feacbc7cb03d7c4b8697535e36a80",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/feat/open-webui-agent-workspace",
+        "origin/feat/t15-dev-mock-backend",
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/fix/t10-agent-timeouts-and-limits",
+        "origin/security/adversarial-suite",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 18,
+      "bytes": 3062
+    },
+    {
+      "sha": "1ee01fe7294f284dc2b0929710748b2682951494",
+      "paths": [
+        "packages/shared/README.md"
+      ],
+      "refs": [
+        "origin/feat/t03-shared-contracts-v1"
+      ],
+      "lines": 82,
+      "bytes": 6832
+    },
+    {
+      "sha": "87bbf89227f03d5fa88fd6bec9da889b0c78e5c5",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/feat/team-access-model-versioning",
+        "origin/onboarding/201154159/johnson-d5ff6c41436f380b"
+      ],
+      "lines": 67,
+      "bytes": 3373
+    },
+    {
+      "sha": "f26624d98367f07238dc6f82839dda74f8dcdf45",
+      "paths": [
+        "README.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 62,
+      "bytes": 2698
+    },
+    {
+      "sha": "dd33c648b70700dd71382db737d7f7c9c4c8da99",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 240,
+      "bytes": 17683
+    },
+    {
+      "sha": "9ad2f73a4be66e7a5c09aaf97cfa03f242d367b8",
+      "paths": [
+        "docs/Shucamoxa-Handoff-2026-11-13.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 68,
+      "bytes": 5925
+    },
+    {
+      "sha": "0c80a479c30713de8a391221f0b73f5e62b4bf86",
+      "paths": [
+        "docs/Shucamoxa-Session-Handoff.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 131,
+      "bytes": 10173
+    },
+    {
+      "sha": "1286f0d86acf3a77a4e7c13ecc86bdf2e69d9d2c",
+      "paths": [
+        "docs/Shucamoxa-Technical-Plan-and-Spec.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 546,
+      "bytes": 44789
+    },
+    {
+      "sha": "2b8471bb8946553a24ff3ec82d31ff09b3d71305",
+      "paths": [
+        "docs/TECHNICAL_SPEC.md"
+      ],
+      "refs": [
+        "origin/feat/testnet",
+        "origin/swarm-t08-fixer-bfebe860",
+        "origin/swarm-t11-builder-c4c3d667"
+      ],
+      "lines": 267,
+      "bytes": 16373
+    },
+    {
+      "sha": "cb2234f78eff9bdc224a0795bf38f1cd1640f92b",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/fix/security-ci-deps",
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/fix/t07-planner-input-minimisation",
+        "origin/main",
+        "origin/security/adversarial-suite",
+        "origin/wip/t06b-review-fixes",
+        "origin/wip/t08-review-fixes"
+      ],
+      "lines": 224,
+      "bytes": 16618
+    },
+    {
+      "sha": "9f66803b1e65b71694bcafeab8c4535006076f56",
+      "paths": [
+        "services/agent/TESTING.md"
+      ],
+      "refs": [
+        "origin/fix/t04-agent-bind-supplier"
+      ],
+      "lines": 17,
+      "bytes": 1622
+    },
+    {
+      "sha": "21df2baa012437bf8f0da990c1898f3f02869641",
+      "paths": [
+        "docs/FINANCE_TRUST_FRAMEWORK.md"
+      ],
+      "refs": [
+        "origin/fix/t05-agent-bind-approvals"
+      ],
+      "lines": 151,
+      "bytes": 13206
+    },
+    {
+      "sha": "f32c5f7922ef12cc5616081de434a361c6109654",
+      "paths": [
+        "docs/PROJECT_STATUS.md"
+      ],
+      "refs": [
+        "origin/fix/t05-agent-bind-approvals"
+      ],
+      "lines": 159,
+      "bytes": 12299
+    },
+    {
+      "sha": "44674b2fc33a762384aae6b9346210d86e97e317",
+      "paths": [
+        "docs/SUPPORTING_STATEMENT.md"
+      ],
+      "refs": [
+        "origin/fix/t05-agent-bind-approvals"
+      ],
+      "lines": 13,
+      "bytes": 792
+    },
+    {
+      "sha": "958371bb976375e04176db7144a4b4d5f926a928",
+      "paths": [
+        "docs/TEAM_HANDOFF.md"
+      ],
+      "refs": [
+        "origin/fix/t05-agent-bind-approvals"
+      ],
+      "lines": 52,
+      "bytes": 2929
+    },
+    {
+      "sha": "b2ccbee248f9bb6dbaf2094f249eef9ac4c9012b",
+      "paths": [
+        "fixtures/red-team/README.md"
+      ],
+      "refs": [
+        "origin/fix/t06b-grounding-supplier-and-line-items",
+        "origin/wip/t06b-review-fixes"
+      ],
+      "lines": 58,
+      "bytes": 7725
+    }
+  ]
+}
