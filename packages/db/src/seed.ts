@@ -122,7 +122,7 @@ export function seed(
   }
 
   // Audit log entry for seeding
-  log.appendLog({
+  log.appendLogSync({
     actor: "owner",
     event: "rules_changed",
     explanation: "Demo seed loaded: $50 cap, $200 budget, Karoo & Zambezi approved",

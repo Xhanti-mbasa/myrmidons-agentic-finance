@@ -28,7 +28,7 @@ describe("T28 - Append-only audit log triggers", () => {
     } catch {}
   });
 
-  it("2. audit_log: UPDATE and DELETE throw; INSERT works", () => {
+  it("2. audit_log: UPDATE and DELETE throw; INSERT works", async () => {
     const logRepo = createLogRepo(db);
 
     // 1. INSERT works via direct SQL
@@ -67,7 +67,7 @@ describe("T28 - Append-only audit log triggers", () => {
     expect(stillPresent).toBeDefined();
 
     // 4. logRepo.appendLog also inserts cleanly and advances seq and hash chain
-    const entry2 = logRepo.appendLog({
+    const entry2 = await logRepo.appendLog({
       actor: "policy",
       event: "policy_allowed",
       invoiceNumber: "INV-001",
