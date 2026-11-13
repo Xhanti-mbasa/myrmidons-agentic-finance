@@ -176,7 +176,7 @@ async def chat(args):
             raise ValueError("Explicitly allowed tools were not discovered: " + ", ".join(sorted(unknown)))
         client = await stack.enter_async_context(httpx.AsyncClient(timeout=180, trust_env=False, follow_redirects=False))
         print(f"Model: {args.model} at {host}")
-        print("Commands: /tools, /clear, /quit. MCP runs locally; keep the model SSH tunnel open.")
+        print("Commands: /tools, /clear, /quit. MCP runs locally; inference uses the endpoint above.")
         while True:
             try:
                 prompt = args.prompt if args.prompt is not None else await asyncio.to_thread(input, "you> ")
@@ -217,4 +217,5 @@ def launch(args):
         print("\nChat closed.")
     except Exception as error:
         # AsyncExitStack/SDK can wrap child failures in ExceptionGroup. Avoid dumping env/tracebacks.
-        raise ValueError(f"Chat stopped ({type(error).__name__}). Check the MCP command and model tunnel; no calls are automatically retried.") from None
+        raise ValueError(f"Chat stopped ({type(error).__name__}). Check the MCP command and Ollama at {endpoint(args.host)} (or its SSH tunnel if remote); no calls are automatically retried.") from None
+

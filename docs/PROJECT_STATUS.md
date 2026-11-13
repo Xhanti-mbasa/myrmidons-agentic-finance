@@ -87,10 +87,12 @@ python -m unittest discover -s mcp_gateway -p 'test_*.py' -v
 sh scripts/check-tracked-paths.sh
 ```
 
-Terminal A on the developer's computer: `w3node users connect YOUR_USERNAME`.
-Terminal B in the local checkout/activated venv: `w3node chat`. Default MCP has
-zero tools; `w3node chat --mcp config/mcp.demo.json` opts into echo. The shared
-model still needs its SSH tunnel; local stdio MCP needs no forwarded port.
+Local development: install/start Ollama on the developer computer, then run
+`w3node model setup` and `w3node chat` in the checkout/activated venv. Default
+MCP has zero tools; `w3node chat --mcp config/mcp.demo.json` opts into echo.
+The shared option requires `w3node users connect YOUR_USERNAME` in another
+terminal and explicit `--host http://127.0.0.1:11435`. Local stdio MCP needs no
+forwarded port.
 
 Commands assume installed tooling and already-authorized access; they do not
 grant privileges or install server automation by themselves. Check current docs
@@ -112,3 +114,20 @@ Do not append chat transcripts, private invoice contents, credentials or people'
 private account details. Keep this file a current summary rather than a growing
 dump of every session. A fresh LLM must inspect the current task's source/tests
 and report uncertainty instead of treating this dated snapshot as live truth.
+
+
+## 13 November 2026: local inference workflow
+
+FR-18: CLI chat/build/setup now default to local Ollama 11434; the TypeScript
+agent example uses the local `/v1` endpoint. The shared server is an explicit
+11435 tunnel option. New `model_setup.py` downloads missing base models, reuses
+matching cache and verifies the manifest against `base-model.lock.json`, whose
+initial digest is from owner-supplied server output. Profiles and MCP source
+remain in Git; large weights remain in Ollama/artifact storage. This is inference
+and model import tooling, not training, automatic deployment or streaming output.
+
+Validation: Python tests cover endpoint precedence, cache reuse, streamed pull
+flow, digest mismatch and failed/incomplete downloads using scripted Ollama APIs;
+existing tests exercise actual local MCP subprocess discovery/echo. No model was
+downloaded or benchmarked on the owner's computer in this session. Next: owner
+runs local setup/chat and echo, then records hardware and observed latency.
