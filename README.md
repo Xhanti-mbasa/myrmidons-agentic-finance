@@ -27,6 +27,8 @@ signing authority are not.
 
 ## Product and team development
 
+Current source-checked work inventory: [implementation backlog and tickets](docs/IMPLEMENTATION_BACKLOG.md).
+
 Read [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md),
 [technical specification](docs/TECHNICAL_SPEC.md), and
 [implementation status](docs/PROJECT_STATUS.md).
@@ -60,3 +62,7 @@ If submission times out or fails, the outcome may be unknown: use the printed
 hash and Testnet explorer to reconcile it; do not automatically send a new
 payment. This single-wallet demo has no product policy or independent signer;
 the later payment flow requires additional signing and policy controls.
+
+## Assigned baseline plan
+
+See the [team Kanban](docs/BASELINE_KANBAN.md), [progress and evidence review](docs/BASELINE_PROGRESS.md), and [interactive offline board](docs/planning/baseline-kanban.html). The review includes all remote branch heads and Cameron’s latest handoff uploads; percentages are dated planning estimates, not live readiness metrics.

@@ -1,4 +1,8 @@
+> **Branch-wide baseline review, 13 November 2026:** [Assigned Kanban](BASELINE_KANBAN.md) and [progress/evidence](BASELINE_PROGRESS.md) cover all 31 remote heads, including Cameron’s latest `feat/testnet` uploads. Scheduling and ledger history are now baseline; browser extensions are deferred. Review is pinned to `main@47b6c55`; historical results below were not rerun for this documentation assessment.
+
 # Shucamoxa implementation status and handoff
+
+> **Implementation review, 13 November 2026:** See [the current ticket backlog](IMPLEMENTATION_BACKLOG.md) for a source-checked inventory at `47b6c55`. It covers all 21 Markdown files, 13 completed implementation slices and 40 remaining tickets. Older sections below are historical snapshots and contain retired commands; they are not a current deployment inventory. No runtime or ledger tests were run for this documentation review.
 
 Updated: 13 November 2026 (Africa/Johannesburg).
 Source-inspection baseline commit: `c808928f075f5bc50c737924f3c480a9f56dd73b`.
@@ -238,3 +242,27 @@ expected-failure semantics preserved, checksum-pinned gitleaks clean, and zero
 validated ledger transactions. Local runtime was Node 24/Python 3.12; repository
 Node 22/Python 3.11 verification remains the GitHub CI gate. No financial control
 was weakened or new live payment claimed.
+
+## PR #22 conflict and security-check repair (13 November 2026)
+
+Merged current main (`3bb1abd`) into the Testnet demo branch, preserving both
+README sections: developer XRP demo and the assigned baseline plan. The original
+four demo/handoff commits remain in history.
+
+Both failing checks traced to the same full-history gitleaks finding in
+`da40269:docs/PROJECT_STATUS.md:43`: a public transaction identifier, not a key.
+A read-only query to the fixed public XRPL Testnet endpoint independently confirmed
+that recorded hash as a validated `Payment`, `tesSUCCESS`, with
+`delivered_amount = 1000000` drops (1 XRP). No transaction was submitted for this
+repair. `.gitleaksignore` excludes only the exact historical commit/file/rule/line
+fingerprint; scanner rules and full-history coverage are unchanged. This does
+not fix or conceal the separately documented R2 hash-label bypass.
+
+Local checks on Node 24/Python 3.12: root and security typechecks passed;
+1,414 regular TypeScript tests passed, 39 skipped. Full adversarial runner passed:
+44 BLOCKED, 9 VULNERABLE, 25 NOT_IMPLEMENTED. The latter two remain expected
+failures, not successful security controls. Gitleaks 8.30.1 (checksum verified)
+scanned the complete merged history clean. Removing the exception reproduced
+exactly the known finding; new raw-key/seed canaries and that same public value
+outside the historical fingerprint were still detected. Tracked-path and
+whitespace checks passed. Node 22/Python 3.11 results are the GitHub CI gate.
