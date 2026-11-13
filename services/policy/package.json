@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.8",
+    "@shucamoxa/db": "workspace:*",
     "@shucamoxa/shared": "workspace:*",
     "hono": "^4.13.18",
     "ripple-address-codec": "^5.0.1",

@@ -1,3 +1,4 @@
+import type { ReservationsRepo, ShucamoxaDb } from "@shucamoxa/db";
 import {
   MEMO_TYPE,
   RLUSD_CURRENCY_HEX,
@@ -30,6 +31,8 @@ export type PolicyCheckContext = {
   treasuryAccount: string;
   agentAccount: string;
   getSupplier?: (id: string) => PolicySupplier | null | undefined;
+  db?: ShucamoxaDb;
+  reservationsRepo?: ReservationsRepo;
 };
 
 export type PolicyCheck = (ctx: PolicyCheckContext) => RuleCode | null;
@@ -301,6 +304,116 @@ export const checkMemoStructure: PolicyCheck = (ctx: PolicyCheckContext): RuleCo
   return null;
 };
 
+/**
+ * Check 8: Invoice number must not already be in reservations with a settled payment
+ * or an active reservation for another hash.
+ */
+export const checkDuplicateInvoice: PolicyCheck = (ctx: PolicyCheckContext): RuleCode | null => {
+  const invoiceNumber = ctx.request.request.invoiceNumber;
+  const currentHash = ctx.request.request.logEntryHash;
+
+  let activeReservation: { status: string; tx_hash: string | null } | null = null;
+
+  if (ctx.reservationsRepo) {
+    const row = ctx.reservationsRepo.getActiveReservation(invoiceNumber);
+    if (row) {
+      activeReservation = { status: row.status, tx_hash: row.tx_hash };
+    }
+  } else if (ctx.db) {
+    const row = ctx.db
+      .prepare(
+        "SELECT status, tx_hash FROM reservations WHERE invoice_number = ? AND status IN ('reserved', 'settled') ORDER BY id DESC LIMIT 1"
+      )
+      .get(invoiceNumber) as { status: string; tx_hash: string | null } | undefined;
+    if (row) {
+      activeReservation = row;
+    }
+  }
+
+  if (activeReservation) {
+    if (activeReservation.status === "settled") {
+      return "DUPLICATE_INVOICE";
+    }
+    if (activeReservation.status === "reserved" && activeReservation.tx_hash !== currentHash) {
+      return "DUPLICATE_INVOICE";
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Check 9: Total spent + reserved + requested amount must not exceed totalBudget.
+ */
+export const checkOverBudget: PolicyCheck = (ctx: PolicyCheckContext): RuleCode | null => {
+  let requestedCents: bigint;
+  try {
+    requestedCents = toCents(ctx.request.request.amount);
+  } catch {
+    return "WRONG_ASSET";
+  }
+
+  let totalBudgetCents: bigint;
+  try {
+    totalBudgetCents = toCents(ctx.rules.totalBudget);
+  } catch {
+    return "OVER_BUDGET";
+  }
+
+  let spentCents = 0n;
+  let reservedCents = 0n;
+
+  if (ctx.reservationsRepo) {
+    spentCents = BigInt(ctx.reservationsRepo.getTotalSettledCents());
+    reservedCents = BigInt(ctx.reservationsRepo.getTotalReservedCents());
+  } else if (ctx.db) {
+    const spentRow = ctx.db
+      .prepare("SELECT COALESCE(SUM(amount_cents), 0) AS total FROM reservations WHERE status = 'settled'")
+      .get() as { total: number };
+    const reservedRow = ctx.db
+      .prepare("SELECT COALESCE(SUM(amount_cents), 0) AS total FROM reservations WHERE status = 'reserved'")
+      .get() as { total: number };
+    spentCents = BigInt(spentRow.total);
+    reservedCents = BigInt(reservedRow.total);
+  } else {
+    try {
+      spentCents = toCents(ctx.rules.spent ?? "0.00");
+    } catch {}
+    try {
+      reservedCents = toCents(ctx.rules.reserved ?? "0.00");
+    } catch {}
+  }
+
+  // If this invoice already has an active reservation for the exact same hash (idempotent retry),
+  // its amount is already included in reservedCents.
+  let isSameReservationRetry = false;
+  const invoiceNumber = ctx.request.request.invoiceNumber;
+  const currentHash = ctx.request.request.logEntryHash;
+
+  if (ctx.reservationsRepo) {
+    const row = ctx.reservationsRepo.getActiveReservation(invoiceNumber);
+    if (row && row.status === "reserved" && row.tx_hash === currentHash) {
+      isSameReservationRetry = true;
+    }
+  } else if (ctx.db) {
+    const row = ctx.db
+      .prepare(
+        "SELECT status, tx_hash FROM reservations WHERE invoice_number = ? AND status = 'reserved' LIMIT 1"
+      )
+      .get(invoiceNumber) as { status: string; tx_hash: string | null } | undefined;
+    if (row && row.tx_hash === currentHash) {
+      isSameReservationRetry = true;
+    }
+  }
+
+  const effectiveNewAmount = isSameReservationRetry ? 0n : requestedCents;
+  if (spentCents + reservedCents + effectiveNewAmount > totalBudgetCents) {
+    return "OVER_BUDGET";
+  }
+
+  return null;
+};
+
 /** Helper to run an array of policy checks in order, first failure wins. */
 export function runPolicyChecks(
   ctx: PolicyCheckContext,
@@ -315,7 +428,7 @@ export function runPolicyChecks(
   return null;
 }
 
-/** Ordered check pipeline for T21. Ships checks 1 to 7 plus memo structure. */
+/** Ordered check pipeline for T22. Ships checks 1 to 7 plus duplicate, budget, and memo structure. */
 export const DEFAULT_POLICY_CHECKS: readonly PolicyCheck[] = [
   checkKillSwitch,
   checkPaymentFromTreasury,
@@ -324,5 +437,7 @@ export const DEFAULT_POLICY_CHECKS: readonly PolicyCheck[] = [
   checkAssetAndAmount,
   checkTransactionFieldsAndFee,
   checkPerPaymentCap,
+  checkDuplicateInvoice,
+  checkOverBudget,
   checkMemoStructure,
 ];

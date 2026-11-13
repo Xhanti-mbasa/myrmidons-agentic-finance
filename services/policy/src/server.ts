@@ -2,8 +2,16 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import {
+  createReservationsRepo,
+  createRulesReadRepo,
+  type ReservationsRepo,
+  type RulesReadRepo,
+  type ShucamoxaDb,
+} from "@shucamoxa/db";
+import {
   CosignRequest,
   CosignResponse,
+  toCents,
   type RuleCode,
   ruleExplanation,
   type Rules,
@@ -12,6 +20,7 @@ import { Wallet } from "xrpl";
 import { DEFAULT_POLICY_CHECKS, type PolicyCheck, type PolicyCheckContext } from "./checks";
 import { loadPolicyConfig, type PolicyServerConfig } from "./config";
 import { readRules, type RulesReaderLike } from "./rules-reader";
+import { runInImmediateTransaction } from "./transaction";
 import { decodeAndVerifyAgentSignedBlob } from "./verify";
 
 export const MAX_POLICY_REQUEST_BYTES = 64 * 1024; // 64 KB
@@ -26,6 +35,9 @@ export type PolicyLogger = (entry: PolicyLogEntry) => void;
 export type PolicyServerDeps = {
   env: Record<string, string | undefined>;
   rulesReader?: RulesReaderLike;
+  rulesRepo?: RulesReadRepo;
+  reservationsRepo?: ReservationsRepo;
+  db?: ShucamoxaDb;
   checks?: readonly PolicyCheck[];
   logger?: PolicyLogger;
 };
@@ -46,6 +58,10 @@ const DEFAULT_RULES: Rules = {
 export function createPolicyServer(deps: PolicyServerDeps) {
   const config: PolicyServerConfig = loadPolicyConfig(deps.env);
   const policyWallet = Wallet.fromSeed(config.policySeed);
+
+  const db = deps.db;
+  const reservationsRepo = deps.reservationsRepo ?? (db ? createReservationsRepo(db) : undefined);
+  const rulesRepo = deps.rulesRepo ?? (db ? createRulesReadRepo(db) : undefined);
 
   const log = deps.logger ?? ((entry: PolicyLogEntry) => console.log(JSON.stringify(entry)));
   const checks = deps.checks ?? DEFAULT_POLICY_CHECKS;
@@ -138,7 +154,15 @@ export function createPolicyServer(deps: PolicyServerDeps) {
       // 2. Read rules
       let rules: Rules;
       try {
-        rules = deps.rulesReader ? await readRules(deps.rulesReader) : DEFAULT_RULES;
+        if (deps.rulesReader) {
+          rules = await readRules(deps.rulesReader);
+        } else if (rulesRepo) {
+          const dbRules = rulesRepo.getRules();
+          if (!dbRules) throw new Error("Rules not initialized in DB");
+          rules = dbRules;
+        } else {
+          rules = DEFAULT_RULES;
+        }
       } catch {
         const response = CosignResponse.parse({
           decision: "block",
@@ -154,46 +178,89 @@ export function createPolicyServer(deps: PolicyServerDeps) {
         return c.json(response);
       }
 
-      // 3. Run check pipeline on decoded transaction
+      const getSupplier = (id: string) => {
+        if (rulesRepo) {
+          const s = rulesRepo.getSupplierById(id);
+          if (s) return s;
+        }
+        return undefined;
+      };
+
+      // 3. Build context
       const ctx: PolicyCheckContext = {
         decodedTx: verifyResult.decodedTx,
         request: cosignRequest,
         rules,
         treasuryAccount: config.treasuryAccount,
         agentAccount: config.agentAccount,
+        getSupplier,
+        db,
+        reservationsRepo,
       };
 
-      for (const check of checks) {
-        const code = check(ctx);
-        if (code !== null) {
-          const response = CosignResponse.parse({
-            decision: "block",
-            ruleCode: code,
-            reason: ruleExplanation(code),
-          });
-          log({
-            event: "cosign_evaluated",
-            decision: "block",
-            ruleCode: code,
-            durationMs: since(started),
-          });
-          return c.json(response);
+      // 4. Run checks and atomic reservation insertion
+      const evaluateAndReserve = () => {
+        for (const check of checks) {
+          const code = check(ctx);
+          if (code !== null) {
+            return {
+              decision: "block" as const,
+              ruleCode: code,
+              reason: ruleExplanation(code),
+            };
+          }
         }
+
+        // On allow: atomically insert the active reservation record with the invoiceNumber and requested amount in SQLite
+        if (reservationsRepo) {
+          const active = reservationsRepo.getActiveReservation(cosignRequest.request.invoiceNumber);
+          if (!active) {
+            try {
+              reservationsRepo.createReservation({
+                invoiceNumber: cosignRequest.request.invoiceNumber,
+                supplierId: cosignRequest.request.supplierId,
+                amountCents: Number(toCents(cosignRequest.request.amount)),
+                status: "reserved",
+                txHash: cosignRequest.request.logEntryHash,
+              });
+            } catch (err: any) {
+              if (/unique/i.test(err?.message ?? "")) {
+                return {
+                  decision: "block" as const,
+                  ruleCode: "DUPLICATE_INVOICE" as const,
+                  reason: ruleExplanation("DUPLICATE_INVOICE"),
+                };
+              }
+              throw err;
+            }
+          }
+        }
+
+        // All checks passed and reservation inserted: sign the decoded transaction
+        const signed = policyWallet.sign(verifyResult.txToSign as any, true);
+        return {
+          decision: "allow" as const,
+          ruleCode: "OK" as const,
+          reason: ruleExplanation("OK"),
+          policySignedBlob: signed.tx_blob,
+        };
+      };
+
+      let evaluationResult:
+        | { decision: "allow"; ruleCode: "OK"; reason: string; policySignedBlob: string }
+        | { decision: "block"; ruleCode: RuleCode; reason: string };
+
+      if (db) {
+        evaluationResult = await runInImmediateTransaction(db, () => evaluateAndReserve());
+      } else {
+        evaluationResult = evaluateAndReserve();
       }
 
-      // 4. All checks passed: sign the decoded transaction
-      const signed = policyWallet.sign(verifyResult.txToSign as any, true);
-      const response = CosignResponse.parse({
-        decision: "allow",
-        ruleCode: "OK",
-        reason: ruleExplanation("OK"),
-        policySignedBlob: signed.tx_blob,
-      });
-
+      const response = CosignResponse.parse(evaluationResult);
       log({
         event: "cosign_evaluated",
-        decision: "allow",
-        ruleCode: "OK",
+        decision: evaluationResult.decision,
+        ruleCode: evaluationResult.ruleCode,
         durationMs: since(started),
       });
 
@@ -210,6 +277,43 @@ export function createPolicyServer(deps: PolicyServerDeps) {
     }
   });
 
+  app.post("/reservations/release", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_body", message: "Invalid JSON" }, 400);
+    }
+    const invoiceNumber = (body as any)?.invoiceNumber;
+    if (!invoiceNumber || typeof invoiceNumber !== "string") {
+      return c.json({ error: "invalid_request", message: "invoiceNumber is required" }, 400);
+    }
+
+    if (reservationsRepo) {
+      reservationsRepo.releaseReservation(invoiceNumber);
+    }
+    return c.json({ ok: true, invoiceNumber, status: "released" });
+  });
+
+  app.post("/reservations/settle", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_body", message: "Invalid JSON" }, 400);
+    }
+    const invoiceNumber = (body as any)?.invoiceNumber;
+    const txHash = (body as any)?.txHash;
+    if (!invoiceNumber || typeof invoiceNumber !== "string" || !txHash || typeof txHash !== "string") {
+      return c.json({ error: "invalid_request", message: "invoiceNumber and txHash are required" }, 400);
+    }
+
+    if (reservationsRepo) {
+      reservationsRepo.settleReservation(invoiceNumber, txHash);
+    }
+    return c.json({ ok: true, invoiceNumber, status: "settled" });
+  });
+
   app.notFound((c) => c.json({ error: "not_found", message: "No such route." }, 404));
 
   app.onError((_err, c) => {
@@ -222,5 +326,14 @@ export function createPolicyServer(deps: PolicyServerDeps) {
     );
   });
 
-  return { app, host: config.host, port: config.port, wallet: policyWallet };
+  return {
+    app,
+    host: config.host,
+    port: config.port,
+    wallet: policyWallet,
+    db,
+    reservationsRepo,
+    releaseReservation: (invoiceNumber: string) => reservationsRepo?.releaseReservation(invoiceNumber),
+    settleReservation: (invoiceNumber: string, txHash: string) => reservationsRepo?.settleReservation(invoiceNumber, txHash),
+  };
 }
