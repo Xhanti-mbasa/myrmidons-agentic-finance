@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     'signer_list_changed'
   )),
   invoice_number TEXT,
+  supplier_id TEXT,
+  amount TEXT,
   rule_code TEXT,
   explanation TEXT NOT NULL,
   tx_hash TEXT,
