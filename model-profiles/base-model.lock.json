@@ -1,6 +1,0 @@
-{
-  "schema_version": 1,
-  "model": "qwen3:1.7b-q4_K_M",
-  "manifest_digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
-  "provenance": "Digest reported by the owner from shucamoxa-dev /api/tags on 2026-11-12. This is an Ollama manifest digest, not a GGUF file checksum."
-}
