@@ -265,3 +265,62 @@ before new execution; external anchoring, incoming-ledger monitoring, deployment
 isolation and legal compliance remain separate requirements. OS read-only tool
 code and private payment DB permissions must be enforced at deployment, not by
 model instructions. No live transfer, signer or scheduler deployment is claimed.
+
+## 12. Issue #30–#33 incremental payment extensions
+
+The existing cumulative, cent-based transfer budget is preserved; see
+[verification handoff](HANDOFF_ISSUE30.md). `PreparedTransfer` now also binds
+`expiresAt`. Shared `SigningPermitClaims` plus Ed25519 policy/wallet adapters
+authenticate the prepared digest, version, intent and expiry.
+`PaymentService.checkSigningBoundary` checks durable intent/reservation/current
+policy. These source-level adapters do not implement the wallet provider,
+serialize actual signing with revocation or establish mandatory ledger authority.
+See [policy handoff](HANDOFF_ISSUE31.md) before connecting a provider.
+
+`PurchaseBudgetService` is a separate private SQLite coordinator with shared
+six-decimal schemas, owner category/merchant configuration, trusted quote and
+outcome interfaces, atomic reservations and Johannesburg owner-selected period accounting.
+Unresolved reservations carry into the current period; late confirmed settlement
+conservatively charges the confirmation week. Policy edits preserve usage and
+invalidate unexecuted old versions. There is no live FX/fee feed or automatic
+connection to the existing cumulative transfer budget.
+See [budget handoff](HANDOFF_ISSUE33.md). A trusted purchase execution adapter must
+compose all required policies and exact payment/fee bounds before signing; merely
+injecting permissive callbacks does not provide independent enforcement.
+
+## 13. Governed harness host
+
+`packages/shared/src/harness.ts` defines the strict owner-policy, grant, workflow
+and tool inputs. `services/backend/src/harness/` contains a private single-owner
+SQLite host. Agent and owner credentials differ. Owner routes are `/owner/state`
+and `PUT /owner/policy` with an expected version. Only `/tools/*` appears in the
+OpenAPI schema. Core gates have no disable/remove tool. Optional tools disappear
+from discovery when disabled and remain blocked if called from a stale cache.
+`mcp_gateway/harness.py` is an allowlisted stdio transport for this exact API.
+
+The host's eligibility gate binds an action to a registered intent/resource/route
+ID, allowed category and current owner evidence. It does not produce KYC, legal
+or regulatory conclusions. SQLite transactions serialize policy edits, audit
+verification and dispatch claims. The isolated financial backend rechecks its
+own current mandate and signing authority. Pausing this host stops new dispatch;
+it cannot recall a request already handed to another process or a signed payment.
+
+Payment adapters use the distinct existing `/transfers/*` and `/purchases/*`
+contracts and only their agent credentials. They do not implicitly connect the
+new singular `services/payment/` invoice service or legacy `/v1` gateway.
+Transfer/purchase backend hosts retain their own budget, signing and receipt
+obligations. No signing key or backend owner token enters the harness model tools.
+
+Demo mode uses the production transfer and purchase/budget coordinators with
+explicitly simulated ledger/merchant adapters. Every returned result labels its
+evidence. Testnet mode requires configured private hosts; an absent provider
+fails unavailable. Bridge quotes never execute cross-chain transfers. Owner
+workflows execute once per registered ID and retain partial/unknown outcomes
+across restart. New execution requires another explicit owner preset and the
+backend's own deduplication remains authoritative.
+
+Hash-linked harness events omit tokens, addresses, raw invoices and signed blobs.
+They record action IDs, codes and outcomes. Full-chain verification precedes
+financial dispatch, but suffix deletion/complete recomputation still requires an
+independent retained checkpoint to detect. See `HARNESS_DEMO.md` for setup,
+permissions, rehearsal and evidence limits.

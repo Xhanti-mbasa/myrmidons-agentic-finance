@@ -1,0 +1,30 @@
+[Unit]
+Description=Shucamoxa private Testnet purchase signer and policy host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shucamoxa-purchases
+Group=shucamoxa-purchases
+WorkingDirectory=/opt/shucamoxa
+ExecStart=/usr/bin/node --import tsx services/backend/src/purchase-main.ts /etc/shucamoxa/purchases/host.json
+StateDirectory=shucamoxa-purchases
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadOnlyPaths=/opt/shucamoxa /etc/shucamoxa/purchases
+ReadWritePaths=/var/lib/shucamoxa-purchases
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

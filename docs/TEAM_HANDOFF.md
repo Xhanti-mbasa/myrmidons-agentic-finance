@@ -90,3 +90,33 @@ there inline and update each finding's Status column.
   Q5 (W3Node rubric, deadline, deliverables), Q7 (feedback on Features A/B/C).
 - Files Claude is taking: `docs/AUDIT_COLLAB.md` only. Claude is not editing source files unless
   the owner asks.
+
+## Harness and WebUI integration workstream (13 November 2026)
+
+Branch: `work/harness-open-webui-demo`. Integrated the existing payment source
+work at `50be2a9`, then main through `ee40fa3` (T14/T21/T25/T26/T27/T28/T29).
+The newer singular `services/payment/` and shared DB remain present alongside
+the transfer/purchase coordinators; their different APIs are not interchanged.
+
+Added `services/backend/src/harness/`, shared strict schemas, OpenAPI/stdio MCP
+transports, owner console, persisted optional toggles and bounded workflows,
+a WebUI preset prompt/registration script and Docker startup recipe. See
+`HARNESS_DEMO.md`. Source scope also includes focused harness/MCP/setup tests.
+No target PC, Docker daemon, WebUI admin session, model endpoint, funded wallet
+or live publisher was available here; those are explicit deployment prerequisites.
+
+Integration maintenance updated the adversarial positive control for T21's
+approved supplier and valid memo. Partial payments, paths, wrong asset/issuer,
+excess fee and destination-tag mutations now reproduce blocked results. A
+well-formed substituted memo hash still reproduces the actual binding gap;
+stale ledger expiry and permit replay remain vulnerabilities. Added narrow
+scanner allowances for three independently inspected public hash fixtures in
+upstream tests, with tests that retain detection outside those exact paths/values.
+The general key-detection rules remain enabled.
+
+Evidence: Node 22.23.0/pnpm 10.28.0 typecheck and regular tests, Python gateway
+subprocess tests, actual local HTTP host plus MCP purchase/payment smoke, and
+checksum-verified gitleaks 8.30.1. All local settlements are simulated. Final
+security counts are 60 BLOCKED, 11 VULNERABLE, 7 NOT_IMPLEMENTED. A successful
+evidence run is not a deployment security approval. The five-slide pitch labels
+the simulation and leaves live release gates visible.

@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { once } from "node:events";
 import { PaymentService, paymentDigest, verifyTransferAudit, type PaymentAdapters, type Principal } from "../src/payment";
+import { createSignedPolicyAdapter, createGuardedWalletAdapter } from "../src/signing";
 import { createTransferServer } from "../src/http";
 import { RLUSD_TESTNET_ISSUER, TransferResult } from "../../../packages/shared/src/index";
 
@@ -53,6 +54,22 @@ function fixture() {
 }
 
 describe("deterministic pay tool", () => {
+  it("uses real signed permits against durable current authority and refuses replay after settlement", async () => {
+    const f = fixture(), id = f.create(), keys = generateKeyPairSync("ed25519");
+    const check = async (payment: Parameters<typeof paymentDigest>[0]) => f.service.checkSigningBoundary(payment);
+    const clock = () => new Date("2026-11-13T00:00:00Z");
+    const policy = createSignedPolicyAdapter(keys.privateKey, check, clock);
+    const rawSubmit = vi.fn(f.wallet.submit.getMockImplementation()!);
+    const guarded = createGuardedWalletAdapter(keys.publicKey, check,
+      { submit: rawSubmit, lookup: f.wallet.lookup }, clock);
+    f.policy.authorize.mockImplementation(policy.authorize);
+    f.wallet.submit.mockImplementation(guarded.submit);
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("settled");
+    const [prepared, permit] = f.wallet.submit.mock.calls[0]!;
+    await expect(guarded.submit(prepared, permit)).rejects.toThrow("POLICY_DENIED");
+    expect(rawSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects contradictory public outcomes and settlement without a hash", () => {
     const base = { intentId: "ad2ae810-0787-49f2-a458-1c57bff0fb11" };
     expect(TransferResult.safeParse({ ...base, status: "settled", code: "OK" }).success).toBe(false);
@@ -118,6 +135,83 @@ describe("deterministic pay tool", () => {
     const denied = f.create({ recipientId: "vendor", amount: "750", reference: "PAY-DENY" });
     expect((await f.service.pay(agent, { intentId: allowed })).status).toBe("settled");
     expect((await f.service.pay(agent, { intentId: denied })).code).toBe("OVER_PER_PAYMENT_CAP");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses a stricter recipient override and admits the exact cumulative budget boundary", async () => {
+    const f = fixture();
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00", recipientCaps: { johnson: "40.00" } });
+    const over = f.create({ amount: "40.01", reference: "STRICT-OVER" });
+    expect((await f.service.pay(agent, { intentId: over })).code).toBe("OVER_PER_PAYMENT_CAP");
+    const a = f.create({ amount: "40.00", reference: "EXACT-A" });
+    const b = f.create({ amount: "60.00", recipientId: "vendor", reference: "EXACT-B" });
+    expect((await f.service.pay(agent, { intentId: a })).status).toBe("settled");
+    expect((await f.service.pay(agent, { intentId: b })).status).toBe("settled");
+    const c = f.create({ amount: "0.01", reference: "FIRST-OVER" });
+    expect((await f.service.pay(agent, { intentId: c })).code).toBe("OVER_BUDGET");
+    expect(f.service.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
+    expect(f.wallet.submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves spent plus unknown reservations through policy edits and restart without rollover", async () => {
+    const f = fixture();
+    const a = f.create({ amount: "40.00", reference: "SPENT" });
+    expect((await f.service.pay(agent, { intentId: a })).status).toBe("settled");
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    const b = f.create({ amount: "60.00", reference: "RESERVED" });
+    expect((await f.service.pay(agent, { intentId: b })).status).toBe("unknown");
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00" });
+    expect(f.service.budget(owner)).toEqual({ spent: "40.00", reserved: "60.00" });
+    f.advance(8 * 86400000);
+    const next = f.reopen();
+    expect(next.budget(owner)).toEqual({ spent: "40.00", reserved: "60.00" });
+    const c = next.createIntent(owner, f.input({ amount: "0.01", reference: "NO-ROLLOVER",
+      expiresAt: "2026-12-01T00:00:00Z" })).intentId;
+    expect((await next.pay(agent, { intentId: c })).code).toBe("OVER_BUDGET");
+    expect((await next.pay(agent, { intentId: b })).status).toBe("unknown");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(2);
+    expect((await next.reconcile(agent, b)).status).toBe("settled");
+    expect(next.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
+  });
+
+  it("counts in-flight reservations across independent connections for different intents", async () => {
+    const f = fixture();
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00" });
+    const a = f.create(), b = f.create({ amount: "0.01", reference: "OTHER-CONNECTION" });
+    let release!: (value: unknown) => void;
+    f.policy.authorize.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const pending = f.service.pay(agent, { intentId: a });
+    const second = new PaymentService(f.path, { policy: f.policy, wallet: f.wallet });
+    try {
+      expect((await second.pay(agent, { intentId: b })).code).toBe("OVER_BUDGET");
+      expect(second.budget(owner)).toEqual({ spent: "0.00", reserved: "100.00" });
+    } finally { second.close(); }
+    const payment = f.policy.authorize.mock.calls[0]![0];
+    release({ decision: "allow", paymentDigest: paymentDigest(payment), authorization: "test" });
+    expect((await pending).status).toBe("settled");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks an enabled policy edit while authorization is pending and releases only the unsubmitted reservation", async () => {
+    const f = fixture(), id = f.create();
+    f.policy.authorize.mockImplementationOnce(async (_payment, digest) => {
+      f.service.setPolicy(owner, { ...rules, perPaymentCap: "1.00", recipientCaps: {} });
+      return { decision: "allow", paymentDigest: digest, authorization: "test" };
+    });
+    expect((await f.service.pay(agent, { intentId: id })).code).toBe("POLICY_CHANGED");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect(f.wallet.submit).not.toHaveBeenCalled();
+  });
+
+  it("disabling stops new authority without releasing a previously uncertain submission", async () => {
+    const f = fixture(), id = f.create();
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("unknown");
+    const fresh = f.create({ amount: "1.00", reference: "DISABLED" });
+    f.service.setPolicy(owner, { ...rules, enabled: false });
+    expect((await f.service.pay(agent, { intentId: fresh })).code).toBe("KILL_SWITCH_ON");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "100.00" });
+    expect((await f.service.reconcile(agent, id)).status).toBe("settled");
     expect(f.wallet.submit).toHaveBeenCalledTimes(1);
   });
 
@@ -211,6 +305,21 @@ describe("deterministic pay tool", () => {
     expect(reopened.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
   });
 
+  it("releases a verified rejection exactly once without resubmitting", async () => {
+    const f = fixture(), id = f.create();
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("unknown");
+    f.wallet.lookup.mockImplementationOnce(async (_payment, digest) => ({ status: "rejected",
+      paymentDigest: digest, txHash, validated: true, ledgerIndex: 101, ledgerResult: "tecPATH_DRY" }));
+    expect((await f.service.reconcile(agent, id)).code).toBe("LEDGER_REJECTED");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect((await f.service.reconcile(agent, id)).status).toBe("rejected");
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("rejected");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect(f.wallet.lookup).toHaveBeenCalledTimes(1);
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
   it("does not treat submit responses or malformed validation evidence as settlement", async () => {
     for (const reply of [{ status: "submitted", txHash }, { status: "settled", validated: false, txHash },
       { ...settled("b".repeat(64)) }]) {
@@ -250,6 +359,8 @@ describe("deterministic pay tool", () => {
       expect((await fetch(base + "/transfers/" + id)).status).toBe(401);
       const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
       expect((await fetch(base + "/transfers/intents", { method: "POST", headers, body: JSON.stringify(f.input()) })).status).toBe(403);
+      expect((await fetch(base + "/transfers/policy", { method: "PUT", headers,
+        body: JSON.stringify({ ...rules, enabled: false }) })).status).toBe(403);
       const response = await fetch(base + "/transfers/pay", { method: "POST", headers, body: JSON.stringify({ intentId: id }) });
       expect((await response.json()).status).toBe("settled");
       expect((await fetch(base + "/transfers/audit", { headers })).status).toBe(403);

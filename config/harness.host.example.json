@@ -1,0 +1,15 @@
+{
+  "stateDirectory": "/var/lib/shucamoxa-harness",
+  "ownerTokenFile": "/private/harness/owner.token",
+  "agentTokenFile": "/private/harness/agent.token",
+  "transfers": { "url": "http://127.0.0.1:8092", "agentTokenFile": "/private/transfer-agent.token" },
+  "purchases": { "url": "http://127.0.0.1:8090", "agentTokenFile": "/private/purchase-agent.token" },
+  "policy": {
+    "enabled": false,
+    "profile": "university",
+    "allowedCategories": ["research"],
+    "plugins": { "automation": false, "bridge": false },
+    "grants": [],
+    "flows": []
+  }
+}

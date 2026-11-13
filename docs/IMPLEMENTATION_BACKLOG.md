@@ -1,5 +1,28 @@
 # Implementation backlog and evidence map
 
+The broad inventory below is a historical pinned-source review. The following payment update records newer branch work and supersedes that review for issues #30–#33 only; it does not close the broader integration or release gates.
+
+## Payment controls and paid resources: issues #30–#33 integration update
+
+Snapshot: 13 November 2026. Source baseline `47b6c55`; inspect current branches
+and handoffs before using this snapshot as implementation evidence. These issues
+extend the invoice-payment MVP; paid-resource work does not silently replace its
+release criteria. No Mainnet or real-value execution is authorized here.
+
+| Issue | Work and evidence | Remaining gate |
+|---|---|---|
+| [#30](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/issues/30) | Verification and [shared handoff](HANDOFF_ISSUE30.md) complete. Cumulative RLUSD caps, budget and disable semantics checked; typecheck and 67 payment-project tests passed on `c9d415b`. | Actual independent signer and Testnet evidence belong to #31; simulated tests do not establish deployment. |
+| [#31](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/issues/31) | Concrete Testnet transfer wallet adapter, signed permit checks, durable transaction identity, final signing/revocation DB gate and exact ledger receipt verification. [Integration handoff](PAYMENT_INTEGRATION.md). | Deploy isolated provider and final co-sign topology; validated allowed/blocked Testnet evidence. Privy remains with the transaction workstream. |
+| [#32](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/issues/32) | Presigned v2 RLUSD executor, merchant revalidation, durable crash/no-sign recovery, private authenticated host and strict MCP tools; generated-key and scripted transport tests. [Integration handoff](PAYMENT_INTEGRATION.md). | Funded dedicated wallet, compatible real HTTPS merchant/facilitator purchase and deployment evidence. Signed-but-unconfirmed expiry recovery remains conservative/unknown. |
+| [#33](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/issues/33) | Daily/weekly/monthly categories, purchase-wallet aggregate RLUSD allowance, signed owner-attested rate/fee envelopes and final signer checks; rejected payments retain fee charges. [Integration handoff](PAYMENT_INTEGRATION.md). | Deploy quote publisher with reviewed rate/fee source and prove live period-boundary behavior. No automatic market-price feed is claimed. |
+
+All four workstreams require honest separation of source inspection, fake-adapter
+tests, local HTTP/model evidence and actual validated ledger transactions. Owner
+controls and deployment isolation must be enforced outside the model. The current
+invoice APIs and transfer/purchase extensions require explicit adapters.
+
+## Pinned baseline review
+
 Reviewed **13 November 2026 (Africa/Johannesburg)** against `main@47b6c55f6c33c5ce3f4e518245e12cd85082ad92`.
 All **21 tracked Markdown files** at that commit were read; the source and relevant
 branch heads were inspected where docs contradicted implementation. This is a

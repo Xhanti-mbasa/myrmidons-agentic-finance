@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "shucamoxa": {
+      "command": "/absolute/path/to/venv/bin/python",
+      "args": ["/absolute/path/to/repo/mcp_gateway/harness.py"],
+      "env": {
+        "SHUCAMOXA_HARNESS_URL": "http://127.0.0.1:8091",
+        "SHUCAMOXA_HARNESS_AGENT_TOKEN_FILE": "/private/path/agent.token"
+      }
+    }
+  }
+}

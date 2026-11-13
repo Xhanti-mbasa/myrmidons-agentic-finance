@@ -4,6 +4,9 @@ services:
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     restart: unless-stopped
+    depends_on:
+      harness:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${WEBUI_PORT:-3000}:8080"
     volumes:
@@ -15,5 +18,28 @@ services:
       WEBUI_AUTH: "True"
       ENABLE_SIGNUP: "False"
       WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:?Set WEBUI_SECRET_KEY in .env}"
+  harness:
+    user: "${HARNESS_UID:-1000}:${HARNESS_GID:-1000}"
+    build:
+      context: ..
+      dockerfile: deploy/harness.Dockerfile
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:8091:8091"
+    volumes:
+      - ../secrets/harness:/state
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8091/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 volumes:
   open-webui-data:

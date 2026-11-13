@@ -66,3 +66,10 @@ the later payment flow requires additional signing and policy controls.
 ## Assigned baseline plan
 
 See the [team Kanban](docs/BASELINE_KANBAN.md), [progress and evidence review](docs/BASELINE_PROGRESS.md), and [interactive offline board](docs/planning/baseline-kanban.html). The review includes all remote branch heads and Cameron’s latest handoff uploads; percentages are dated planning estimates, not live readiness metrics.
+
+## Governed harness demo
+
+See [docs/HARNESS_DEMO.md](docs/HARNESS_DEMO.md) for the owner console, mandatory
+policy/eligibility/audit gates, optional workflows, explicit bridge simulation,
+OpenAPI/MCP tools and Open WebUI registration. Start the standalone simulation
+with `pnpm harness:demo`, or the WebUI stack with `sh scripts/start-harness-demo.sh`.
