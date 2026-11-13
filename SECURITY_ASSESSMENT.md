@@ -1,3 +1,5 @@
+> Current security-repair branch: see **Submission hardening update** and the dependency follow-up below. The original attack table is historical. Retained current outcomes are 63 BLOCKED / 8 VULNERABLE / 7 NOT_IMPLEMENTED; green expected-failure jobs are not proof that every attack is blocked.
+
 # Shucamoxa adversarial security assessment
 
 ## Integration update — 13 November 2026
@@ -539,3 +541,26 @@ values are reproduced here. The current-main ancestry scan and staged scan are
 clean under the stricter rules. This assessment does **not** endorse a blanket
 “the entire repo/history is safe to publish” guarantee. Shared feature branches
 and history were not rewritten or deleted without coordinated authorization.
+
+### Dependency and historical-fixture follow-up
+
+The Node registry was reachable during this repair. `pnpm audit --json` initially
+reported five advisories in the old mutation-test chain. Stryker core and its
+Vitest runner were updated together to 10.1.1; scoped minimatch 11.0.1 and qs
+6.16.1 overrides cover the remaining reported ranges. The resulting lockfile
+has zero known advisories in the resolved 363-dependency Node graph at check
+time. This is not a Python, OS/container or future-advisory clearance.
+
+Compatibility validation: the application typecheck and all 1,925 TypeScript
+tests pass. Stryker's dry run passes its 946-test initial run; no mutation score
+is claimed. The old runner failed against current Vitest; the updated runner
+also exposed a fixture path assumption. The test helper now locates real
+workspace fixtures from either normal or sandbox paths; no data is invented,
+no assertion is skipped and no score threshold was weakened. Retained sanitized
+metadata is `security/evidence/dependency-audit.json`.
+
+Additional local checksum validation established that both seed-shaped values
+flagged in the two unmerged test files are **invalid XRPL seeds**. They were not
+used to sign or to contact a ledger. This narrows the earlier provenance concern;
+the all-refs scanner output is still recorded as candidates, not suppressed or
+promoted into a blanket public-safety guarantee.

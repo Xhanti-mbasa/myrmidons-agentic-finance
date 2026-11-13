@@ -558,3 +558,12 @@ candidates, including seed-shaped literals in unmerged test files. Provenance
 is not established merely because a string appears in a test; values were not
 suppressed or copied into the report. This qualifies the supplied audit's
 blanket no-secrets claim and remains a separate branch/provenance follow-up.
+
+Dependency follow-up: the registry was reachable here. Updated the mutation
+runner pair to 10.1.1 and scoped remaining transitive patches; Node audit now
+reports zero known advisories. The Stryker dry run passes 946 tests without
+executing mutations; all 1,925 application tests pass. Fixture discovery was
+made sandbox-safe without weakening assertions. Python/OS/container advisories
+were not audited. Both seed-shaped historical literals previously flagged were
+locally checked and fail XRPL seed checksum validation; no ledger was contacted.
+All-ref scan candidates remain disclosed rather than broadly ignored.
