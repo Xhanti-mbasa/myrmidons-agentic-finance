@@ -82,14 +82,14 @@ it('composes actual durable weekly budget with a controlled simulated merchant',
     quotes:{resolve:()=>({id:'quote',source:'controlled-test-quote',zarPerRlusd:'20',issuedAt:'2026-11-13T11:00:00Z',expiresAt:'2026-11-13T13:00:00Z'})},
     outcomes:{verify:()=> 'settled'},
   },()=>now);
-  budget.setPolicy(owner,{enabled:true,categories:{articles:{perPurchaseZar:'0.10',weeklyZar:'0.10',merchantIds:['demo'],autoPurchase:true}}});
+  budget.setPolicy(owner,{enabled:true,categories:{articles:{perPurchaseZar:'0.10',period:'weekly',periodBudgetZar:'0.10',merchantIds:['demo'],autoPurchase:true}}});
   const composed=new X402PurchaseService(join(path,'p.db'),{...adapters,budget:x402BudgetAdapter(budget,()=>({quoteId:'quote',feeRlusd:'0'}))},()=>now);
   services.push(composed);
   try {
     expect((await composed.purchase(agent,bind(),'automatic')).status).toBe('delivered');
     const c=challenge();c.resource.url='https://merchant.example/article/2';
     const b=bindPurchase({purchaseId:'22222222-2222-4222-8222-222222222222',ownerId:'owner',categoryId:'articles',requestedUrl:c.resource.url,challenge:c,merchant,receivedAt:now});
-    await expect(composed.purchase(agent,b,'automatic')).rejects.toThrow('OVER_WEEKLY_BUDGET');
+    await expect(composed.purchase(agent,b,'automatic')).rejects.toThrow('OVER_PERIOD_BUDGET');
     expect(adapters.execution.execute).toHaveBeenCalledTimes(1);
     expect(budget.remaining(owner,'articles').remainingZar).toBe('0.000000');
   } finally { budget.close(); }

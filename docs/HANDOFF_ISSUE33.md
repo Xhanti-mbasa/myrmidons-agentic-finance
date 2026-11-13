@@ -105,3 +105,16 @@ presence is not permission to skip that global control. Issue 31 owns independen
 policy/signer enforcement. No live provider, independent ledger signing topology,
 merchant purchase, market FX source, owner UI or end-to-end integrated evidence is
 claimed here. Keep issue 33 open until those acceptance gaps are demonstrated.
+
+## Owner-selected budget period update
+
+The owner now chooses `daily`, `weekly` or `monthly` per category with
+`periodBudgetZar`; `weeklyZar` is replaced. Johannesburg day boundaries are
+00:00 local, weeks begin Monday, and months begin on day 1. Unused capacity
+does not roll forward. Unknown reservations carry across all boundaries.
+Settled records retain their settlement timestamp so changing a category's
+period does not erase spending in the newly selected current period. A policy
+edit increments the version and prevents signing under the old policy.
+This is a wire-schema change; existing stored purchase policies using
+`weeklyZar` require an owner-authorized migration before this version starts.
+No automatic migration is bundled.

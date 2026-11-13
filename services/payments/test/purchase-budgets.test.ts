@@ -3,11 +3,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { PurchaseBudgetService, purchaseWeekStart } from "../src/purchase-budgets";
+import { PurchaseBudgetService, purchaseWeekStart, purchasePeriodStart } from "../src/purchase-budgets";
 import { toMicros, fromMicros } from "../../../packages/shared/src/index";
 const owner = {ownerId:"business",subjectId:"owner",role:"owner"} as const;
 const agent = {...owner,subjectId:"agent",role:"agent"} as const;
-const policy = {enabled:true,timezone:"Africa/Johannesburg",categories:{articles:{perPurchaseZar:"0.10",weeklyZar:"0.20",merchantIds:["publisher"],autoPurchase:true},data:{perPurchaseZar:"1",weeklyZar:"1",merchantIds:["publisher"],autoPurchase:true}}};
+const policy = {enabled:true,timezone:"Africa/Johannesburg",categories:{articles:{perPurchaseZar:"0.10",period:"weekly",periodBudgetZar:"0.20",merchantIds:["publisher"],autoPurchase:true},data:{perPurchaseZar:"1",period:"weekly",periodBudgetZar:"1",merchantIds:["publisher"],autoPurchase:true}}};
 const cleanup: (()=>void)[] = [];
 afterEach(()=>{for (const fn of cleanup.splice(0)) fn();});
 function fixture() {
@@ -23,6 +23,15 @@ function fixture() {
   return {service,open,request,advance:(value:string)=>{time=new Date(value);},rate:(value:string)=>{rate=value;}};
 }
 describe("independent category purchase budgets",()=>{
+  it("uses owner-selected daily and monthly Johannesburg boundaries",()=>{
+    expect(purchasePeriodStart(new Date("2026-11-30T21:59:59Z"),"daily")).toBe("2026-11-29T22:00:00.000Z");
+    expect(purchasePeriodStart(new Date("2026-11-30T22:00:00Z"),"daily")).toBe("2026-11-30T22:00:00.000Z");
+    expect(purchasePeriodStart(new Date("2026-11-30T22:00:00Z"),"monthly")).toBe("2026-11-30T22:00:00.000Z");
+    const f=fixture();
+    f.service.setPolicy(owner,{...policy,categories:{articles:{...policy.categories.articles,period:"daily"}}});
+    expect(f.service.reserve(agent,f.request()).period).toBe("daily");
+    expect(()=>f.service.reserve(agent,f.request({amountRlusd:"0.015"}))).toThrow("OVER_PER_PURCHASE_CAP");
+  });
   it("uses exact micro precision, rejects exponent/float input and rounds charges upward",()=>{
     expect(fromMicros(toMicros("0.000001"))).toBe("0.000001");
     expect(()=>toMicros("1e-6")).toThrow();
@@ -32,7 +41,7 @@ describe("independent category purchase budgets",()=>{
   it("permits the last purchase and blocks the first over budget across two connections",()=>{
     const f=fixture(),second=f.open();
     f.service.reserve(agent,f.request());second.reserve(agent,f.request());
-    expect(()=>f.service.reserve(agent,f.request())).toThrow("OVER_WEEKLY_BUDGET");
+    expect(()=>f.service.reserve(agent,f.request())).toThrow("OVER_PERIOD_BUDGET");
     expect(f.service.remaining(owner,"articles")).toMatchObject({reservedZar:"0.200000",remainingZar:"0.000000"});
     expect(f.service.reserve(agent,f.request({categoryId:"data"})).chargedZar).toBe("0.100000");
   });
@@ -68,7 +77,7 @@ describe("independent category purchase budgets",()=>{
     expect(second.remaining(owner,"articles").reservedZar).toBe("0.100000");
     second.recordOutcome(agent,b.purchaseId,"verified-settlement");
     expect(second.remaining(owner,"articles")).toMatchObject({spentZar:"0.100000",reservedZar:"0.000000"});
-    second.reserve(agent,f.request());expect(()=>second.reserve(agent,f.request())).toThrow("OVER_WEEKLY_BUDGET");
+    second.reserve(agent,f.request());expect(()=>second.reserve(agent,f.request())).toThrow("OVER_PERIOD_BUDGET");
   });
   it("rechecks kill switch, version and quote expiry before authority, without releasing uncertain capacity",()=>{
     const f=fixture(),a=f.service.reserve(agent,f.request());

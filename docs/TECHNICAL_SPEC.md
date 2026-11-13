@@ -272,7 +272,7 @@ See [policy handoff](HANDOFF_ISSUE31.md) before connecting a provider.
 
 `PurchaseBudgetService` is a separate private SQLite coordinator with shared
 six-decimal schemas, owner category/merchant configuration, trusted quote and
-outcome interfaces, atomic reservations and Johannesburg weekly accounting.
+outcome interfaces, atomic reservations and Johannesburg owner-selected period accounting.
 Unresolved reservations carry into the current period; late confirmed settlement
 conservatively charges the confirmation week. Policy edits preserve usage and
 invalidate unexecuted old versions. There is no live FX/fee feed or automatic

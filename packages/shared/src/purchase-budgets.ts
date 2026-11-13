@@ -16,7 +16,7 @@ export function fromMicros(value: bigint): string {
   return `${value / 1_000_000n}.${String(value % 1_000_000n).padStart(6, "0")}`;
 }
 export const PurchaseCategory = z.strictObject({
-  perPurchaseZar: PositiveMicroAmount, weeklyZar: PositiveMicroAmount,
+  perPurchaseZar: PositiveMicroAmount, periodBudgetZar: PositiveMicroAmount, period: z.enum(["daily", "weekly", "monthly"]),
   merchantIds: z.array(AccountId).min(1).max(100), autoPurchase: z.boolean(),
 });
 export const PurchaseBudgetPolicy = z.strictObject({
@@ -36,6 +36,6 @@ export const PurchaseBudgetRequest = z.strictObject({
 });
 export type PurchaseBudgetRequest = z.infer<typeof PurchaseBudgetRequest>;
 export type PurchaseReservation = PurchaseBudgetRequest & {
-  ownerId: string; policyVersion: number; periodStart: string; chargedZar: string;
-  quote: TrustedPurchaseQuote; settledPeriodStart?: string; budgetDigest: string; state: "reserved" | "unknown" | "settled" | "rejected";
+  ownerId: string; policyVersion: number; periodStart: string; period: "daily" | "weekly" | "monthly"; chargedZar: string;
+  quote: TrustedPurchaseQuote; settledAt?: string; settledPeriodStart?: string; settledPeriod?: "daily" | "weekly" | "monthly"; budgetDigest: string; state: "reserved" | "unknown" | "settled" | "rejected";
 };

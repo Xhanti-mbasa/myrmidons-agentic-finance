@@ -18,6 +18,11 @@ export function purchaseWeekStart(now: Date): string {
   const day = local.getUTCDay();
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (day + 6) % 7) - 7_200_000).toISOString();
 }
+export function purchasePeriodStart(now: Date, period: "daily" | "weekly" | "monthly"): string {
+  const local = new Date(now.getTime() + 7_200_000);
+  if (period === "weekly") return purchaseWeekStart(now);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), period === "monthly" ? 1 : local.getUTCDate()) - 7_200_000).toISOString();
+}
 /** Independent private datastore; do not mount in the agent environment. No signing authority. */
 export class PurchaseBudgetService {
   private db: DatabaseSync;
@@ -67,13 +72,13 @@ export class PurchaseBudgetService {
     this.db.prepare("INSERT INTO purchase_reservations VALUES(?,?,?) ON CONFLICT(owner,id) DO UPDATE SET body=excluded.body")
       .run(value.ownerId,value.purchaseId,canonicalJson(value));
   }
-  private usage(owner: string, categoryId: string): {spent: bigint; reserved: bigint} {
+  private usage(owner: string, categoryId: string, periodType: "daily" | "weekly" | "monthly"): {spent: bigint; reserved: bigint} {
     let spent = 0n, reserved = 0n;
-    const period = purchaseWeekStart(this.now());
+    const period = purchasePeriodStart(this.now(), periodType);
     for (const row of this.rows(owner).filter(row => row.categoryId === categoryId)) {
       // All unresolved reservations carry forward; old settled spend has no rollover.
       if (row.state === "reserved" || row.state === "unknown") reserved += toMicros(row.chargedZar);
-      if (row.state === "settled" && row.settledPeriodStart === period) spent += toMicros(row.chargedZar);
+      if (row.state === "settled" && (row.settledAt ? purchasePeriodStart(new Date(row.settledAt), periodType) === period : row.settledPeriodStart === period && row.settledPeriod === periodType)) spent += toMicros(row.chargedZar);
     }
     return {spent,reserved};
   }
@@ -82,9 +87,9 @@ export class PurchaseBudgetService {
     return this.atomic(() => {
       const category = this.policy(ctx.ownerId).rules.categories[categoryId];
       if (!category) return fail("CATEGORY_NOT_APPROVED");
-      const {spent,reserved} = this.usage(ctx.ownerId, categoryId);
-      const available = toMicros(category.weeklyZar) - spent - reserved;
-      return {periodStart: purchaseWeekStart(this.now()), spentZar: fromMicros(spent), reservedZar: fromMicros(reserved),
+      const {spent,reserved} = this.usage(ctx.ownerId, categoryId, category.period);
+      const available = toMicros(category.periodBudgetZar) - spent - reserved;
+      return {periodStart: purchasePeriodStart(this.now(), category.period), spentZar: fromMicros(spent), reservedZar: fromMicros(reserved),
         remainingZar: fromMicros(available > 0n ? available : 0n)};
     });
   }
@@ -110,10 +115,10 @@ export class PurchaseBudgetService {
       // Charge maximum RLUSD resource price + declared RLUSD fees; round upward once to a ZAR micro-unit.
       const charged = ((toMicros(request.amountRlusd) + toMicros(request.feeRlusd)) * toMicros(quote.zarPerRlusd) + 999_999n) / 1_000_000n;
       if (charged > toMicros(category.perPurchaseZar)) return fail("OVER_PER_PURCHASE_CAP");
-      const {spent,reserved} = this.usage(ctx.ownerId, request.categoryId);
-      if (spent + reserved + charged > toMicros(category.weeklyZar)) return fail("OVER_WEEKLY_BUDGET");
+      const {spent,reserved} = this.usage(ctx.ownerId, request.categoryId, category.period);
+      if (spent + reserved + charged > toMicros(category.periodBudgetZar)) return fail("OVER_PERIOD_BUDGET");
       const bound = {...request, ownerId: ctx.ownerId, policyVersion: policy.version,
-        periodStart: purchaseWeekStart(this.now()), chargedZar: fromMicros(charged), quote};
+        periodStart: purchasePeriodStart(this.now(), category.period), period: category.period, chargedZar: fromMicros(charged), quote};
       const reservation: PurchaseReservation = {...bound, budgetDigest: createHash("sha256").update(canonicalJson(bound)).digest("hex"),state: "reserved"};
       this.save(reservation); return reservation;
     });
@@ -138,7 +143,7 @@ export class PurchaseBudgetService {
       const outcome = this.adapters.outcomes.verify(structuredClone(reservation),evidence);
       if (!["settled","rejected","unknown"].includes(outcome)) return fail("OUTCOME_UNAVAILABLE");
       if (reservation.state !== "unknown" && outcome === "settled") return fail("PURCHASE_NOT_AUTHORIZED");
-      if (outcome === "settled") reservation.settledPeriodStart = purchaseWeekStart(this.now());
+      if (outcome === "settled") { const category = this.policy(ctx.ownerId).rules.categories[reservation.categoryId]; if (!category) return fail("CATEGORY_NOT_APPROVED"); reservation.settledAt = this.now().toISOString(); reservation.settledPeriod = category.period; reservation.settledPeriodStart = purchasePeriodStart(this.now(), category.period); }
       reservation.state = outcome; this.save(reservation); return reservation;
     });
   }

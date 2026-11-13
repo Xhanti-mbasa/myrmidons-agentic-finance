@@ -246,7 +246,7 @@ readiness. Article/API purchases require merchant/origin/resource binding, expli
 pay/decline or an owner automatic-purchase mandate, independently enforced
 spending, duplicate/unknown-outcome recovery and paid-content delivery handling.
 
-Owner category/merchant mandates define per-purchase and weekly ZAR budgets,
+Owner category/merchant mandates define per-purchase and owner-selected daily, weekly or monthly ZAR budgets,
 Monday 00:00 Africa/Johannesburg boundaries and no unused-capacity rollover.
 Unresolved reservations remain charged across periods. ZAR budget and RLUSD
 settlement are distinct: trusted expiring FX/fee evidence, conservative rounding
