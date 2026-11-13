@@ -1,0 +1,28 @@
+{
+  "assessed_base": "d54bb68c34f9fe6eabf96baae986102fc554760b",
+  "working_tree_dirty": true,
+  "command": "pnpm 10.28.0 audit --json",
+  "scope": "Resolved Node workspace graph, including mutation-testing dependencies; not Python, OS or container packages",
+  "before": {
+    "info": 0,
+    "low": 2,
+    "moderate": 2,
+    "high": 1,
+    "critical": 0
+  },
+  "after": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "dependencies": 363,
+  "mutation_toolchain": "Stryker core and Vitest runner 10.1.1",
+  "dry_run": {
+    "tests": 946,
+    "passed": true,
+    "mutations_executed": false
+  },
+  "application_tests": 1925
+}

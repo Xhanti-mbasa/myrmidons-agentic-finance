@@ -1,6 +1,6 @@
 # Shucamoxa MCP gateway
 
-Five tools, one MCP server, no wallet keys. This is a runnable adapter, not an XRPL payment backend. Backend integration remains unverified until a compatible backend is available.
+Seven tools, one MCP server, no wallet keys. This is a runnable adapter, not an XRPL payment backend. Backend integration remains unverified until a compatible backend is available.
 
 ## Run
 
@@ -69,3 +69,7 @@ For a transfer-only host, use `transfers.py` and
 `config/mcp.transfers.example.json`. This low-level SDK server exposes only the
 two transfer tools and rejects extra fields/invalid IDs before HTTP dispatch.
 The integration test uses a real MCP subprocess and a scripted HTTP backend.
+
+## Model-facing response projection
+
+Responses are streamed with a 256 KiB limit and projected by endpoint onto bounded allowed fields. Nested supplier/balance lists are capped at 100. Raw invoice text, backend notes, address/credential fields and arbitrary dictionaries are not returned. Known text fields redact key/seed/address/JWT shapes and the backend credential before truncation; transaction hashes are allowed only in named hash fields with canonical shape. This is a minimised view, not proof that an untrusted backend cannot mislabel a secret as public metadata. Oversized POST responses remain unknown and are not retried.

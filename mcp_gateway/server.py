@@ -1,6 +1,8 @@
 """Shucamoxa MCP adapter. The authenticated backend owns payment authority."""
 import hashlib
+import json
 import os
+import re
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
@@ -17,6 +19,47 @@ mcp = FastMCP("Shucamoxa payments")
 READ = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=True,
                         idempotentHint=False, openWorldHint=True)
+MAX_RESPONSE_BYTES = 256 * 1024
+MAX_ITEMS = 100
+PUBLIC_TEXT = re.compile(r"[0-9a-fA-F]{64,}|\b(?:s[rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz]{28,30}|r[1-9A-HJ-NP-Za-km-z]{24,34}|[XT][1-9A-HJ-NP-Za-km-z]{46}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b")
+SUPPLIER_FIELDS = {"id", "supplier_id", "supplierId", "name", "status", "approved"}
+ASSET_FIELDS = {"asset", "currency", "balance", "available", "spendable", "reserved"}
+PAYMENT_FIELDS = {"invoice_id", "payment_id", "intentId", "status", "code", "tx_hash", "txHash", "ledger_index", "ledgerIndex", "validated", "executeAt", "expiresAt"}
+INVOICE_FIELDS = {"invoice_id", "invoice_number", "supplier_id", "supplier_name", "amount", "asset", "currency", "status", "version", "due_date", "created_at", "updated_at"}
+MANDATE_FIELDS = {"version", "policy_version", "enabled", "payment_enabled", "kill_switch", "per_payment_cap", "per_payment_limit", "daily_limit", "daily_budget", "total_budget", "spent", "reserved", "remaining", "period_start", "perPaymentCap", "totalBudget", "killSwitch"}
+
+
+def project_result(path: str, result: dict[str, Any], credential: str) -> dict[str, Any]:
+    """Bounded model view. No raw invoice/log text, addresses or arbitrary backend fields."""
+    def scalar(key, value):
+        if key in {"tx_hash", "txHash"}:
+            return value.upper() if isinstance(value, str) and re.fullmatch(r"[A-Fa-f0-9]{64}", value) and credential not in value else None
+        if isinstance(value, str):
+            value = value.replace(credential, "[redacted]")
+            return PUBLIC_TEXT.sub("[redacted]", value)[:500]
+        if isinstance(value, bool) or value is None:
+            return value
+        if isinstance(value, int) and abs(value) <= 2 ** 53 - 1:
+            return value
+        return None  # Floats/complex values are never promoted into the model view.
+
+    def fields(value, allowed):
+        return {key: scalar(key, val) for key, val in value.items() if key in allowed} if isinstance(value, dict) else {}
+
+    if path == "/v1/mandate":
+        view = fields(result, MANDATE_FIELDS)
+        for key in ("suppliers", "approved_suppliers"):
+            if isinstance(result.get(key), list):
+                view[key] = [fields(item, SUPPLIER_FIELDS) for item in result[key][:MAX_ITEMS]]
+        if isinstance(result.get("allowed_assets"), list):
+            view["allowed_assets"] = [scalar("asset", item) for item in result["allowed_assets"][:MAX_ITEMS] if isinstance(item, str)]
+        return view
+    if path == "/v1/balance":
+        view = fields(result, ASSET_FIELDS | {"xrp_fee_balance"})
+        if isinstance(result.get("balances"), list):
+            view["balances"] = [fields(item, ASSET_FIELDS) for item in result["balances"][:MAX_ITEMS]]
+        return view
+    return fields(result, PAYMENT_FIELDS if path.startswith("/transfers/") or path.endswith("/payment") else INVOICE_FIELDS)
 
 
 def settings() -> tuple[str, str, str]:
@@ -43,8 +86,13 @@ async def backend(method: str, path: str, *, payload: dict | None = None,
         headers["Idempotency-Key"] = hashlib.sha256(value.encode()).hexdigest()
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=False, trust_env=False) as client:
-            response = await client.request(method, base + path, headers=headers, json=payload)
-    except (httpx.TimeoutException, httpx.NetworkError):
+            async with client.stream(method, base + path, headers=headers, json=payload) as response:
+                chunks = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(chunks) + len(chunk) > MAX_RESPONSE_BYTES:
+                        raise ValueError("Response limit")
+                    chunks.extend(chunk)
+    except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError, ValueError):
         if method == "POST":
             return {"invoice_id": invoice_id, "status": "unknown",
                     "code": "BACKEND_OUTCOME_UNKNOWN",
@@ -61,12 +109,12 @@ async def backend(method: str, path: str, *, payload: dict | None = None,
                     "reason": "Check get_payment_status; do not assume a payment failed."}
         raise ToolError("Backend returned an unexpected response.")
     try:
-        result = response.json()
+        result = json.loads(chunks)
     except ValueError:
         raise ToolError("Invalid backend response. For a payment, its outcome is unknown; check status.") from None
     if not isinstance(result, dict):
         raise ToolError("Backend response must be a JSON object; check payment status if applicable.")
-    return result
+    return project_result(path, result, token)
 
 
 @mcp.tool(annotations=READ)

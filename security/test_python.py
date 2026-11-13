@@ -87,12 +87,12 @@ async def backend_reply(body, method="GET", status=200):
         return await gateway.backend(method, "/v1/mandate")
 
 @attack("MCP-02", "Backend address and key-shaped canary returned to MCP caller", "Python gateway",
-        "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation", "VULNERABLE")
+        "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation", "BLOCKED")
 async def backend_secrets():
     canary = secrets.token_hex(32)
     result = await backend_reply({"address": "rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv", "note": canary})
     return (canary not in json.dumps(result) and "address" not in result,
-            "Gateway returns backend dict unchanged, including synthetic key and address; no real secrets used")
+            "Bounded endpoint projection strips backend address and key-shaped canary; no real secrets used")
 
 @attack("MCP-03", "Redirect response must not be retried as a payment", "Python gateway",
         "ASVS5 v2.3.1; LLM06:2025")
@@ -168,12 +168,12 @@ def scanner_controls():
     return scan("material=" + seed) and scan("material=" + "ED" + secrets.token_hex(32)), "Runtime seed-shaped and prefixed-key fixtures flagged"
 
 @attack("SCAN-02", "Raw private key hidden by checksum comment (R2)", "gitleaks CLI",
-        "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025", "VULNERABLE", "live local (gitleaks 8.30.1)")
+        "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025", "BLOCKED", "live local (gitleaks 8.30.1)")
 def scanner_bypass():
     material = secrets.token_hex(32)
     if not scan('material="' + material + '"'):
         raise RuntimeError("Raw-key positive control failed")
-    return scan('material="' + material + '" # checksum'), "Identical raw key caught normally, ignored when checksum is added to its line"
+    return scan('material="' + material + '" # checksum'), "Identical raw key remains flagged with a deceptive checksum comment"
 
 @attack("SCAN-03", "Hex key split into concatenated string fragments", "gitleaks CLI",
         "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025", "VULNERABLE", "live local (gitleaks 8.30.1)")

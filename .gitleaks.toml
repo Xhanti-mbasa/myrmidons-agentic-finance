@@ -34,17 +34,10 @@ tags = ["xrpl", "private-key"]
 
 [[rules]]
 id = "hex-private-key-64"
-description = "64 hex characters: a raw secp256k1 or ed25519 private key, unless the line names it a hash"
+description = "64 hex characters: raw key candidates; only exact reviewed public values at exact paths are excluded"
 regex = '''\b([0-9A-Fa-f]{64})\b'''
 secretGroup = 1
 tags = ["private-key"]
-
-  # Transaction hashes, the log hash chain and checksums are also 64 hex. A line that says
-  # hash, digest, sha256 or checksum is let through. The prefixed rule above has no such escape.
-  [[rules.allowlists]]
-  description = "Hashes, not keys"
-  regexTarget = "line"
-  regexes = ['''(?i)(?:hash|digest|sha-?256|checksum)''']
 
   # Main's T28/T29/T25 tests contain these public SHA-256/transaction fixtures.
   # Exact value AND exact test file only; all other key detection stays enabled.
@@ -65,3 +58,51 @@ tags = ["private-key"]
   condition = "AND"
   paths = ['''^scripts/test/setup-treasury\.test\.ts$''']
   regexes = ['''^A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2$'''] # scripted transaction hash
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^scripts/test/kill-switch\.test\.ts$''']
+  regexes = ['''^E4F5A6B7C8D9E0F1A2B3C4D5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^scripts/test/kill-switch\.test\.ts$''']
+  regexes = ['''^A1A2A3A4A5A6A7A8A9B0B1B2B3B4B5B6B7B8B9C0C1C2C3C4C5C6C7C8C9D0D1D2$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^docs/BASELINE_PROGRESS\.md$''', '''^docs/PROJECT_STATUS\.md$''']
+  regexes = ['''^C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.github/workflows/ci\.yml$''', '''^\.github/workflows/security\.yml$''', '''^\.gitleaks\.toml$''']
+  regexes = ['''^551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^security/evidence/results\.json$''']
+  regexes = ['''^35d13f5827cf54b98d5b07fcbe9c78bd91edd4204672ee540fc0fa2bed0fc07c$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^packages/shared/README\.md$''', '''^packages/shared/test/log\.test\.ts$''']
+  regexes = ['''^03de26b9343749d04738c706e3b015f59e2c90233ab56ccac30f9e31b7dced43$''']
+
+  [[rules.allowlists]]
+  description = "Exact reviewed public checksum or test fixture; no arbitrary hash labels"
+  condition = "AND"
+  paths = ['''^\.gitleaks\.toml$''', '''^deploy/open-webui\.compose\.yml$''']
+  regexes = ['''^46b59158e6558eeb980bc828e0f1b30238ad24d82ed84d5e5eda1dab2a082f14$''']
+
+  [[rules.allowlists]]
+  description = "Exact public digest of the refreshed adversarial suite"
+  condition = "AND"
+  paths = ['''^security/evidence/results\.json$''', '''^\.gitleaks\.toml$''']
+  regexes = ['''^0ce5d4bb7cbd427c555f4d699a2de0d331432a0532bbaf822d4052871ffba36e$''']

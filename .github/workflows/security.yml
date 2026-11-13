@@ -1,7 +1,7 @@
 name: Adversarial security evidence
 on:
   push:
-    branches: [security/adversarial-suite]
+    branches: [security/adversarial-suite, fix/submission-security]
   pull_request:
   workflow_dispatch:
 permissions:

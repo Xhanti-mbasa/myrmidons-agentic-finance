@@ -38,3 +38,5 @@ Security tests assert on what reached the backend, never on what the model said.
 | OpenAI Chat: Shapes | `test/openai-chat.test.ts` > `stream: false answers a chat.completion...`, `stream: true sends one chunk...` | Answers parse as `chat.completion`, or as `chat.completion.chunk` lines ending in `[DONE]`; a client disconnect does not cancel a payment on its way. |
 
 Each guard was verified by mutating the implementation on purpose to ensure the corresponding test suite fails red, then restoring the guard to green.
+
+Security-branch toolchain update: core/runner 10.1.1 with patched transitive dependencies. `stryker run --dryRunOnly --concurrency 1` passes the 946-test initial run; this is not a mutation score. Workspace fixture discovery supports the sandbox layout and still reads the real fixture files.

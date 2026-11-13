@@ -2,10 +2,18 @@
  * The fields a correct stage-1 extraction returns for each demo invoice in fixtures/invoices/.
  * Grounding must accept every one of these, or the demo would stop paying invoices 01 and 04.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
-export const FIXTURES_DIR = join(import.meta.dirname, "../../../../fixtures/invoices");
+// Stryker copies this helper into a sandbox at a different depth. Find the real
+// workspace fixtures instead of assuming that relative depth or inventing data.
+let workspace = import.meta.dirname;
+while (!existsSync(join(workspace, "pnpm-workspace.yaml"))) {
+  const parent = dirname(workspace);
+  if (parent === workspace) throw new Error("Workspace invoice fixtures not found");
+  workspace = parent;
+}
+export const FIXTURES_DIR = join(workspace, "fixtures/invoices");
 
 export function readFixture(file: string): string {
   return readFileSync(join(FIXTURES_DIR, file), "utf8");

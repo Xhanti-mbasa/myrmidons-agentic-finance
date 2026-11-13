@@ -537,3 +537,33 @@ policy is unchanged and no payment adapter is called. Actual new-chat discovery
 and live-model behavior on the operator's WebUI remain to be verified. An admin
 can still change WebUI settings manually; backend authorization remains the
 financial boundary. Earlier payment/signer/audit findings are not closed here.
+
+## Submission findings reconciled and fixed
+
+Reviewed main `75c158e` and reproduced the candidate fixes. The supplied audit's
+25 missing co-signer cases came from stale evidence: real policy transaction
+checks now exist and are exercised. Refreshed retained evidence: 63 BLOCKED,
+8 VULNERABLE, 7 NOT_IMPLEMENTED; no live ledger transaction in this run.
+MCP-02/A1 now passes bounded/redacted output tests; R2/SCAN-02 now catches the
+same raw-key canary even with hash-like comments; XRPL-12 now rejects memo hash
+substitution. These reclassifications follow executable probes, not source names.
+The broader trusted-audit-entry/independent-checkpoint requirement remains open.
+CI/container installs now use --ignore-scripts, WebUI is pinned by OCI digest,
+and README/SECURITY.md explain evidence/reporting boundaries. Source, tests and
+full-history scanner passed locally; no mainnet/faucet/real funds were used.
+Owner-only repository settings, licence selection, active-branch cleanup,
+full audit rollback protection and deployment/ledger proof remain separate work.
+The broader all-fetched-refs scan (134 commits) also returned eleven historical
+candidates, including seed-shaped literals in unmerged test files. Provenance
+is not established merely because a string appears in a test; values were not
+suppressed or copied into the report. This qualifies the supplied audit's
+blanket no-secrets claim and remains a separate branch/provenance follow-up.
+
+Dependency follow-up: the registry was reachable here. Updated the mutation
+runner pair to 10.1.1 and scoped remaining transitive patches; Node audit now
+reports zero known advisories. The Stryker dry run passes 946 tests without
+executing mutations; all 1,925 application tests pass. Fixture discovery was
+made sandbox-safe without weakening assertions. Python/OS/container advisories
+were not audited. Both seed-shaped historical literals previously flagged were
+locally checked and fail XRPL seed checksum validation; no ledger was contacted.
+All-ref scan candidates remain disclosed rather than broadly ignored.

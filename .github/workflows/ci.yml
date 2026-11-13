@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, fix/submission-security]
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm typecheck
       - run: pnpm test
 

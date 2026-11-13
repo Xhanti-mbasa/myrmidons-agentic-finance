@@ -2,3 +2,6 @@
 # Exact historical finding only: do not exempt a whole file, rule, or future commit.
 # This is ledger metadata, not a signing credential.
 da402696d87309289c47280f8c5c1841283f6c3c:docs/PROJECT_STATUS.md:hex-private-key-64:43
+
+# Public model manifest digest in a removed historical file.
+b406b0b63a3fcff51d01eb50ac797d28fa29fdc8:model-profiles/base-model.lock.json:hex-private-key-64:4

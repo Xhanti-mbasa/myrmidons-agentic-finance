@@ -1,14 +1,15 @@
 {
-  "suite_source_sha256": "35d13f5827cf54b98d5b07fcbe9c78bd91edd4204672ee540fc0fa2bed0fc07c",
-  "assessed_base": "04b0adc738e0507d531b73f427e3f044508f4785",
-  "runtime_node": "v22.21.1",
+  "suite_source_sha256": "0ce5d4bb7cbd427c555f4d699a2de0d331432a0532bbaf822d4052871ffba36e",
+  "assessed_base": "75c158ea685fcb47694b11a84d128530acab1fa9",
+  "runtime_node": "v24.22.1",
   "runtime_python": "Python 3.12.14",
   "gitleaks": "8.30.1",
+  "working_tree_dirty": true,
   "commands_successful": true,
   "counts": {
-    "BLOCKED": 44,
-    "VULNERABLE": 9,
-    "NOT_IMPLEMENTED": 25
+    "BLOCKED": 63,
+    "VULNERABLE": 8,
+    "NOT_IMPLEMENTED": 7
   },
   "validated_testnet_transactions": [],
   "tests": [
@@ -100,7 +101,7 @@
       "result": "NOT_IMPLEMENTED",
       "evidence": "source inspection",
       "safe": false,
-      "observation": "NOT_IMPLEMENTED: memo encoding helpers exist; no ledger-backed checkpoint reconciliation"
+      "observation": "NOT_IMPLEMENTED: memo encoding and receipt matching exist; no independently retained ledger-backed audit checkpoint reconciliation"
     },
     {
       "id": "AUTH-01",
@@ -160,7 +161,7 @@
       "result": "NOT_IMPLEMENTED",
       "evidence": "source inspection",
       "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production wallet generation code; no entropy, provenance or key independence evidence"
+      "observation": "NOT_IMPLEMENTED: generated test keys and imported operator seeds do not establish deployment provisioning, provenance or key independence"
     },
     {
       "id": "KEY-02",
@@ -170,7 +171,7 @@
       "result": "NOT_IMPLEMENTED",
       "evidence": "source inspection",
       "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production signing key store or independent signer processes to exercise"
+      "observation": "NOT_IMPLEMENTED: private-file checks and service template exist; deployed encrypted key custody and process separation remain unverified"
     },
     {
       "id": "LLM-01",
@@ -317,10 +318,10 @@
       "attack": "Backend address and key-shaped canary returned to MCP caller",
       "target": "Python gateway",
       "standard": "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation",
-      "result": "VULNERABLE",
+      "result": "BLOCKED",
       "evidence": "simulated test",
-      "safe": false,
-      "observation": "Gateway returns backend dict unchanged, including synthetic key and address; no real secrets used"
+      "safe": true,
+      "observation": "Bounded endpoint projection strips backend address and key-shaped canary; no real secrets used"
     },
     {
       "id": "MCP-03",
@@ -374,13 +375,13 @@
     },
     {
       "id": "NET-01",
-      "attack": "307 redirect retransmits payment POST to another local listener",
+      "attack": "307 redirect cannot forward payment POST to another local listener",
       "target": "agent HTTP backend client",
       "standard": "ASVS5 v13.2.4; LLM02:2025, LLM06:2025",
-      "result": "VULNERABLE",
+      "result": "BLOCKED",
       "evidence": "live local (two loopback HTTP listeners)",
-      "safe": false,
-      "observation": "Cross-origin 307 forwards payment POST body; fetch strips cross-origin Authorization, so token theft is NOT demonstrated"
+      "safe": true,
+      "observation": "T10 refuses the 307; redirecting server received POST /payments, capture listener received no request, and client did not report success"
     },
     {
       "id": "ONBOARD-01",
@@ -547,10 +548,10 @@
       "attack": "Raw private key hidden by checksum comment (R2)",
       "target": "gitleaks CLI",
       "standard": "CCSS9 1.05.2.2 Key Material Isolation; LLM02:2025",
-      "result": "VULNERABLE",
+      "result": "BLOCKED",
       "evidence": "live local (gitleaks 8.30.1)",
-      "safe": false,
-      "observation": "Identical raw key caught normally, ignored when checksum is added to its line"
+      "safe": true,
+      "observation": "Identical raw key remains flagged with a deceptive checksum comment"
     },
     {
       "id": "SCAN-03",
@@ -595,200 +596,200 @@
     {
       "id": "XRPL-01",
       "attack": "Reject SignerListSet at co-signer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-02",
       "attack": "Reject SetRegularKey at co-signer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-03",
       "attack": "Reject AccountSet at co-signer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-04",
       "attack": "Reject TrustSet at co-signer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-05",
       "attack": "Reject OfferCreate at co-signer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction types; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-06",
       "attack": "Reject tfPartialPayment",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL partial payments",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-07",
       "attack": "Reject Paths and SendMax DEX routing",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL Payment Paths/SendMax",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-08",
       "attack": "Reject excessive XRP Fee",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL transaction cost; ASVS5 v2.3.2",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-09",
       "attack": "Reject wrong RLUSD issuer",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL issued currency amounts",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-10",
       "attack": "Reject wrong currency",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL issued currency amounts",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-11",
       "attack": "Reject substituted DestinationTag",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL common transaction fields; P1",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-12",
       "attack": "Reject substituted audit Memo",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL common transaction fields; P1",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-13",
       "attack": "Reject stale LastLedgerSequence",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL reliable transaction submission; P1",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "result": "VULNERABLE",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
       "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "observation": "Actual T20/T21 policy application co-signed the mutation: the current decoded-transaction checks did not enforce this invariant. This is a reproduced vulnerability, not deployed-signer evidence."
     },
     {
       "id": "XRPL-14",
       "attack": "Compare policy JSON with decoded signing bytes",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL binary format / multi-signing; P1",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual policy endpoint checked supplied JSON against decoded multisigned bytes; no ledger submission."
     },
     {
       "id": "XRPL-15",
       "attack": "Reject direct wallet call without permit and replayed permit",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "ASVS5 v8.3.1, v2.3.1; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "result": "VULNERABLE",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
       "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "observation": "Authenticated T20 endpoint accepted the same signed request twice; it has no durable permit replay store. No ledger submission or double-spend claim."
     },
     {
       "id": "XRPL-16",
       "attack": "Recheck kill switch after handoff and before signing",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "ASVS5 v8.3.1; CCSS9 1.05.8.1 Spend Verification",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual T20/T21 policy application refused the multisigned mutation; local signatures only, no ledger submission."
     },
     {
       "id": "XRPL-17",
       "attack": "Retain reservation when signing result is unknown",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "ASVS5 v2.3.3; XRPL reliable transaction submission",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Real SQLite coordinator retained capacity after simulated wallet transport failure; no ledger submission or deployed-signer proof."
     },
     {
       "id": "XRPL-18",
       "attack": "Require validated delivered_amount equal to authorized RLUSD",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL partial payments / validated metadata",
-      "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
-      "safe": false,
-      "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
+      "result": "BLOCKED",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
+      "safe": true,
+      "observation": "Actual production receipt verifier rejected underdelivery against a real local signed transaction and scripted metadata; no live ledger evidence."
     },
     {
       "id": "XRPL-19",
       "attack": "Ledger enforces required signer quorum",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL multi-signing; CCSS9 1.02.1.1 Signing Configuration",
       "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
       "safe": false,
       "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
     },
     {
       "id": "XRPL-20",
       "attack": "Ledger rejects disabled master and absent regular key bypass",
-      "target": "unimplemented policy co-signer/wallet",
+      "target": "policy/receipt boundary; deployment gates separate",
       "standard": "XRPL disable master key; CCSS9 1.02.1.1 Signing Configuration",
       "result": "NOT_IMPLEMENTED",
-      "evidence": "source inspection (executable missing-control specification; vector not submitted)",
+      "evidence": "real local policy signatures/production verification; scripted ledger metadata; no live funds",
       "safe": false,
       "observation": "NOT_IMPLEMENTED: no production co-signer/wallet to receive this vector; no signing, submission or Testnet evidence"
     }

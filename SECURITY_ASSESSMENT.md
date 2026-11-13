@@ -1,3 +1,5 @@
+> Current security-repair branch: see **Submission hardening update** and the dependency follow-up below. The original attack table is historical. Retained current outcomes are 63 BLOCKED / 8 VULNERABLE / 7 NOT_IMPLEMENTED; green expected-failure jobs are not proof that every attack is blocked.
+
 # Shucamoxa adversarial security assessment
 
 ## Integration update — 13 November 2026
@@ -481,3 +483,84 @@ The provided transcript does not establish that it was recorded after this
 mitigation was applied. An administrator can still change WebUI settings; this
 preset configuration is defense in depth, not the financial authority boundary.
 No other vulnerability or missing-control finding is closed by this addendum.
+
+## Submission hardening update
+
+Assessed current main `75c158e` plus the explicitly dirty candidate changes;
+this replaces stale claims based on the old 25-NOT_IMPLEMENTED snapshot. The
+original historical sections are retained as history. A fresh local run passed:
+**63 BLOCKED, 8 VULNERABLE, 7 NOT_IMPLEMENTED**, 78 cases total. No Testnet
+transaction was executed by this run. Root TypeScript tests: 1,925 passed;
+Python tests: 45 passed; MCP tests: 15 passed. Local runtime was Node 24/Python
+3.12; pinned Node 22/Python 3.11 remains the GitHub CI validation environment.
+
+- **MCP-02 / A1 output exposure:** endpoint-specific bounded field projections
+  replace raw dictionaries; addresses, backend credentials and secret-shaped
+  text are removed/redacted. Streams are capped at 256 KiB, list lengths at 100,
+  and oversized payment responses remain unknown without retry. Positive tests
+  retain legitimate supplier IDs, mandate values and durable payment status.
+  A malicious backend mislabelling a secret as a public hash is a residual trust
+  assumption; this is not a universal DLP guarantee.
+- **SCAN-02 / R2:** removed the whole-line hash/digest/checksum exemption. Real
+  gitleaks now detects the identical raw-key canary with a deceptive checksum
+  comment. Reviewed public checksums/fixtures use exact value AND exact path
+  exceptions; a removed historical public model digest uses an immutable
+  fingerprint. No directory-wide or arbitrary hash-label exception was added.
+  Split/encoded secrets (SCAN-03) remain an open scanner limitation.
+- **XRPL-12:** the co-signer now compares decoded MemoData with the requested
+  logEntryHash, rejecting a valid-shape substitution. This does not prove the
+  existence/authority of that audit entry or independently anchor the log; those
+  broader audit/budget/ledger checks remain distinct requirements.
+- **Install hardening:** CI and the harness image explicitly disable install
+  lifecycle scripts. This is defense in depth; pinned pnpm 10 already suppresses
+  unapproved transitive dependency scripts, so the earlier R3 exploit claim
+  must not be revived as a newly demonstrated vulnerability.
+- **WebUI pin:** image v0.13.3 is pinned to its OCI index digest, verified against
+  the registry response bytes. A version pin is not an assertion that upstream
+  has no vulnerabilities; upgrades require review and another deployment test.
+- **Claims/reporting:** README distinguishes simulation, source/local evidence
+  and live ledger proof. SECURITY.md documents prototype scope and reporting.
+
+**Still open:** authenticated independent checkpoints against rollback/complete
+DB rewrites, deployed custody/process isolation and live ledger/quorum proof,
+other expected vulnerabilities, UI-01 runtime verification, dependency advisory
+review and owner decisions about licensing/repository protection. Deleting stale
+branches would not erase public Git history or copies and is not a secret-removal
+procedure. No branches or settings were changed for this repair; no licence was
+invented for contributors. Public SSH keys are not private signing credentials.
+
+An additional scan of all fetched refs covered 134 commits and flagged eleven
+candidates on feature-branch history: public/test transaction/checksum fixtures,
+a raw-key fixture, and seed-shaped literals in
+`packages/shared/test/env-guard.test.ts` and `apps/web/test/env.test.ts`.
+Test-file placement alone is not proof of non-live provenance. These results
+were not suppressed or represented as a clean all-refs scan. Review fixture
+provenance and rotate any credential ever used for a wallet/service before
+trusting it; use runtime-generated fixtures in future changes. No candidate
+values are reproduced here. The current-main ancestry scan and staged scan are
+clean under the stricter rules. This assessment does **not** endorse a blanket
+“the entire repo/history is safe to publish” guarantee. Shared feature branches
+and history were not rewritten or deleted without coordinated authorization.
+
+### Dependency and historical-fixture follow-up
+
+The Node registry was reachable during this repair. `pnpm audit --json` initially
+reported five advisories in the old mutation-test chain. Stryker core and its
+Vitest runner were updated together to 10.1.1; scoped minimatch 11.0.1 and qs
+6.16.1 overrides cover the remaining reported ranges. The resulting lockfile
+has zero known advisories in the resolved 363-dependency Node graph at check
+time. This is not a Python, OS/container or future-advisory clearance.
+
+Compatibility validation: the application typecheck and all 1,925 TypeScript
+tests pass. Stryker's dry run passes its 946-test initial run; no mutation score
+is claimed. The old runner failed against current Vitest; the updated runner
+also exposed a fixture path assumption. The test helper now locates real
+workspace fixtures from either normal or sandbox paths; no data is invented,
+no assertion is skipped and no score threshold was weakened. Retained sanitized
+metadata is `security/evidence/dependency-audit.json`.
+
+Additional local checksum validation established that both seed-shaped values
+flagged in the two unmerged test files are **invalid XRPL seeds**. They were not
+used to sign or to contact a ledger. This narrows the earlier provenance concern;
+the all-refs scanner output is still recorded as candidates, not suppressed or
+promoted into a blanket public-safety guarantee.
