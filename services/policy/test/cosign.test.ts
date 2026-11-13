@@ -160,6 +160,12 @@ describe("Policy Service: cosign endpoint", () => {
       ["wrong token", { Authorization: "Bearer wrong-token-1234567890" }],
       ["agent's token", { Authorization: `Bearer ${AGENT_BACKEND_TOKEN}` }],
       ["token without Bearer scheme", { Authorization: CALLER_TOKEN }],
+      ["Bearer scheme with no token value", { Authorization: "Bearer " }],
+      ["bare Bearer scheme", { Authorization: "Bearer" }],
+      ["Bearer with the token after two spaces", { Authorization: `Bearer  ${CALLER_TOKEN}` }],
+      ["an empty Authorization header", { Authorization: "" }],
+      ["the caller token with a trailing value", { Authorization: `Bearer ${CALLER_TOKEN} extra` }],
+      ["the caller token under another scheme", { Authorization: `Basic ${CALLER_TOKEN}` }],
     ])("401 on %s", async (_label, headers) => {
       const { postCosign, makeValidCosignRequest } = setupTest();
       const { request } = makeValidCosignRequest();

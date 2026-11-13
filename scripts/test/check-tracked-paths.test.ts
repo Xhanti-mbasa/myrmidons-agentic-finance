@@ -31,6 +31,12 @@ describe("check-tracked-paths refuses env files and local-only paths", () => {
     ["a file under docs/adr/", "docs/adr/0001-sqlite.md"],
     ["an .env.example inside .scratch/", ".scratch/x/.env.example"],
     ["an .env.example inside docs/agents/", "docs/agents/.env.example"],
+    ["the local-files archive PR #22 committed", "docs/shucamoxa-local-files.tgz"],
+    ["a local-files .tar.gz anywhere", "backup/local-files.tar.gz"],
+    ["a local-files .zip", "my-local-files-2026.zip"],
+    ["a local-files .tar", "docs/local-files.tar"],
+    ["a local-files .7z", "local-files.7z"],
+    ["a local-files archive with an upper-case extension", "docs/Local-Files.TGZ"],
   ])("fails when %s is tracked", (_label, path) => {
     const r = checkWith(path);
     expect(r.code).toBe(1);
@@ -56,6 +62,8 @@ describe("check-tracked-paths accepts the repo's legitimate files", () => {
     ["a file named like an env var", "fixtures/my.env.json"],
     ["a scratch-like name that is not the folder", "scripts/scratch.ts"],
     ["a markdown file that merely contains CLAUDE", "docs/CLAUDE-notes.md"],
+    ["a doc about local files that is not an archive", "docs/local-files.md"],
+    ["an archive without local-files in its name", "fixtures/invoices.zip"],
   ])("passes with %s", (_label, path) => {
     const r = checkWith(path);
     expect(r.stderr).toBe("");
