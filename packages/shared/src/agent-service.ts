@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { InvoiceNumber } from "./ids";
 import { RuleCode } from "./policy";
-import { AgentDecision, AgentExplanation } from "./agent-api";
+import { AgentDecision, AgentExplanation, PayResult } from "./agent-api";
 
 /** The agent HTTP service (T12): what the backend sends it and what it answers. */
 
@@ -55,3 +55,54 @@ export type AgentErrorCode = z.infer<typeof AgentErrorCode>;
 /** Every error the agent service returns: a stable code and a short fixed message, never a stack or model text. */
 export const AgentError = z.strictObject({ error: AgentErrorCode, message: z.string().min(1).max(200) });
 export type AgentError = z.infer<typeof AgentError>;
+
+/** Largest chat message the agent accepts, in characters. */
+export const MAX_CHAT_MESSAGE_CHARS = 2_000;
+
+/** POST /agent/chat body. */
+export const ChatRequest = z.strictObject({
+  message: z.string().min(1).max(MAX_CHAT_MESSAGE_CHARS),
+});
+export type ChatRequest = z.infer<typeof ChatRequest>;
+
+export const ToolPhase = z.enum(["start", "end"]);
+export type ToolPhase = z.infer<typeof ToolPhase>;
+
+/**
+ * tool event payload: only name, phase, ok, and optionally refused or ruleCode.
+ * Never arguments, inputs, results or wallet addresses.
+ */
+export const ChatStreamToolEvent = z.strictObject({
+  name: z.string().min(1),
+  phase: ToolPhase,
+  ok: z.boolean(),
+  refused: z.boolean().optional(),
+  ruleCode: RuleCode.optional(),
+});
+export type ChatStreamToolEvent = z.infer<typeof ChatStreamToolEvent>;
+
+export const ChatStreamTextEvent = z.strictObject({
+  delta: z.string(),
+});
+export type ChatStreamTextEvent = z.infer<typeof ChatStreamTextEvent>;
+
+export const ChatStreamSummaryEvent = z.strictObject({
+  summary: z.string(),
+  payments: z.array(PayResult),
+});
+export type ChatStreamSummaryEvent = z.infer<typeof ChatStreamSummaryEvent>;
+
+export const ChatStreamErrorEvent = z.strictObject({
+  message: z.string(),
+});
+export type ChatStreamErrorEvent = z.infer<typeof ChatStreamErrorEvent>;
+
+export const ChatStreamDoneEvent = z.strictObject({});
+export type ChatStreamDoneEvent = z.infer<typeof ChatStreamDoneEvent>;
+
+export type ChatStreamEvent =
+  | { event: "tool"; data: ChatStreamToolEvent }
+  | { event: "text"; data: ChatStreamTextEvent }
+  | { event: "summary"; data: ChatStreamSummaryEvent }
+  | { event: "error"; data: ChatStreamErrorEvent }
+  | { event: "done"; data: ChatStreamDoneEvent };
