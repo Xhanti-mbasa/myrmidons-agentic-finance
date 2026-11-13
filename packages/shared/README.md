@@ -40,6 +40,7 @@ W5 owner dashboard.
 | `hashLogEntry` | log | `sha256(prevHash + canonicalJson(rowWithoutHash))`, lower-case hex, async | W2, W3, W4, W5 |
 | `verifyChain` | log | First bad `seq` in an oldest-first log (row fails `LogEntry`, seq not 1, 2, 3..., broken link or hash), or `null` | W4, W5 |
 | `toHex`, `fromHex` | log | UTF-8 text to upper-case hex and back, for memo fields | W2, W3 |
+| `supplierNameTokens`, `supplierNameConfidence` | supplier-match | `GET /suppliers?q=` scoring: normalised token overlap (Jaccard) after NFKC, lower-casing and dropping pty/ltd/limited/inc/co | W4 (and the T15 mock) |
 | `RLUSD_CURRENCY_HEX`, `RLUSD_TESTNET_ISSUER` | constants | RLUSD on Testnet | W2, W3 |
 | `XRPL_TESTNET_WSS` | constants | Public Testnet WebSocket endpoint | W2, W3 |
 | `MEMO_TYPE` | constants | `"shucamoxa/log"` (put `toHex(MEMO_TYPE)` on the ledger) | W2, W3 |

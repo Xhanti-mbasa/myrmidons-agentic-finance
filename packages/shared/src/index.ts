@@ -7,3 +7,4 @@ export * from "./agent-api";
 export * from "./approvals";
 export * from "./log";
 export * from "./transfers";
+export * from "./supplier-match";
