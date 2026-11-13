@@ -4,7 +4,8 @@ import { isValidClassicAddress, isValidXAddress } from "ripple-address-codec";
 import { Amount, ApprovalRequest, fromCents, LogEntry, XrplAddress, PayRequest, PayResult, Reason, SupplierLookup, toCents, type RuleCode } from "@shucamoxa/shared";
 import type { BackendClient } from "./backend";
 import { chatInvoiceNumber } from "./ids";
-import { escapeRegExp, significantWords } from "./grounding";
+import { significantWords } from "./grounding";
+import { LEGAL_FORM_WORDS } from "./names";
 
 /**
  * The lowest GET /suppliers confidence that counts as a match. Below it, nothing is payable: the
@@ -41,13 +42,10 @@ export type RunState = {
   /** Approval kinds already sent (or being sent) to POST /approvals in this run. */
   requestedApprovalKinds: Set<"supplier" | "payment">;
   /**
-   * Chat mode only (null in an invoice run): the owner's message and the one amount code read from it.
-   * Chat pay and request_approval refuse unless their amount equals it in cents and the supplier is one
-   * the message names.
+   * Chat mode only (null in an invoice run): the supplier and amount code read from the owner's message.
+   * Chat pay and request_approval refuse unless they match both.
    */
   chatMandate: ChatMandate | null;
-  /** Chat mode only: the supplier name GET /suppliers returned for each confidently matched ID. */
-  knownSupplierNames: Map<string, string>;
   /**
    * Chat mode only: every payment chat pay sent to POST /payments, as code built it (code-generated
    * CHAT- invoice number), with the backend's parsed answer or null if there was no usable answer.
@@ -57,10 +55,12 @@ export type RunState = {
 };
 
 /**
- * The owner's chat message and the amount code read from it (ownerAmountFromMessage): null if it held
- * none, several, or any number that is not a clean USD amount.
+ * What code read from the owner's chat message, never the model:
+ * - amount: the one USD amount (ownerAmountFromMessage), or null if there was none, several, or any doubt;
+ * - supplierId: the one approved supplier the message names, resolved against the whole list from
+ *   GET /rules (ownerSupplierFromMessage), or null if none, several, a negation, or no valid list.
  */
-export type ChatMandate = { message: string; amount: string | null };
+export type ChatMandate = { amount: string | null; supplierId: string | null };
 
 /**
  * The invoice being processed, as extraction read it and code resolved it. supplierName and
@@ -82,7 +82,6 @@ export function newRunState(mandate: RunState["mandate"], limits: Limits, chatMa
     limits,
     chatMandate,
     chatPayments: [],
-    knownSupplierNames: new Map(),
     requestedApprovalKinds: new Set(),
     knownSupplierIds: new Set(),
     lookedUpSupplierIds: new Set(),
@@ -308,40 +307,69 @@ const ONE_MONEY_ACTION_PER_CHAT =
 const NO_OWNER_AMOUNT =
   'The owner\'s message does not state exactly one amount in USD, so nothing can be paid or requested. Ask the owner to say the amount, for example "Pay Karoo $30".';
 const NOT_NAMED_BY_OWNER = "The owner's message does not name this supplier. Only the supplier the owner named can be paid; ask the owner if unsure.";
+const OWNER_SUPPLIER_UNCLEAR =
+  "The owner's message does not name exactly one approved supplier, so nothing can be paid or requested. Ask the owner which supplier they mean.";
 
 /**
  * Layer-1 checks shared by chat pay and chat request_approval: one money action per chat run (a payment
- * sent or a payment approval requested), to a confidently matched supplier the owner's message names,
- * for exactly the amount the owner wrote. The policy service and ledger enforce again.
+ * sent or a payment approval requested), to the one supplier code resolved from the owner's message
+ * (and find_supplier matched confidently), for exactly the amount the owner wrote. The policy service
+ * and ledger enforce again.
  */
 function refuseChatMoney(input: { supplierId: string; amount: string }, state: RunState): string | null {
   const chat = state.chatMandate;
   if (chat === null) return NO_OWNER_AMOUNT;
   if (state.chatPayments.length > 0 || state.requestedApprovalKinds.has("payment")) return ONE_MONEY_ACTION_PER_CHAT;
   if (!state.knownSupplierIds.has(input.supplierId)) return NOT_LOOKED_UP;
-  const name = state.knownSupplierNames.get(input.supplierId);
-  if (name === undefined || !ownerNamesSupplier(chat.message, name)) return NOT_NAMED_BY_OWNER;
+  if (chat.supplierId === null) return OWNER_SUPPLIER_UNCLEAR;
+  if (input.supplierId !== chat.supplierId) return NOT_NAMED_BY_OWNER;
   if (chat.amount === null) return NO_OWNER_AMOUNT;
   if (toCents(input.amount) !== toCents(chat.amount))
     return `The amount must be the one the owner wrote, ${chat.amount}. Ask the owner if they meant something else.`;
   return null;
 }
 
-/** Words that open a business name without identifying it. */
-const GENERIC_NAME_WORDS = new Set(["the", "and", "company"]);
+/** Words in a business name that don't identify the business. */
+const GENERIC_NAME_WORDS = new Set<string>(["the", "and", "company", "pay", ...LEGAL_FORM_WORDS]);
+/** Words that may follow a supplier's first word when the owner names it by that word alone ("Pay Karoo now $30"). */
+const AFTER_SHORT_NAME = new Set(["now", "please", "today", "asap", "again", "for", "the", "a", "an", "us", "usd", "rlusd", "dollar", "dollars"]);
+/** Any negation makes the message ambiguous about whom to pay ("Don't pay Karoo, pay Zambezi"). Conservative. */
+const NEGATION = /\b(?:not|never|dont)\b|n['’]t\b/iu;
+
+const wordsOf = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 0);
+
+/** A supplier name's identifying words, lower case, in order: its significant words that are not generic. */
+function identifyingWords(name: string): string[] {
+  const normalised = name.normalize("NFKC");
+  const significant = significantWords(normalised).map((w) => w.toLowerCase()).filter((w) => !GENERIC_NAME_WORDS.has(w));
+  return significant.length > 0 ? significant : wordsOf(normalised).filter((w) => !GENERIC_NAME_WORDS.has(w));
+}
+
+const containsRun = (tokens: string[], run: string[]) => tokens.some((_, i) => run.every((w, k) => tokens[i + k] === w));
+
+/** Named by its first identifying word alone: that word, followed by nothing, a number or a filler word, so "Pay African Spices" does not name "African Textiles". */
+const namedByFirstWord = (tokens: string[], words: string[]) =>
+  tokens.some((t, i) => t === words[0] && (tokens[i + 1] === undefined || /^\d/.test(tokens[i + 1]!) || AFTER_SHORT_NAME.has(tokens[i + 1]!)));
 
 /**
- * True if the owner's message names this supplier. The supplier's first identifying word (a significant
- * word as grounding defines it, other than "the", "and" or "company") must appear as a whole word,
- * case-insensitively. So "Pay Karoo" names "Karoo Textiles" but not "Zambezi Spices", and "Karoon"
- * names neither. A name with no such word must appear whole.
+ * The one approved supplier the owner's message names, resolved by code against the whole approved list
+ * from GET /rules, or null. A supplier whose identifying words all appear in order is named in full
+ * ("Pay Karoo Spices"); if none is, a supplier named by its first identifying word alone counts
+ * ("Pay Karoo $30"). Exactly one candidate is required, and no other supplier's first word may appear
+ * ("Pay Karoo and Zambezi"). Any negation in the message makes it null. Null means the model must ask
+ * the owner; nothing is paid.
  */
-export function ownerNamesSupplier(message: string, supplierName: string): boolean {
+export function ownerSupplierFromMessage(message: string, suppliers: ReadonlyArray<{ id: string; name: string }>): string | null {
   const text = message.normalize("NFKC");
-  const name = supplierName.normalize("NFKC");
-  const word = significantWords(name).find((w) => !GENERIC_NAME_WORDS.has(w.toLowerCase())) ?? name.trim();
-  if (word === "") return false;
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(word)}(?![\\p{L}\\p{N}])`, "iu").test(text);
+  if (NEGATION.test(text)) return null;
+  const tokens = wordsOf(text);
+  const named = suppliers.map((s) => ({ id: s.id, words: identifyingWords(s.name) })).filter((s) => s.words.length > 0);
+  const inFull = named.filter((s) => containsRun(tokens, s.words));
+  const candidates = inFull.length > 0 ? inFull : named.filter((s) => namedByFirstWord(tokens, s.words));
+  if (candidates.length !== 1) return null;
+  const chosen = candidates[0]!;
+  const otherMentioned = named.some((s) => s.id !== chosen.id && tokens.includes(s.words[0]!) && !chosen.words.includes(s.words[0]!));
+  return otherMentioned ? null : chosen.id;
 }
 
 function chatPayTool(backend: BackendClient, state: RunState) {
@@ -372,10 +400,10 @@ const PLAIN_AMOUNT = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/;
 /** What may stand right before an amount (or its "$" / "USD" marker), and right after it. */
 const OPENS = /[\s("':]$/;
 const CLOSES = /^[\s.,!?;:)"']/;
-/** The only currency markers accepted on the left of the number: "$", "US$", "USD", "RLUSD" (any case). */
-const USD_BEFORE = /(?:(?:us)?\$|(?:rl)?usd\s*)$/i;
-/** ... and on the right: "USD", "RLUSD" (any case). */
-const USD_AFTER = /^\s*(?:rl)?usd(?![\p{L}\p{N}])/iu;
+/** The only currency markers accepted on the left of the number: "$", "US$", "USD ", "RLUSD " (any case, with the space). */
+const USD_BEFORE = /(?:(?:us)?\$|(?:rl)?usd\s+)$/i;
+/** ... and on the right: " USD", " RLUSD" (any case, with the space). */
+const USD_AFTER = /^\s+(?:rl)?usd(?![\p{L}\p{N}])/iu;
 /** Bidi controls can make a message render differently from what it says. */
 const BIDI_CONTROL = /[‪-‮⁦-⁩‎‏؜]/;
 const ASCII_OR_FULLWIDTH_DIGIT = /[0-9０-９]/;
@@ -389,21 +417,44 @@ const CURRENCY_CODES = new Set(
     .map((code) => code.toLowerCase())
     .filter((code) => code !== "usd"),
 );
-/** Currency names, symbols spelt out and common abbreviations that are not ISO codes. */
+/**
+ * Currency names and abbreviations that are not ISO codes. Any of these anywhere in the message makes
+ * the amount ambiguous: "30 in rand", "30 Kenyan shillings", "30 in South African currency".
+ */
 const CURRENCY_WORDS = new Set(
   (
-    "r rand rands ksh kshs sh shs shilling shillings kwacha birr dirham dirhams dinar dinars naira cedi cedis pula loti maloti " +
+    "rand rands ksh kshs shilling shillings kwacha birr dirham dirhams dinar dinars naira cedi cedis pula loti maloti " +
     "lilangeni emalangeni metical meticais kwanza leone leones franc francs cfa euro euros pound pounds quid sterling yen yuan rmb " +
-    "renminbi peso pesos real reais rupee rupees rs bucks buck usdc usdt xrp btc eth bitcoin ether ethereum"
+    "renminbi peso pesos reais rupee rupees bucks buck usdc usdt xrp btc eth bitcoin ether ethereum currency currencies forex"
   ).split(" "),
 );
+/** Short abbreviations that are ordinary words elsewhere ("R&D", "real"): they count only next to the number. */
+const CURRENCY_WORDS_NEXT_TO_AMOUNT = new Set(["r", "sh", "shs", "rs", "real"]);
+/** "dollar(s)" is USD only right after the number or after "US" / "U.S."; "Namibian dollars" is not. */
+const DOLLAR = /\bdollars?\b/giu;
+const USD_DOLLAR_BEFORE = /(?:\d|\bu\.?s\.?)\s*$/iu;
+
+/**
+ * True if the message names a currency other than USD anywhere: any currency symbol but "$", a currency
+ * word, an upper-case non-USD ISO code (so "all" and "top" don't count, but "ZAR-equivalent" does), or
+ * "dollar(s)" not tied to the amount or to US.
+ */
+function namesOtherCurrency(text: string): boolean {
+  for (const char of text) if (char !== "$" && /\p{Sc}/u.test(char)) return true;
+  for (const word of text.split(/[^\p{L}]+/u)) {
+    if (CURRENCY_WORDS.has(word.toLowerCase())) return true;
+    if (/^[A-Z]{3}$/.test(word) && CURRENCY_CODES.has(word.toLowerCase())) return true;
+  }
+  for (const match of text.matchAll(DOLLAR)) if (!USD_DOLLAR_BEFORE.test(text.slice(0, match.index))) return true;
+  return false;
+}
 
 /** True if a word next to an amount marks a currency other than USD: a currency symbol, a non-USD ISO code or a currency word. */
 function marksOtherCurrency(word: string | undefined): boolean {
   if (word === undefined) return false;
   if (/\p{Sc}/u.test(word)) return true;
   const letters = word.replace(/[^\p{L}]/gu, "").toLowerCase();
-  return CURRENCY_CODES.has(letters) || CURRENCY_WORDS.has(letters);
+  return CURRENCY_CODES.has(letters) || CURRENCY_WORDS.has(letters) || CURRENCY_WORDS_NEXT_TO_AMOUNT.has(letters);
 }
 
 /**
@@ -424,6 +475,7 @@ export function ownerAmountFromMessage(message: string): string | null {
     if (/[0-9]/.test(char.normalize("NFKC")) && !ASCII_OR_FULLWIDTH_DIGIT.test(char)) return null;
   }
   const text = message.normalize("NFKC");
+  if (namesOtherCurrency(text)) return null;
   const values = new Set<string>();
   for (const match of text.matchAll(NUMBER_TOKEN)) {
     const token = match[0];
@@ -466,10 +518,7 @@ function allTools(backend: BackendClient, state: RunState, pay: ReturnType<typeo
         if (match) {
           state.lookedUpSupplierIds.add(match.supplierId);
           // Invoice mode: results only inform propose_supplier; the payable ID is fixed in the mandate.
-          if (!state.mandate && isConfident(match)) {
-            state.knownSupplierIds.add(match.supplierId);
-            state.knownSupplierNames.set(match.supplierId, match.name);
-          }
+          if (!state.mandate && isConfident(match)) state.knownSupplierIds.add(match.supplierId);
         }
         return reply;
       },

@@ -4,7 +4,8 @@ import { fromCents, InvoiceNumber, Rules as RulesContract, ruleExplanation, Supp
 import { backendClient, type BackendClient, type BackendDeps } from "./backend";
 import { extractInvoice } from "./extraction";
 import { describeStall, PAYMENT_OUTCOME_UNKNOWN, resolveLimits, RunGuard } from "./limits";
-import { agentTools, isConfident, newRunState, overLimit, ownerAmountFromMessage, redactAddresses, supplierMatch, type Limits, type Mandate, type RunState } from "./tools";
+import { LEGAL_FORM_WORDS } from "./names";
+import { agentTools, isConfident, newRunState, overLimit, ownerAmountFromMessage, ownerSupplierFromMessage, redactAddresses, supplierMatch, type Limits, type Mandate, type RunState } from "./tools";
 
 export { MIN_SUPPLIER_CONFIDENCE } from "./tools";
 
@@ -62,7 +63,12 @@ In chat, the owner is talking to you. The system assigns the invoice number. Pay
  * malformed remaining is null, and then only the cap can justify an approval.
  */
 const RulesCore = z.looseObject({ perPaymentCap: RulesContract.shape.perPaymentCap, killSwitch: RulesContract.shape.killSwitch });
-type Rules = { perPaymentCap: string; killSwitch: boolean; remaining: string | null };
+/**
+ * suppliers is the owner's approved list, {id, name} only, or null if the reply did not carry a list
+ * that satisfies the shared Rules contract (strict, so an entry with an address makes it null). Chat
+ * resolves the owner's payee against it; with null, chat pays nobody.
+ */
+type Rules = { perPaymentCap: string; killSwitch: boolean; remaining: string | null; suppliers: Array<{ id: string; name: string }> | null };
 
 export function createAgent(deps: AgentDeps) {
   const limits = resolveLimits(deps.limits);
@@ -156,9 +162,11 @@ export function createAgent(deps: AgentDeps) {
     if (!rules) return { reply: "I could not confirm the kill switch is off, so I am not acting right now.", summary: NO_PAYMENT, payments: [] };
     if (rules.killSwitch) return { reply: ruleExplanation("KILL_SWITCH_ON"), summary: NO_PAYMENT, payments: [] };
 
-    // Code, not the model, reads the amount the owner asked for. Chat pay accepts only this amount.
-    const owned = ownerAmountFromMessage(message);
-    const state = newRunState(null, limitsOf(rules), { message, amount: owned });
+    // Code, not the model, reads who and how much the owner asked for. Chat pay and request_approval accept only these.
+    const state = newRunState(null, limitsOf(rules), {
+      amount: ownerAmountFromMessage(message),
+      supplierId: rules.suppliers ? ownerSupplierFromMessage(message, rules.suppliers) : null,
+    });
     progress.state = state;
     const { text } = await run.stage("the planner model", limits.modelMs, (abortSignal) =>
       generateText({
@@ -289,8 +297,15 @@ async function readRules(backend: BackendClient): Promise<Rules | null> {
   if (!reply.ok) return null;
   const parsed = RulesCore.safeParse(reply.body);
   if (!parsed.success) return null;
-  const remaining = RulesContract.shape.remaining.safeParse((reply.body as { remaining?: unknown }).remaining);
-  return { perPaymentCap: parsed.data.perPaymentCap, killSwitch: parsed.data.killSwitch, remaining: remaining.success ? remaining.data : null };
+  const body = reply.body as { remaining?: unknown; suppliers?: unknown };
+  const remaining = RulesContract.shape.remaining.safeParse(body.remaining);
+  const suppliers = RulesContract.shape.suppliers.safeParse(body.suppliers);
+  return {
+    perPaymentCap: parsed.data.perPaymentCap,
+    killSwitch: parsed.data.killSwitch,
+    remaining: remaining.success ? remaining.data : null,
+    suppliers: suppliers.success ? suppliers.data : null,
+  };
 }
 
 /**
@@ -308,7 +323,7 @@ async function resolveSupplier(backend: BackendClient, supplierName: string): Pr
 }
 
 /** Trailing legal-form words that don't identify a business: "(Pty) Ltd", "Ltd", "Inc", "LLC" and similar. */
-const LEGAL_FORM = /[\s,]+(?:\(pty\)|pty\.?|ltd\.?|limited|inc\.?|incorporated|llc|plc|gmbh|cc)\s*$/i;
+const LEGAL_FORM = new RegExp(`[\\s,]+(?:\\(pty\\)|(?:${LEGAL_FORM_WORDS.join("|")})\\.?)\\s*$`, "i");
 
 export function tradingName(name: string): string {
   let current = name.trim();
