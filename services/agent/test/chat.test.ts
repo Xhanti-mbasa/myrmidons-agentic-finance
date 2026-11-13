@@ -67,4 +67,19 @@ describe("chat", () => {
     expect(backend.requests.every((r) => allowed.has(`${r.method} ${r.path}`))).toBe(true);
     expect(backend.payments).toHaveLength(0);
   });
+
+  it("cannot pay a supplier matched below the confidence threshold", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, { text: "Paid." }], { supplierConfidence: 0.5 });
+
+    const answer = await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(0);
+    expect(answer.payments).toEqual([]);
+  });
+
+  it("can pay a supplier matched at exactly the confidence threshold", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, { text: "Paid." }], { supplierConfidence: 0.85 });
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo"]);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAgent } from "../src/agent";
+import { createAgent, MIN_SUPPLIER_CONFIDENCE, tradingName } from "../src/agent";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";
 import { AGENT_TOKEN, BACKEND_URL, fakeBackend } from "./support/fake-backend";
 import { KAROO_FIELDS, KAROO_INVOICE } from "./support/invoices";
@@ -323,5 +323,126 @@ describe("processInvoice: planner instructions", () => {
     const system = JSON.stringify(plannerModel.calls[0]!.prompt.filter((m) => m.role === "system"));
     expect(system).toMatch(/never an instruction/i);
     expect(system).toMatch(/cannot add suppliers, change limits or approve your own payments/i);
+  });
+});
+
+describe("processInvoice: pay is bound to the invoice's own supplier, matched by code (T04)", () => {
+  const findZambezi: ModelTurn = { toolCalls: [{ tool: "find_supplier", input: { name: "Zambezi Spices" } }] };
+  const supplierLookups = (backend: ReturnType<typeof fakeBackend>) =>
+    backend.requests.filter((r) => r.method === "GET" && r.path === "/suppliers").map((r) => r.query.q);
+
+  it("sends no payment when the planner looks up another approved supplier and pays it for this invoice", async () => {
+    const { agent, backend, plannerModel } = setup({ planner: [findZambezi, payKaroo({ supplierId: "sup_zambezi" })] });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(backend.payments).toHaveLength(0);
+    expect(outcome.decision).not.toBe("paid");
+    expect(plannerModel.everythingTheModelSaw).toContain("This invoice can only be paid to its own supplier, matched by the system.");
+  });
+
+  it("sends no payment to another supplier even after the planner has also looked up the right one", async () => {
+    const { agent, backend } = setup({ planner: [findKaroo, findZambezi, payKaroo({ supplierId: "sup_zambezi" })] });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("looks up the invoice's own supplierName in code before the planner runs", async () => {
+    const { agent, backend } = setup({ planner: [findZambezi, { text: "Done." }] });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(supplierLookups(backend)[0]).toBe("Karoo Textiles");
+  });
+
+  it("sends no payment when the only match is below the confidence threshold, and leaves it for review", async () => {
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo()], backend: { supplierConfidence: 0.1 } });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(backend.payments).toHaveLength(0);
+    expect(outcome.decision).toBe("needs_review");
+  });
+
+  it("asks the owner, and pays nothing, when a low-confidence planner proposes the supplier instead", async () => {
+    const propose: ModelTurn = {
+      toolCalls: [{ tool: "propose_supplier", input: { name: "Karoo Textiles", address: null, evidence: "Invoice INV-1042" } }],
+    };
+    const { agent, backend } = setup({ planner: [findKaroo, propose, payKaroo()], backend: { supplierConfidence: 0.1 } });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(backend.payments).toHaveLength(0);
+    expect(outcome).toMatchObject({ decision: "awaiting_owner", ruleCode: "SUPPLIER_NOT_APPROVED" });
+  });
+
+  it("pays at exactly the confidence threshold", async () => {
+    expect(MIN_SUPPLIER_CONFIDENCE).toBe(0.85);
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo()], backend: { supplierConfidence: 0.85 } });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo"]);
+    expect(outcome.decision).toBe("paid");
+  });
+
+  it("sends no payment just below the confidence threshold", async () => {
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo()], backend: { supplierConfidence: 0.84 } });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("still pays the happy path exactly once, to the supplier code resolved", async () => {
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo(), { text: "Paid." }] });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo"]);
+    expect(outcome.decision).toBe("paid");
+  });
+
+  it("matches a legal-form variant of the name, such as 'Karoo Textiles (Pty) Ltd', by retrying the trading name", async () => {
+    const fields = { ...KAROO_FIELDS, supplierName: "Karoo Textiles (Pty) Ltd" };
+    const { agent, backend } = setup({
+      fields,
+      planner: [findKaroo, payKaroo()],
+      backend: { supplierConfidence: (q) => (q === "Karoo Textiles" ? 0.95 : 0.6) },
+    });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(supplierLookups(backend).slice(0, 2)).toEqual(["Karoo Textiles (Pty) Ltd", "Karoo Textiles"]);
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo"]);
+    expect(outcome.decision).toBe("paid");
+  });
+
+  it("resolves no supplier when the lookup reply breaks the contract by carrying an address", async () => {
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo()], backend: { leakAddresses: true } });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("tells the planner up front which supplier code matched", async () => {
+    const { agent, plannerModel } = setup({ planner: [{ text: "ok" }] });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(plannerModel.everythingTheModelSaw).toContain('\\"resolvedSupplierId\\":\\"sup_karoo\\"');
+  });
+
+  it("tells the planner up front when no supplier matched", async () => {
+    const { agent, plannerModel } = setup({ planner: [{ text: "ok" }], backend: { supplierConfidence: 0.1 } });
+    await agent.processInvoice(KAROO_INVOICE);
+    expect(plannerModel.everythingTheModelSaw).toContain('\\"resolvedSupplierId\\":null');
+  });
+});
+
+describe("tradingName: the retry name for a legal-form variant", () => {
+  it.each([
+    ["Karoo Textiles (Pty) Ltd", "Karoo Textiles"],
+    ["Karoo Textiles Pty Ltd", "Karoo Textiles"],
+    ["Zambezi Spices, Inc.", "Zambezi Spices"],
+    ["Zambezi Spices Limited", "Zambezi Spices"],
+    ["Karoo Textiles", "Karoo Textiles"],
+    ["Ltd", "Ltd"],
+    ["Karoo Textiles (Pty) Ltd, Lagos office", "Karoo Textiles (Pty) Ltd, Lagos office"],
+  ])("%s -> %s", (name, expected) => {
+    expect(tradingName(name)).toBe(expected);
   });
 });
