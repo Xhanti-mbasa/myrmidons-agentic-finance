@@ -1,3 +1,21 @@
+# FROZEN PRESENTATION / DEMO BRANCH — DO NOT MODIFY
+
+This branch is `demo/presentation-frozen`, the owner's presentation snapshot.
+It must remain unchanged for the demonstration.
+
+## Mandatory instructions for every model, agent and contributor
+
+- Do not edit, commit, push, force-push, merge, rebase, reset, delete or otherwise change this branch.
+- Before any write or push, check the current branch and destination ref. If either is `demo/presentation-frozen`, STOP and warn: "This is the frozen presentation/demo branch. Changes and pushes are prohibited. Use a separate development branch."
+- Perform development in a new branch created from this snapshot or another development branch. Never target this branch with a pull request.
+- Do not disable or bypass its GitHub protection or lock. Only an explicit later owner instruction naming this branch and requesting an unfreeze may authorize changing the freeze.
+- Local installation and demonstration may generate ignored private runtime files. They must not change or be committed to the presentation source.
+
+Snapshot source: `ea6e68b2e5f7fe9c1826f73792ee96790f73205e` (PR #54).
+The freeze preserves this demo's existing limitations; it is not a security or live-payment certification.
+
+---
+
 # W3Node / Shucamoxa: start here
 
 This repository is `Xhanti-mbasa/myrmidons-agentic-finance`. W3Node is the wider
