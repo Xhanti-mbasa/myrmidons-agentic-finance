@@ -1,6 +1,7 @@
 #!/bin/sh
 # Fails if git tracks an env file (other than .env.example) or a path that must stay local:
-# CLAUDE.md, CLAUDE.local.md, CONTEXT.md, .scratch/ (at any depth), docs/agents/, docs/adr/.
+# CLAUDE.md, CLAUDE.local.md, CONTEXT.md, .scratch/ (at any depth), docs/agents/, docs/adr/,
+# or any archive whose file name contains "local-files" (a bundle of those paths).
 # It reads the git index, so it checks tracked files in CI and staged files in the pre-commit hook.
 # Run from anywhere inside the repo: sh scripts/check-tracked-paths.sh
 set -eu
@@ -18,7 +19,11 @@ local_only=$(printf '%s\n' "$files" | grep -E \
   -e '(^|/)\.scratch/' \
   -e '^docs/(agents|adr)/' || true)
 
-bad=$(printf '%s\n%s\n' "$env_files" "$local_only" | grep -v '^$' | sort -u || true)
+# Archives bundling local-only files (PR #22 committed docs/shucamoxa-local-files.tgz). Case-insensitive.
+archives=$(printf '%s\n' "$files" | grep -iE \
+  '(^|/)[^/]*local-files[^/]*\.(tgz|tar|tar\.gz|gz|tbz2?|tar\.bz2|bz2|txz|tar\.xz|xz|zst|zip|7z|rar)$' || true)
+
+bad=$(printf '%s\n%s\n%s\n' "$env_files" "$local_only" "$archives" | grep -v '^$' | sort -u || true)
 
 if [ -n "$bad" ]; then
   {
