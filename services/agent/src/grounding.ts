@@ -87,15 +87,20 @@ function appearsAsToken(text: string, needle: string, flags = "u"): boolean {
   return pattern.test(text);
 }
 
+/** The words of a supplier name that identify it: three or more letters or digits. */
+export function significantWords(supplierName: string): string[] {
+  return supplierName.split(/[^\p{L}\p{N}]+/u).filter((word) => [...word].length >= SIGNIFICANT_WORD_LENGTH);
+}
+
 /** Every word of three or more letters must appear as a whole word, case-insensitively. */
 function supplierNameAppears(text: string, supplierName: string): boolean {
-  const words = supplierName.split(/[^\p{L}\p{N}]+/u).filter((word) => [...word].length >= SIGNIFICANT_WORD_LENGTH);
+  const words = significantWords(supplierName);
   // A name with no significant word ("BP") must then appear whole, so it is never grounded by default.
   if (words.length === 0) return appearsAsToken(text, supplierName.trim(), "iu");
   return words.every((word) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(word)}(?![\\p{L}\\p{N}])`, "iu").test(text));
 }
 
 /** Escapes only the characters that unicode-mode regexes allow to be escaped. */
-function escapeRegExp(value: string): string {
+export function escapeRegExp(value: string): string {
   return value.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&");
 }

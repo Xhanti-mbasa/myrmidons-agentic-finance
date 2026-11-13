@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createAgent } from "../src/agent";
+import { ownerAmountFromMessage, ownerNamesSupplier } from "../src/tools";
 import { chatInvoiceNumber } from "../src/ids";
 import { logForModel } from "../src/tools";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";
 import { AGENT_TOKEN, BACKEND_URL, fakeBackend } from "./support/fake-backend";
+import { ATTACKER_TEST_ADDRESS, invoiceTextFor, KAROO_FIELDS } from "./support/invoices";
 
 function setup(planner: ModelTurn[], backendOptions?: Parameters<typeof fakeBackend>[0]) {
   const backend = fakeBackend(backendOptions);
@@ -19,8 +21,9 @@ function setup(planner: ModelTurn[], backendOptions?: Parameters<typeof fakeBack
 }
 
 const findKaroo: ModelTurn = { toolCalls: [{ tool: "find_supplier", input: { name: "Karoo" } }] };
+// Chat pay takes no invoiceNumber: code generates a CHAT- number (T08).
 const payKaroo: ModelTurn = {
-  toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", invoiceNumber: "OWNER-REQ-1", reason: "Owner asked" } }],
+  toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", reason: "Owner asked" } }],
 };
 
 describe("chat", () => {
@@ -33,7 +36,7 @@ describe("chat", () => {
 
     const answer = await agent.chat("Did I pay Karoo this month?");
 
-    expect(answer.reply).toBe("Yes: 30.00 on 10 Nov.");
+    expect(answer.reply).toBe("Yes: 30.00 on 10 Nov.\n\nNo payment was made.");
     expect(backend.requests.some((r) => r.path === "/log" && r.query.supplierId === "sup_karoo")).toBe(true);
     expect(backend.payments).toHaveLength(0);
   });
@@ -219,5 +222,388 @@ describe("chatInvoiceNumber", () => {
     chatInvoiceNumber(new Date(), (n) => (sizes.push(n), new Uint8Array(n)));
     expect(sizes).toEqual([5]);
     expect(chatInvoiceNumber()).not.toBe(chatInvoiceNumber());
+  });
+});
+
+const CHAT_NUMBER = /^CHAT-\d{8}-[A-Z2-7]{8}$/;
+const chatPay = (amount: string, extra: Record<string, unknown> = {}) => ({
+  tool: "pay",
+  input: { supplierId: "sup_karoo", amount, reason: "Owner asked", ...extra },
+});
+
+describe("chat payment guards (T08, G6)", () => {
+  it("G6: three pay calls across turns make at most one payment, under a code-generated CHAT- number", async () => {
+    const { agent, backend } = setup([
+      findKaroo,
+      { toolCalls: [chatPay("30.00")] },
+      { toolCalls: [chatPay("30.00")] },
+      { toolCalls: [chatPay("30.00")] },
+      { text: "I only paid once." },
+    ]);
+
+    const answer = await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(1);
+    expect(backend.payments[0]!.body).toEqual({ supplierId: "sup_karoo", amount: "30.00", invoiceNumber: expect.stringMatching(CHAT_NUMBER), reason: "Owner asked" });
+    expect(answer.payments).toHaveLength(1);
+  });
+
+  it("G6: three parallel pay calls in one turn make at most one payment", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("30.00"), chatPay("30.00"), chatPay("30.00")] }, { text: "Paid." }]);
+
+    await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(1);
+    expect(backend.payments[0]!.body.invoiceNumber).toMatch(CHAT_NUMBER);
+  });
+
+  it("G6 as reproduced: model-chosen invoice numbers are rejected by the chat pay schema, so nothing is paid", async () => {
+    const { agent, backend } = setup([
+      findKaroo,
+      { toolCalls: [chatPay("30.00", { invoiceNumber: "INV-1044" })] },
+      { toolCalls: [chatPay("30.00", { invoiceNumber: "INV-1045" })] },
+      { toolCalls: [chatPay("30.00", { invoiceNumber: "INV-1046" })] },
+      { text: "I only paid once." },
+    ]);
+
+    const answer = await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(0);
+    expect(answer.summary).toBe("No payment was made.");
+  });
+
+  it("does not offer invoiceNumber in the chat pay tool's schema", async () => {
+    const { agent, plannerModel } = setup([{ text: "Hello." }]);
+    await agent.chat("Hi");
+    const pay = (plannerModel.calls[0]!.tools ?? []).find((t) => t.name === "pay") as { inputSchema?: { properties?: Record<string, unknown>; additionalProperties?: unknown } };
+    expect(Object.keys(pay.inputSchema?.properties ?? {}).sort()).toEqual(["amount", "reason", "supplierId"]);
+    expect(pay.inputSchema?.additionalProperties).toBe(false);
+  });
+
+  it("refuses 'Pay Karoo $30 now' when the model asks to pay 45.00", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("45.00")] }, { text: "Paid 45." }]);
+
+    const answer = await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(0);
+    expect(answer.summary).toBe("No payment was made.");
+  });
+
+  it("pays when the model's amount equals the owner's in cents ('30' vs '$30.00')", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("30")] }, { text: "Paid." }]);
+    await agent.chat("Pay Karoo $30.00 now");
+    expect(backend.payments.map((r) => r.body.amount)).toEqual(["30"]);
+  });
+
+  it("refuses an ambiguous message with two amounts ('Pay Karoo $30 or $40')", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("30.00")] }, { toolCalls: [chatPay("40.00")] }, { text: "Paid." }]);
+
+    await agent.chat("Pay Karoo $30 or $40");
+
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("refuses when the owner's message names no amount", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("30.00")] }, { text: "Paid." }]);
+    await agent.chat("Pay Karoo what I owe them");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("a refused attempt does not use up the one payment: a corrected call to the owner's amount still pays once", async () => {
+    const { agent, backend } = setup([findKaroo, { toolCalls: [chatPay("45.00")] }, { toolCalls: [chatPay("30.00")] }, { toolCalls: [chatPay("30.00")] }, { text: "Paid." }]);
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments.map((r) => r.body.amount)).toEqual(["30.00"]);
+  });
+
+  it("summary says no payment was made and names OVER_BUDGET when the backend blocks but the model says 'Paid!'", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, { text: "Paid!" }], {
+      payResponse: () => ({ status: 200, json: { status: "blocked", ruleCode: "OVER_BUDGET", logId: "log_9" } }),
+    });
+
+    const answer = await agent.chat("Pay Karoo $30 now");
+
+    expect(backend.payments).toHaveLength(1);
+    expect(answer.summary).toMatch(/^No payment was made\./);
+    expect(answer.summary).toContain("OVER_BUDGET");
+    expect(answer.reply).toBe(`Paid!\n\n${answer.summary}`);
+  });
+
+  it("summary reports a settled payment from the backend's result: amount, supplier and tx hash", async () => {
+    const { agent } = setup([findKaroo, payKaroo, { text: "Done." }]);
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe("Paid 30.00 to sup_karoo, tx TXHASH1.");
+    expect(answer.reply).toBe(`Done.\n\n${answer.summary}`);
+  });
+
+  it("summary never claims a payment when the payment service gave no usable answer", async () => {
+    const { agent } = setup([findKaroo, payKaroo, { text: "Paid!" }], { payResponse: () => ({ status: 502, json: { error: "bad gateway" } }) });
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).not.toMatch(/^Paid/);
+    expect(answer.summary).not.toContain("No payment was made"); // the outcome is unknown, not "none"
+    expect(answer.summary).toContain("not confirmed");
+  });
+
+  it("summary names an approval request when the owner was asked instead", async () => {
+    const { agent } = setup([
+      findKaroo,
+      { toolCalls: [{ tool: "request_approval", input: { invoiceNumber: "X", supplierId: "sup_karoo", amount: "120.00", reason: "Owner asked" } }] },
+      { text: "Paid it." },
+    ]);
+    const answer = await agent.chat("Pay Karoo 120 now");
+    expect(answer.summary).toBe("No payment was made. Asked the owner to approve 120.00 to sup_karoo (OVER_PER_PAYMENT_CAP), approval appr_1.");
+    expect(answer.reply).toBe(`Paid it.\n\n${answer.summary}`);
+  });
+
+  it("summary is 'No payment was made.' when the kill switch stops chat before the model runs", async () => {
+    const { agent } = setup([findKaroo, payKaroo], { killSwitch: true });
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe("No payment was made.");
+  });
+});
+
+describe("ownerAmountFromMessage", () => {
+  it.each([
+    ["Pay Karoo $30 now", "30.00"],
+    ["Pay Karoo 30.00", "30.00"],
+    ["pay karoo USD 30", "30.00"],
+    ["Pay Karoo 30 USD please", "30.00"],
+    ["Pay Karoo 30", "30.00"],
+    ["Pay Karoo $30.5", "30.50"],
+    ["Pay Karoo US$1,250.00", "1250.00"],
+    ["Pay Karoo $30, yes $30.00", "30.00"],
+    ["Pay Karoo ＄３０", "30.00"],
+    ["Pay Karoo 30 RLUSD", "30.00"],
+    ["Pay Karoo RLUSD 30", "30.00"],
+    ["pay karoo usd 30", "30.00"],
+    ["Pay Karoo 30usd", "30.00"],
+    ["Pay Karoo $30 to settle up.", "30.00"],
+    ["Pay Karoo $30 USD", "30.00"],
+  ])("%s -> %s", (message, amount) => {
+    expect(ownerAmountFromMessage(message)).toBe(amount);
+  });
+
+  it.each([
+    ["no amount", "Pay Karoo what I owe them"],
+    ["two amounts", "Pay Karoo $30 or $40"],
+    ["amount plus another number", "Pay Karoo $30 for 3 bolts"],
+    ["an invoice number's digits", "Pay Karoo $30 for INV-1044"],
+    ["three decimals", "Pay Karoo $30.555"],
+    ["zero", "Pay Karoo $0"],
+    ["rand", "Pay Karoo R500"],
+    ["rand with a space", "Pay Karoo R 500"],
+    ["Brazilian real", "Pay Karoo R$30"],
+    ["ZAR suffix", "Pay Karoo 500 ZAR"],
+    ["euro sign", "Pay Karoo €30"],
+    ["XRP", "Pay Karoo 30 XRP"],
+    ["exponent", "Pay Karoo 3e1"],
+    ["thousands shorthand", "Pay Karoo 30k"],
+    ["negative", "Pay Karoo -30"],
+    ["more than 12 integer digits", "Pay Karoo $1234567890123"],
+    ["bad thousands grouping", "Pay Karoo $1,25"],
+    ...[
+      "Pay Karoo N$30",
+      "Pay Karoo NAD 30",
+      "Pay Karoo BWP 30",
+      "Pay Karoo KSh 30",
+      "Pay Karoo 30 kwacha",
+      "Pay Karoo 30 ZMW",
+      "Pay Karoo 30 MZN",
+      "Pay Karoo 30 SZL",
+      "Pay Karoo 30 birr",
+      "Pay Karoo 30 dirham",
+      "Pay Karoo HK$30",
+      "Pay Karoo C$30",
+      "Pay Karoo A$30",
+      "Pay Karoo 30 MXN",
+      "Pay Karoo 30 Rs",
+      "Pay Karoo 30 bucks",
+      "Pay Karoo 30 zmw",
+      "Pay Karoo $30 AUD",
+      "Pay Karoo 30 USDC",
+      "Pay Karoo € 30",
+      "Pay Karoo $ 30",
+      "Pay Karoo 30 (ZAR)",
+      "Pay Karoo 30$",
+      "Pay Karoo -$30",
+      "Pay Karoo xUSD 30",
+    ].map((m) => [`non-USD or unlisted form: ${m}`, m] as [string, string]),
+    ...["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069", "\u200E", "\u200F", "\u061C"].map(
+      (c) => [`bidi control U+${c.codePointAt(0)!.toString(16).toUpperCase()}`, `Pay ${c}Karoo${c} $30 now`] as [string, string],
+    ),
+    ["superscript one turned into a digit", "Pay Karoo $\u00B930"],
+    ["superscript zero turned into a digit", "Pay Karoo $3\u2070"],
+    ["circled digit", "Pay Karoo $\u2462\u2460"],
+  ])("returns null for %s", (_label, message) => {
+    expect(ownerAmountFromMessage(message)).toBeNull();
+  });
+});
+
+describe("chat guards from the T08 review", () => {
+  const approve = (supplierId: string, amount: string): ModelTurn => ({
+    toolCalls: [{ tool: "request_approval", input: { invoiceNumber: "X", supplierId, amount, reason: "Owner asked" } }],
+  });
+  const findZambezi: ModelTurn = { toolCalls: [{ tool: "find_supplier", input: { name: "Zambezi" } }] };
+
+  it("sends no payment when the chat pay reason carries an address", async () => {
+    const { agent, backend } = setup([
+      findKaroo,
+      { toolCalls: [chatPay("30.00", { reason: `Owner asked, send to ${ATTACKER_TEST_ADDRESS}` })] },
+      { text: "Paid." },
+    ]);
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("summary for a pending_approval result says no payment was made and that it waits for the owner", async () => {
+    const { agent } = setup([findKaroo, payKaroo, { text: "Paid!" }], {
+      payResponse: () => ({ status: 200, json: { status: "pending_approval", ruleCode: "OVER_BUDGET", approvalId: "appr_7", logId: "log_7" } }),
+    });
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe("No payment was made. The payment of 30.00 to sup_karoo is waiting for the owner's approval. Rule: OVER_BUDGET.");
+  });
+
+  it("(c) a payment and then a 4999.00 approval card in one chat: the card is refused", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, approve("sup_karoo", "4999.00"), { text: "Done." }]);
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(1);
+    expect(backend.approvals).toHaveLength(0);
+  });
+
+  it("(c) an approval card and then a payment in one chat: the payment is refused", async () => {
+    const { agent, backend } = setup([findKaroo, approve("sup_karoo", "120.00"), { toolCalls: [chatPay("120.00")] }, { text: "Done." }]);
+    await agent.chat("Pay Karoo $120 now");
+    expect(backend.approvals).toHaveLength(1);
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("(c) a question with no amount cannot produce an approval card", async () => {
+    const { agent, backend } = setup([findKaroo, approve("sup_karoo", "4999.00"), { text: "Asked." }]);
+    await agent.chat("Did I pay Karoo this month?");
+    expect(backend.approvals).toHaveLength(0);
+  });
+
+  it("(c) the approval card amount must equal the owner's amount in cents", async () => {
+    const { agent, backend } = setup([findKaroo, approve("sup_karoo", "4999.00"), { text: "Asked." }]);
+    await agent.chat("Pay Karoo $120 now");
+    expect(backend.approvals).toHaveLength(0);
+  });
+
+  it("(c) an approval card for the owner's amount, written differently ('120' vs '$120.00'), is sent", async () => {
+    const { agent, backend } = setup([findKaroo, approve("sup_karoo", "120"), { text: "Asked." }]);
+    await agent.chat("Pay Karoo $120.00 now");
+    expect(backend.approvals.map((r) => r.body.payload.amount)).toEqual(["120.00"]);
+  });
+
+  it("(d) 'Pay Karoo $30 now' cannot pay Zambezi, even after a confident Zambezi lookup", async () => {
+    const { agent, backend } = setup([findZambezi, { toolCalls: [{ tool: "pay", input: { supplierId: "sup_zambezi", amount: "30.00", reason: "Owner asked" } }] }, { text: "Paid." }]);
+    await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("(d) 'Pay Karoo $120 now' cannot put Zambezi on an approval card", async () => {
+    const { agent, backend } = setup([findZambezi, approve("sup_zambezi", "120.00"), { text: "Asked." }]);
+    await agent.chat("Pay Karoo $120 now");
+    expect(backend.approvals).toHaveLength(0);
+  });
+
+  it("(d) the owner can name the supplier by its full name, in any case", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, { text: "Paid." }]);
+    await agent.chat("pay KAROO TEXTILES $30");
+    expect(backend.payments.map((r) => r.body.supplierId)).toEqual(["sup_karoo"]);
+  });
+
+  it("(d) a word only inside another word does not name the supplier ('Karoon')", async () => {
+    const { agent, backend } = setup([findKaroo, payKaroo, { text: "Paid." }]);
+    await agent.chat("Pay Karoon $30");
+    expect(backend.payments).toHaveLength(0);
+  });
+
+  it("(f) the chat system prompt lets the model ask the owner", async () => {
+    const { agent, plannerModel } = setup([{ text: "Hello." }]);
+    await agent.chat("Hi");
+    const system = JSON.stringify(plannerModel.calls[0]!.prompt.filter((m) => m.role === "system"));
+    expect(system).not.toMatch(/do not ask the user questions/i);
+    expect(system).toMatch(/ask the owner/i);
+  });
+
+  it("(f) the invoice-run system prompt still says not to ask questions", async () => {
+    const backend = fakeBackend();
+    const plannerModel = scriptedModel([{ text: "Done." }]);
+    const agent = createAgent({
+      extractionModel: scriptedModel([{ text: JSON.stringify(KAROO_FIELDS) }]).model,
+      plannerModel: plannerModel.model,
+      backendUrl: BACKEND_URL,
+      backendToken: AGENT_TOKEN,
+      fetch: backend.fetch,
+    });
+    await agent.processInvoice(invoiceTextFor(KAROO_FIELDS));
+    expect(plannerModel.calls.length).toBeGreaterThan(0);
+    const system = JSON.stringify(plannerModel.calls[0]!.prompt.filter((m) => m.role === "system"));
+    expect(system).toMatch(/do not ask the user questions/i);
+  });
+});
+
+describe("ownerNamesSupplier", () => {
+  it.each([
+    ["Pay Karoo $30 now", "Karoo Textiles", true],
+    ["pay karoo $30", "Karoo Textiles (Pty) Ltd", true],
+    ["Pay KAROO TEXTILES $30", "Karoo Textiles", true],
+    ["Pay Lagos $30", "The Lagos Cotton Company", true],
+    ["Pay BP $30", "BP", true],
+    ["Pay Karoo $30 now", "Zambezi Spices", false],
+    ["Pay Karoon $30", "Karoo Textiles", false],
+    ["Pay the textiles people $30", "Karoo Textiles", false],
+    ["Pay the company $30", "The Lagos Cotton Company", false],
+    ["Pay BPX $30", "BP", false],
+  ])("%s names %s: %s", (message, name, expected) => {
+    expect(ownerNamesSupplier(message, name)).toBe(expected);
+  });
+});
+
+describe("chat summary when the run stops early (T10 RunGuard)", () => {
+  // Same idea as limits.test.ts: tiny injected limits, a route that never answers.
+  const FAST = { backendMs: 50, paymentMs: 50, modelMs: 150, runMs: 2_000 };
+  const STOPPED = "The run stopped before it finished. No payment was confirmed; check the activity log before paying again.";
+  function stalling(planner: ModelTurn[], hangRoute?: string) {
+    const backend = fakeBackend();
+    const fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      const response = await backend.fetch(input, init);
+      const route = `${(init.method ?? "GET").toUpperCase()} ${new URL(String(input)).pathname}`;
+      return route === hangRoute ? new Promise<never>(() => {}) : response;
+    }) as typeof globalThis.fetch;
+    const agent = createAgent({
+      extractionModel: scriptedModel([{ text: "{}" }]).model,
+      plannerModel: scriptedModel(planner).model,
+      backendUrl: BACKEND_URL,
+      backendToken: AGENT_TOKEN,
+      fetch,
+      limits: FAST,
+    });
+    return { agent, backend };
+  }
+
+  it("a hung pay: the summary says the payment was not confirmed, never 'No payment was made'", async () => {
+    const { agent, backend } = stalling([findKaroo, payKaroo, payKaroo], "POST /payments");
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(backend.payments).toHaveLength(1);
+    expect(answer.summary).toBe("The payment of 30.00 to sup_karoo was not confirmed by the payment service. Check the activity log before trying again.");
+  });
+
+  it("the planner hangs before any pay: the summary says the run stopped, never 'No payment was made'", async () => {
+    const { agent } = stalling([findKaroo, { hang: true }]);
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe(STOPPED);
+  });
+
+  it("a stall before the planner runs (GET /rules hangs): the summary says the run stopped", async () => {
+    const { agent } = stalling([payKaroo], "GET /rules");
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe(STOPPED);
+  });
+
+  it("a payment that settled before the stall is in the summary, with its tx hash", async () => {
+    const { agent } = stalling([findKaroo, payKaroo, { hang: true }]);
+    const answer = await agent.chat("Pay Karoo $30 now");
+    expect(answer.summary).toBe("Paid 30.00 to sup_karoo, tx TXHASH1.");
   });
 });
