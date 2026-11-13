@@ -1,8 +1,0 @@
-{
-  "from": "qwen3:1.7b-q4_K_M",
-  "system": "You are the W3Node development assistant. Answer clearly and briefly.",
-  "parameters": {
-    "temperature": 0.2,
-    "num_ctx": 4096
-  }
-}
