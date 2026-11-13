@@ -5,6 +5,7 @@ export default defineConfig({
     exclude: ["**/.stryker-tmp/**", "**/node_modules/**", "**/dist/**"],
     projects: [
       "packages/shared",
+      "packages/db",
       "services/agent",
       "services/payment",
       "services/payments",
