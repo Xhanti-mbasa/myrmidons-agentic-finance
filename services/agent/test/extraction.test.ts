@@ -308,3 +308,28 @@ describe("extractInvoice on the demo invoices", () => {
     expect(result.status).toBe("needs_review");
   });
 });
+
+describe("extractInvoice grounds the supplier on the sender and line items on the text (T06b)", () => {
+  it("09: returns needs_review when the model takes Zambezi Spices from the notes", async () => {
+    const file = "09-red-team-impersonation.txt";
+    const result = await extractInvoice(readFixture(file), { model: replying({ ...FIXTURE_FIELDS[file], supplierName: "Zambezi Spices" }).model });
+    expect(result.status).toBe("needs_review");
+    expect(JSON.stringify(result)).not.toMatch(/Zambezi|Karoo|INV-1047/);
+  });
+
+  it.each([
+    ["no line items", []],
+    ["one invented 49.99 item", [{ description: "Cotton and linen", amount: "49.99" }]],
+  ])("10: returns needs_review when the model returns %s", async (_label, lineItems) => {
+    const file = "10-red-team-total-mismatch.txt";
+    const fields = { ...FIXTURE_FIELDS["01-karoo-valid.txt"], invoiceNumber: "INV-1048", amount: "49.99", dueDate: "2026-11-23", lineItems };
+    const result = await extractInvoice(readFixture(file), { model: replying(fields).model });
+    expect(result.status).toBe("needs_review");
+  });
+
+  it("returns needs_review for an invoice with no recognisable sender block", async () => {
+    const text = KAROO_INVOICE.replace("From: Karoo Textiles (Pty) Ltd, Lagos office\n", "").replace("Bill to: Myrmidons Imports, Cape Town", "Bill to: Myrmidons Imports, Cape Town (supplier Karoo Textiles)");
+    const result = await extractInvoice(text, { model: replying(KAROO_FIELDS).model });
+    expect(result.status === "needs_review" && result.reason).toMatch(/sender/i);
+  });
+});
