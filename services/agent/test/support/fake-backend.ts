@@ -30,6 +30,8 @@ type Options = {
   remaining?: string;
   /** Leak supplier addresses in responses, to prove the agent strips them before the model sees them. */
   leakAddresses?: boolean;
+  /** Extra fields to merge into GET /rules response, e.g. to test redaction of leaked fields. */
+  extraRules?: Record<string, unknown>;
   /** Replace the payment service's answer. */
   payResponse?: (body: any) => { status: number; json: unknown };
   log?: unknown[];
@@ -51,6 +53,7 @@ export function fakeBackend(options: Options = {}) {
     remaining: options.remaining ?? "200.00",
     killSwitch: options.killSwitch ?? false,
     suppliers: suppliers.map((s) => (options.leakAddresses ? { id: s.id, name: s.name, xrplAddress: s.xrplAddress } : { id: s.id, name: s.name })),
+    ...(options.extraRules ?? {}),
   });
 
   const defaultPay = (body: any) => {

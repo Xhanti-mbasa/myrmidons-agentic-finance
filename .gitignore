@@ -19,6 +19,7 @@ __pycache__/
 dist/
 build/
 coverage/
+.stryker-tmp/
 *.egg-info/
 
 # Model artifacts stay in the registry/cache; Git tracks model.lock.json

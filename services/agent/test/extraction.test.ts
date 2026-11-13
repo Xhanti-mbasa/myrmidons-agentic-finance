@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APICallError } from "ai";
 import { extractInvoice } from "../src/extraction";
 import { scriptedModel } from "./support/scripted-model";
 import { KAROO_FIELDS, KAROO_INVOICE } from "./support/invoices";
@@ -41,6 +42,13 @@ describe("extractInvoice treats the invoice as untrusted data", () => {
     await extractInvoice(KAROO_INVOICE, { model: model.model });
     expect(model.calls).toHaveLength(1);
     expect(model.calls[0]!.tools ?? []).toEqual([]);
+  });
+
+  it("calls the extraction model with temperature: 0", async () => {
+    const model = replying(KAROO_FIELDS);
+    await extractInvoice(KAROO_INVOICE, { model: model.model });
+    expect(model.calls).toHaveLength(1);
+    expect(model.calls[0]!.temperature).toBe(0);
   });
 
   it("wraps the invoice in <invoice> tags and tells the model it is untrusted", async () => {
@@ -93,6 +101,14 @@ describe("extractInvoice sends anything doubtful to human review", () => {
     const model = scriptedModel([{ throws: new Error("connect ECONNREFUSED 100.101.102.103:11434") }]);
     const result = await extractInvoice(KAROO_INVOICE, { model: model.model });
     expect(result.status).toBe("needs_review");
+  });
+
+  it("calls a failing extraction model exactly 2 times (not more)", async () => {
+    const error = new APICallError({ message: "model server temporarily down", url: "http://model.test", requestBodyValues: {}, isRetryable: true });
+    const model = scriptedModel([{ throws: error }], { repeatLast: true });
+    const result = await extractInvoice(KAROO_INVOICE, { model: model.model });
+    expect(result.status).toBe("needs_review");
+    expect(model.calls).toHaveLength(2);
   });
 });
 
