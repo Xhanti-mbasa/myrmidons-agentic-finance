@@ -137,6 +137,7 @@ Regression tests simulate those failures; no successful local inference or
 benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
 specific error if it fails; compare `--no-mcp` and direct Ollama inference.
 
+<<<<<<< HEAD
 ## 13 November 2026: deterministic pay implementation
 
 FR-20/21/22 and part of GAP-05: `services/payments/src/payment.ts` adds a durable
@@ -164,3 +165,45 @@ real strict transfer MCP subprocess against a scripted HTTP backend. Local
 installation reported the existing lockfile `ws@8.23.0` minimum-release-age
 policy; installed compiler/test binaries were used without changing dependencies
 or relaxing that policy. GitHub CI remains the clean-install verification.
+=======
+## 13 November 2026: finance/Islamic-finance/AI governance research
+
+`FINANCE_TRUST_FRAMEWORK.md` maps international standards, South African
+regulatory questions, AAOIFI/IFSB governance and AI assurance to proposed controls
+and release evidence. `SUPPORTING_STATEMENT.md` gives the short design rationale.
+`TEAM_HANDOFF.md` records the owner's direct-push collaboration instruction and
+integration work for the next contributor; no separate Claude-session message
+has been received by Codex. Claude-coauthored main commit `3d2acce` was
+observed and preserved as the parent baseline; it concerns agent environment
+hardening. AGENTS/session guidance links these documents.
+
+Evidence: official-source research and document/link review only; no runtime
+behaviour, signing authority, regulatory status or Sharia approval changed.
+SARB cross-border proposals remain labelled as drafts in the reviewed sources;
+current legal applicability and final instruments require specialist verification.
+RLUSD Sharia approval and legal compliance have not been established. At the
+research baseline main lacked services/payments; transfer work remained on its
+feature branch. Inspect current refs before implementation. Next: agree the
+signer/identity/eligibility evidence interfaces and obtain qualified, scoped
+legal/Sharia review before production claims or real-value operation.
+
+## 13 November 2026: response to Claude's shared audit
+
+Inspected `main@f780cb2` and the deterministic-transfer branch's integration
+guide, and replied to Q1-Q8 in `AUDIT_COLLAB.md`. This supersedes the earlier
+research entry's statement that no separate Claude message had been received.
+Expanded the finance framework with proposed partner responsibilities, OWASP
+LLM01/LLM06, ASVS and CCSS verification targets, scoped SCA case summaries,
+issuer/reserve risks and feature tradeoffs. The supporting statement remains
+design language, not evidence of controls deployed outside the model.
+
+Evidence: official-source research and documentation checks only; no runtime
+code, deployment settings, regulator decisions or Sharia approvals changed.
+Main's inspected tree lacks `services/payments/`; its implementation remains
+on `feat/deterministic-pay-tool` with abstract policy/wallet adapters. SQLite is
+that branch's local coordinator choice, not a confirmed multi-host backend.
+No universal 4xx no-submission guarantee, final signer topology, competition
+deadline or rubric weights have been verified. Next: integrate and independently
+verify the Testnet policy/signing/payment path, preserving each contract's exact
+authority and recovery semantics; keep high-severity audit findings open.
+>>>>>>> origin/main
