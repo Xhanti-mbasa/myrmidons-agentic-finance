@@ -137,7 +137,6 @@ Regression tests simulate those failures; no successful local inference or
 benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
 specific error if it fails; compare `--no-mcp` and direct Ollama inference.
 
-<<<<<<< HEAD
 ## 13 November 2026: deterministic pay implementation
 
 FR-20/21/22 and part of GAP-05: `services/payments/src/payment.ts` adds a durable
@@ -165,7 +164,7 @@ real strict transfer MCP subprocess against a scripted HTTP backend. Local
 installation reported the existing lockfile `ws@8.23.0` minimum-release-age
 policy; installed compiler/test binaries were used without changing dependencies
 or relaxing that policy. GitHub CI remains the clean-install verification.
-=======
+
 ## 13 November 2026: finance/Islamic-finance/AI governance research
 
 `FINANCE_TRUST_FRAMEWORK.md` maps international standards, South African
@@ -206,4 +205,3 @@ No universal 4xx no-submission guarantee, final signer topology, competition
 deadline or rubric weights have been verified. Next: integrate and independently
 verify the Testnet policy/signing/payment path, preserving each contract's exact
 authority and recovery semantics; keep high-severity audit findings open.
->>>>>>> origin/main
