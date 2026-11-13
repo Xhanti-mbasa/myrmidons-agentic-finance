@@ -4,6 +4,7 @@ export * from "./ids";
 export * from "./constants";
 export * from "./policy";
 export * from "./agent-api";
+export * from "./agent-service";
 export * from "./approvals";
 export * from "./log";
 export * from "./transfers";

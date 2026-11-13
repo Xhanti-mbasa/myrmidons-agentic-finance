@@ -27,6 +27,8 @@ W5 owner dashboard.
 | `SupplierLookup` | agent-api | `GET /suppliers?q=` answer: a match with confidence, or `{notFound: true}` | W1, W4 |
 | `LogFilter` | agent-api | `GET /log` query | W1, W4, W5 |
 | `AgentDecision`, `AgentExplanation` | agent-api | `{decision, ruleCode, explanation, invoiceNumber}`; `paid` exactly when `ruleCode` is `OK` | W1, W4, W5 |
+| `ProcessInvoiceRequest`, `ProcessInvoiceResponse`, `InvoiceOutcome`, `AgentFlag`, `AgentInvoiceId` | agent-service | Agent `POST /agent/invoices` body `{invoiceId, text}` (text at most 20,000 characters) and answer `{outcome, explanation}` (strict; `outcome.suspiciousText` is at most 20 passages of 400 characters, addresses removed) | W1, W4 |
+| `AgentError`, `AgentErrorCode` | agent-service | Every agent service error: `{error: <stable code>, message}` | W1, W4 |
 | `SupplierApprovalPayload`, `PaymentApprovalPayload` | approvals | The two approval payloads | W1, W4, W5 |
 | `ApprovalRequest` | approvals | `POST /approvals` body: `{kind: "supplier" \| "payment", payload}` | W1, W4 |
 | `ApprovalResponse` | approvals | `{approvalId, status: "pending"}` | W1, W4 |

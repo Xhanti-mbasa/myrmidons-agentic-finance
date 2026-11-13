@@ -184,6 +184,32 @@ export function loadAgentConfig(env: Env): AgentConfig {
   };
 }
 
+export type AgentServerConfig = AgentConfig & { inboundToken: string; host: string; port: number };
+
+/** Shortest AGENT_INBOUND_TOKEN accepted: `openssl rand -base64 32` gives 44 characters. */
+const MIN_INBOUND_TOKEN_CHARS = 32;
+
+/**
+ * The HTTP service's config (T12): the agent config plus the token callers must present, and where to
+ * listen. The inbound token must differ from the backend token, so the agent's own outbound credential
+ * is never accepted inbound. Binds to loopback or Tailscale only. Errors never echo a value.
+ */
+export function loadAgentServerConfig(env: Env): AgentServerConfig {
+  const config = loadAgentConfig(env);
+  const inboundToken = required(env, "AGENT_INBOUND_TOKEN");
+  if (inboundToken.length < MIN_INBOUND_TOKEN_CHARS) {
+    throw new Error(`Agent config: AGENT_INBOUND_TOKEN must be at least ${MIN_INBOUND_TOKEN_CHARS} characters`);
+  }
+  if (inboundToken === config.backendToken) throw new Error("Agent config: AGENT_INBOUND_TOKEN must differ from AGENT_BACKEND_TOKEN");
+  const host = env.AGENT_HOST || "127.0.0.1";
+  if (host !== "127.0.0.1" && host !== "localhost" && !isTailscaleIp(host)) {
+    throw new Error("Agent config: AGENT_HOST must be 127.0.0.1, localhost or a Tailscale IP address");
+  }
+  const port = Number(env.AGENT_PORT || "8790");
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("Agent config: AGENT_PORT must be a port number from 1 to 65535");
+  return { ...config, inboundToken, host, port };
+}
+
 const DEFAULT_ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
 
 /**
@@ -191,7 +217,14 @@ const DEFAULT_ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
  * only. Every process.env variable is still scanned, so a secret exported in the shell is refused.
  * A missing .env file is fine (the settings can all come from process.env).
  */
-export function loadAgentStartupConfig(options: { envFile?: string; env?: Env } = {}): AgentConfig {
+export function loadAgentStartupConfig(options: StartupEnvOptions = {}): AgentConfig {
+  return loadAgentConfig(agentStartupEnv(options));
+}
+
+type StartupEnvOptions = { envFile?: string; env?: Env };
+
+/** The merged startup environment behind loadAgentStartupConfig, for loaders that read more names (T12). */
+export function agentStartupEnv(options: StartupEnvOptions = {}): Env {
   const env = options.env ?? process.env;
   refuseUnsafeEnv(env, AGENT_SCAN);
   const fromFile = loadAgentEnvFile(options.envFile ?? DEFAULT_ENV_FILE, { missingOk: true });
@@ -199,7 +232,7 @@ export function loadAgentStartupConfig(options: { envFile?: string; env?: Env } 
   for (const name of AGENT_ENV_NAMES) {
     if (env[name] !== undefined) merged[name] = env[name];
   }
-  return loadAgentConfig(merged);
+  return merged;
 }
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -303,10 +336,13 @@ function allowedBackendUrl(raw: string): string {
   return url.origin;
 }
 
-/** Tailscale assigns addresses from the CGNAT range 100.64.0.0/10 (100.64.0.0 to 100.127.255.255). */
+/**
+ * Tailscale assigns addresses from the CGNAT range 100.64.0.0/10 (100.64.0.0 to 100.127.255.255).
+ * Any CGNAT address passes: this does not prove the interface is Tailscale's.
+ */
 function isTailscaleIp(host: string): boolean {
   const parts = host.split(".");
-  if (parts.length !== 4 || !parts.every((p) => /^\d{1,3}$/.test(p))) return false;
+  if (parts.length !== 4 || !parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255)) return false;
   const [a, b] = parts.map(Number) as [number, number];
   return a === 100 && b >= 64 && b <= 127;
 }
