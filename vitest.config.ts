@@ -6,6 +6,7 @@ export default defineConfig({
     projects: [
       "packages/shared",
       "services/agent",
+      "services/payment",
       "services/payments",
       "services/backend",
       "services/mock-backend",
