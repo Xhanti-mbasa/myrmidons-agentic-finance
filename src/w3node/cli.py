@@ -1,122 +1,20 @@
 """Local onboarding, administrator provisioning, and pinned model components."""
 import argparse
 import base64
-import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
-import urllib.parse
-import urllib.request
 
 
 NAME = re.compile(r"[a-z_][a-z0-9_-]{0,30}\Z")
-COMPONENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,100}\Z")
 MARKER = "w3node-managed-v1"
 
 
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, text=True, **kwargs)
-
-
-def digest(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def https_url(value):
-    parsed = urllib.parse.urlsplit(value)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username
-            or parsed.password or parsed.query or parsed.fragment):
-        raise ValueError("Use HTTPS URLs without embedded credentials, queries or fragments")
-    return value
-
-
-class HTTPSOnly(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        https_url(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-def manifest(path):
-    data = json.loads(Path(path).read_text())
-    if data.get("schema_version") != 1 or not isinstance(data.get("components"), dict):
-        raise ValueError("Expected schema_version=1 and a components object")
-    for name, item in data["components"].items():
-        if not COMPONENT.fullmatch(name) or name in (".", ".."):
-            raise ValueError("Invalid component name")
-        https_url(item["url"])
-        if not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]):
-            raise ValueError("Invalid SHA256")
-        if type(item["size"]) is not int or item["size"] < 0:
-            raise ValueError("Invalid component size")
-    return data
-
-
-def write_json(path, data):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as out:
-        temp = Path(out.name)
-        json.dump(data, out, indent=2)
-        out.write("\n")
-    os.replace(temp, path)
-
-
-def model(args):
-    data = manifest(args.manifest)
-    if args.action == "pin":
-        if not COMPONENT.fullmatch(args.name) or args.name in (".", ".."):
-            raise ValueError("Invalid component name")
-        source = Path(args.file)
-        data["components"][args.name] = {
-            "url": https_url(args.url), "sha256": digest(source),
-            "size": source.stat().st_size,
-        }
-        write_json(args.manifest, data)
-        print("Pinned local bytes. Upload that exact file to the URL, then commit the manifest.")
-        return
-    selected = args.names or list(data["components"])
-    if not selected:
-        raise ValueError("No components pinned yet")
-    unknown = set(selected) - data["components"].keys()
-    if unknown:
-        raise ValueError("Unknown components: " + ", ".join(sorted(unknown)))
-    cache = Path(args.cache).expanduser()
-    cache.mkdir(parents=True, exist_ok=True)
-    opener = urllib.request.build_opener(HTTPSOnly())
-    for name in selected:
-        item = data["components"][name]
-        target = cache / item["sha256"]
-        if target.is_symlink():
-            raise ValueError("Refusing symlink in artifact cache")
-        if target.exists() and target.stat().st_size == item["size"] and digest(target) == item["sha256"]:
-            print(f"{name}: {target.resolve()} (verified cache)")
-            continue
-        temp = None
-        try:
-            with tempfile.NamedTemporaryFile(dir=cache, delete=False) as out:
-                temp = Path(out.name)
-                with opener.open(item["url"], timeout=60) as response:
-                    received = 0
-                    for chunk in iter(lambda: response.read(1024 * 1024), b""):
-                        received += len(chunk)
-                        if received > item["size"]:
-                            raise ValueError(f"{name}: download exceeds pinned size")
-                        out.write(chunk)
-            if temp.stat().st_size != item["size"] or digest(temp) != item["sha256"]:
-                raise ValueError(f"{name}: checksum/size mismatch")
-            os.replace(temp, target)
-            print(f"{name}: {target.resolve()} (downloaded and verified)")
-        finally:
-            if temp is not None:
-                temp.unlink(missing_ok=True)
 
 
 def account(name):
@@ -207,14 +105,6 @@ def users(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    chat = commands.add_parser("chat", help="Interactive Ollama chat with a local stdio MCP server")
-    chat.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
-    chat.add_argument("--model", default="qwen3:1.7b-q4_K_M")
-    chat.add_argument("--mcp", default="config/mcp.local.json")
-    chat.add_argument("--no-mcp", action="store_true")
-    chat.add_argument("--prompt", help="Run one turn instead of an interactive chat")
-    chat.add_argument("--system-file", help="Explicitly override the model's built-in system prompt")
-    chat.add_argument("--allow-tool", action="append", default=[], help="Explicitly allow one discovered tool without per-call confirmation")
     u = commands.add_parser("users")
     actions = u.add_subparsers(dest="action", required=True)
     for action in ("add", "status", "connect"):
@@ -234,37 +124,9 @@ def main():
         if action == "add":
             p.add_argument("--key", required=True)
             p.add_argument("--groups", required=True)
-    m = commands.add_parser("model")
-    actions = m.add_subparsers(dest="action", required=True)
-    setup = actions.add_parser("setup", help="Pull and verify the locked Ollama base model")
-    setup.add_argument("--lock", default="model-profiles/base-model.lock.json")
-    setup.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
-    build = actions.add_parser("build", help="Create a development model from a profile and optional local GGUF")
-    build.add_argument("name")
-    build.add_argument("--profile", default="model-profiles/qwen-dev.json")
-    build.add_argument("--gguf", help="Import a local, already trained GGUF checkpoint")
-    build.add_argument("--host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
-    for action in ("pin", "pull"):
-        p = actions.add_parser(action)
-        p.add_argument("--manifest", default="model.lock.json")
-        if action == "pin":
-            p.add_argument("name")
-            p.add_argument("--file", required=True)
-            p.add_argument("--url", required=True)
-        else:
-            p.add_argument("names", nargs="*")
-            p.add_argument("--cache", default="~/.cache/w3node/artifacts")
     args = parser.parse_args()
     try:
-        if args.command == "chat":
-            from .chat import launch
-            launch(args)
-        elif args.command == "model" and args.action == "build":
-            from .model_build import build_model
-            build_model(args)
-        elif args.command == "model" and args.action == "setup":
-            from .model_setup import setup_model
-            setup_model(args)
+        if args.command == "users":
         elif args.command == "users":
             from .onboarding import client
             client(args)
@@ -274,7 +136,7 @@ def main():
         elif args.command == "admin":
             users(args)
         else:
-            model(args)
+            parser.error("Unsupported command")
     except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

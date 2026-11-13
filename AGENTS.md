@@ -63,8 +63,8 @@ development checks, not the finished finance product.
   listed above. The repository guard rejects tracked `CLAUDE.md`, `CLAUDE.local.md`,
   `CONTEXT.md`, `.scratch/`, `docs/agents/`, `docs/adr/`, and non-example env files.
 - Use Node 22 and the repository's pinned pnpm version for TypeScript work;
-  Python 3.11+ and the `chat` extra for terminal/MCP work. See README and existing
-  setup guides. Do not commit local virtualenvs, checkpoints or private state.
+  Python 3.11+ for team onboarding and the independent MCP gateway. Open WebUI
+  replaces the legacy Python Qwen chat/model CLI. See docs/open-webui.md. Do not commit local virtualenvs, checkpoints or private state.
 - Run checks appropriate to your changes. Typical commands:
 
   ```bash

@@ -20,11 +20,8 @@ source/tests. See [PRD](PRD.md) and [technical specification](TECHNICAL_SPEC.md)
 |---|---|---|
 | Shared contracts | Source present in `packages/shared/src/`; schema, money, constants and log helper tests present. Current name is `@shucamoxa/shared`. | Deployed services actually validate every response or implement every declared rule. |
 | TypeScript invoice agent | Source present in `services/agent/src/`; extraction/planning and six guarded tools; scripted-model/fake-backend tests. | Live autonomous XRPL payment or a compatible deployed backend. |
-| Local terminal/MCP host | Source present in `src/w3node/chat.py`; real SDK subprocess tests for empty discovery/echo plus scripted Ollama CLI tests. | The user's live Qwen selected/executed a tool correctly in a completed real-model test. |
-| Shared model instance | User-reported live SSH as `xhanti`, workspace write test and Ollama `/api/tags` listing `qwen3:1.7b-q4_K_M`. Earlier supplied output also shows a generated model response. | A live payment system, strong service isolation, current uptime or automatic team onboarding deployment. |
-| Model profiles/import | Source present in `model_build.py`; profile and GGUF blob flow tested with simulated APIs. | Fine-tuning, tensor editing, successful import of a real trained GGUF or actual live model rebuild. |
-| Component manifests | Source present in CLI `model pin/pull`; selective checksum verification/cache tests. | A populated registry/manifest for all deployed model bytes; initial downloader supports unauthenticated HTTPS only. |
-| Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
+| Legacy local terminal/MCP host | Removed on the Open WebUI feature branch. | Open WebUI is a UI, not a verified live model or payment runtime. |\n| Shared model instance | User-reported live SSH as `xhanti`, workspace write test and Ollama `/api/tags` listing `qwen3:1.7b-q4_K_M`. Earlier supplied output also shows a generated model response. | A live payment system, strong service isolation, current uptime or automatic team onboarding deployment. |
+| Legacy Qwen profiles/import | Removed on the Open WebUI feature branch. | No weights are bundled; users choose their own model. |\n| Legacy model artifact manifest | Removed on the Open WebUI feature branch. | Does not delete models cached on team devices. |\n| Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
 | Python payment MCP gateway | Source present in `mcp_gateway/`; seven tools and simulated backend tests. New transfer tools use a separate coordinator API. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
 | Independent policy/signing service (W2) | `CosignRequest`/`CosignResponse`, rule codes and target invariants present as shared contracts. | A deployed co-signer or ledger configuration making its approval mandatory. |
 | Payment service / XRPL execution (W3) | Shared contracts and target constants exist. | Live signer, durable operation store, submit/reconcile implementation or final Testnet settlement proof. |
@@ -205,3 +202,7 @@ No universal 4xx no-submission guarantee, final signer topology, competition
 deadline or rubric weights have been verified. Next: integrate and independently
 verify the Testnet policy/signing/payment path, preserving each contract's exact
 authority and recovery semantics; keep high-severity audit findings open.
+
+## Open WebUI replacement (feature branch, 13 November 2026)
+
+Compose configuration, install guide, and removal of the Python chat/model experiment are source changes only. The UI has **not** been proven running on the user's PC. The finance TypeScript agent remains separate and requires an OpenAI-compatible upstream model and an authorized backend. Existing payment gateway API mismatch remains unresolved; no payment MCP tools are auto-registered.
