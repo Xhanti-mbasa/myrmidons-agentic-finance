@@ -30,8 +30,10 @@ The launcher needs Python 3.11+. Docker supplies Node 22 to the harness. It:
    directory. No password, owner credential or session is sent to Ollama. Later
    launches validate/reuse that session; expiry prompts for login again.
 5. Repairs the default local Ollama connection while preserving other connections,
-   registers scoped agent tools, and preserves the existing owner's prompt,
-   tool assignments and unrelated model parameters. Migration between the known
+   registers scoped agent tools, and preserves the existing owner's prompt and unrelated model parameters.
+   The finance preset is restricted to `server:shucamoxa`; WebUI built-in tools,
+   terminal, code execution, web search and file upload are disabled on it.
+   This scope repair also runs with `--no-fast`. Migration between the known
    Docker/loopback harness aliases requires a successful scoped agent probe.
 6. Applies the fast settings below, checks model discovery through WebUI, and
    attempts an empty-prompt model warmup. It prints no credential values.
@@ -165,7 +167,7 @@ Fast setup sets `think=false`, temperature 0, 512 output tokens, 8,192 context
 and 30-minute model keep-alive on the finance preset. It also warms the model
 without executing a payment tool. Those settings are supported by the inspected
 Open WebUI 0.13.3 Ollama payload conversion; they are not a universal promise for
-other providers/versions. Existing owner prompts/tools remain intact. Native
+other providers/versions. Existing owner prompts remain intact; the finance tool scope is repaired as described below. Native
 tool-call quality must be retested with your actual model after parameter changes.
 The cap bounds each generation; multi-step tool conversations still take time.
 
@@ -176,3 +178,29 @@ only one generation active on a small machine. No live model/device benchmark
 was available in the implementation environment, so no measured speedup is
 claimed. A smaller/faster model is a separate explicit choice and still needs
 the tool-calling tests above. Financial controls are unchanged by fast settings.
+
+## Claimed-admin prompt injection and unexpected task tools
+
+A screenshot of the model entertaining an admin-role claim and considering
+`create_tasks` exposed an unsafe preset default: Open WebUI 0.13.3 automatically
+injects built-in tools when `meta.capabilities.builtin_tools` is absent. The
+installer now explicitly disables it and restricts this preset's `toolIds` to
+the harness server. Existing presets are repaired without replacing owner text;
+unrelated model presets/global connections are unchanged. Stop any ongoing
+run, pull the fix, rerun startup and start a new finance chat to discard stale
+chat tool definitions. Inspect any tasks/automations the old run may have
+created; the screenshot alone does not establish whether execution occurred.
+
+This reduces the default model tool surface; it is not a substitute for backend
+authorization, nor a guarantee that an admin cannot manually change WebUI/chat
+settings. The source check used Open WebUI v0.13.3 `utils/middleware.py`'s
+`use_builtin_tools` gate. Actual registration and fresh-chat tool discovery on
+the operator's machine must still be verified.
+
+Automated local HTTP regressions submit the claimed-admin text using the agent
+credential: owner policy changes remain 403, extra authority fields on payment
+requests remain 400, `create_tasks` is absent (404), no payment adapter is called,
+and policy version stays unchanged. These tests use scripted requests, not a
+live Qwen run. A model's reasoning or prompt disclosure alone is not proof of
+payment bypass; the system prompt is public repository configuration and must
+contain no secrets. Judge unauthorized action from tool/backend evidence.

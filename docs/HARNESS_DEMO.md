@@ -171,3 +171,5 @@ Official integration references inspected:
 - https://github.com/open-webui/open-webui/blob/main/backend/open_webui/routers/configs.py
 - https://github.com/open-webui/open-webui/blob/main/backend/open_webui/utils/tools.py
 - https://github.com/open-webui/open-webui/blob/main/backend/open_webui/models/models.py
+
+The finance preset explicitly disables Open WebUI built-in tools and auxiliary execution capabilities and attaches only `server:shucamoxa`. Re-running startup repairs older presets; use a new chat afterward. See the claimed-admin injection note in [DEMO_TEST_GUIDE.md](DEMO_TEST_GUIDE.md).

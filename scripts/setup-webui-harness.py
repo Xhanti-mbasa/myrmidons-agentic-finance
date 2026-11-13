@@ -37,6 +37,15 @@ def validate_url(value):
 
 FAST_PARAMS = {'think': False, 'temperature': 0, 'max_tokens': 512,
                'num_ctx': 8192, 'num_predict': 512, 'keep_alive': '30m'}
+# Open WebUI 0.13.3 otherwise defaults builtin tool injection to True for native FC.
+# Disable automatic task/automation/memory/code tools on this finance preset.
+FINANCE_CAPABILITIES = {'vision': False, 'file_upload': False, 'builtin_tools': False,
+                        'code_interpreter': False, 'terminal': False, 'web_search': False}
+
+
+def finance_meta(meta):
+    return {**(meta or {}), 'toolIds': ['server:shucamoxa'],
+            'capabilities': {**((meta or {}).get('capabilities') or {}), **FINANCE_CAPABILITIES}}
 
 
 def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fast=False,
@@ -76,8 +85,7 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fa
     preset = {'id': 'shucamoxa-finance', 'base_model_id': model, 'name': 'Shucamoxa · Governed Finance',
               'is_active': True, 'params': {'system': (ROOT / 'config/harness-system-prompt.txt').read_text(),
                                           'function_calling': 'native'},
-              'meta': {'description': 'Owner-controlled finance harness. Inspect evidence mode before reporting a payment.',
-                       'toolIds': ['server:shucamoxa'], 'capabilities': {'vision': False, 'file_upload': False}},
+              'meta': finance_meta({'description': 'Owner-controlled finance harness. Inspect evidence mode before reporting a payment.'}),
               'access_grants': []}
     if fast:
         preset['params'].update(FAST_PARAMS)
@@ -88,17 +96,19 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fa
             raise
         call('/api/v1/models/create', preset)
     else:
-        if fast:
-            # Preserve the owner's prompt, capabilities, tool list and unrelated parameters.
-            # An explicit fast setup changes only these inference settings and the selected base model.
+        hardened_meta = finance_meta(current.get('meta'))
+        if fast or hardened_meta != current.get('meta'):
+            # Preserve owner text/unrelated settings, but always restrict this preset's tool surface.
             updated = {key: current[key] for key in
                        ('id', 'base_model_id', 'name', 'is_active', 'params', 'meta', 'access_grants') if key in current}
             if updated.get('id') != 'shucamoxa-finance':
                 raise ValueError('Unexpected model response; no preset changed')
-            updated['base_model_id'] = model
-            updated['params'] = {**(current.get('params') or {}), **FAST_PARAMS}
+            updated['meta'] = hardened_meta
+            if fast:
+                updated['base_model_id'] = model
+                updated['params'] = {**(current.get('params') or {}), **FAST_PARAMS}
             call('/api/v1/models/model/update', updated)
-            return {'tools_registered': True, 'preset': 'fast_settings_updated'}
+            return {'tools_registered': True, 'preset': 'fast_settings_updated' if fast else 'tool_scope_updated'}
         # Preserve an existing model's owner-edited prompt/settings. Registering twice is safe.
         return {'tools_registered': True, 'preset': 'already_present_preserved'}
     return {'tools_registered': True, 'preset': 'created'}

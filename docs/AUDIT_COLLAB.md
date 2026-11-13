@@ -507,3 +507,24 @@ role bound to authenticated invoice identity, never a general owner token.
 Keep fixes on this security branch or a coordinated successor, do not merge
 main without new user direction. Review the report's seven grouped findings
 and prerequisites before changing any expected-failure classification.
+
+## UI-01: native WebUI tool exposure (13 November 2026)
+
+User screenshot: Qwen entertained an asserted administrator exception and
+considered `create_tasks` in the finance preset. Successful task execution or
+payment-policy bypass was not shown. Source inspection of official Open WebUI
+v0.13.3 `utils/middleware.py` confirmed that missing
+`meta.capabilities.builtin_tools` defaults to True for native function calling.
+This is an excessive tool-exposure finding (OWASP LLM06:2025), not evidence that
+prompt secrecy is a payment control; the system prompt is public configuration.
+
+The installer now disables automatic built-in injection/auxiliary execution and
+sets the finance preset's tool IDs to the harness server only. Scope repair runs
+on existing presets even without fast mode, preserving owner prompt text and
+unrelated configuration. Local validation: 45 Python tests and 16 targeted
+harness tests passed, plus TypeScript typecheck. Claimed-admin payloads using
+agent credentials get owner-write 403, payment-schema 400 and task-tool 404;
+policy is unchanged and no payment adapter is called. Actual new-chat discovery
+and live-model behavior on the operator's WebUI remain to be verified. An admin
+can still change WebUI settings manually; backend authorization remains the
+financial boundary. Earlier payment/signer/audit findings are not closed here.

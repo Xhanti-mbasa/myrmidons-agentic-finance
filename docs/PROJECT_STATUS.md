@@ -419,3 +419,21 @@ separation, model selection, symlink refusal and bounded health waits. Docker
 orchestration, actual WebUI 0.13.3 registration, native tool calling and latency
 on the owner's machine still require deployment verification. The payment,
 policy/signing and ledger controls were not relaxed by this startup change.
+
+## Finance preset tool-scope repair (13 November 2026)
+
+The user's live-model screenshot showed consideration of an asserted admin
+exception and `create_tasks`, an unrelated WebUI built-in. It did not show a
+successful task creation or payment bypass. Official Open WebUI v0.13.3 source
+confirmed built-ins default to enabled on native tool-calling models. The finance
+installer now explicitly disables built-in injection and auxiliary execution
+capabilities and limits this preset to the harness tool server, including repairs
+of existing presets without fast-mode changes. Owner text/unrelated parameters
+are preserved; other presets and global tool connections are not changed.
+
+Installer regressions cover fresh/old presets and idempotent scope repair.
+Local HTTP regressions carry the actual claimed-admin text: agent owner writes
+403, payment authority extras 400, unknown task tool 404, unchanged policy and
+zero payment adapter calls. These are simulated/local-service tests, not a new
+live-model or ledger demonstration. Verify the new chat's actual tools after
+running startup on the owner's PC; cached old chat tools must be discarded.
