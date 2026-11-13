@@ -9,7 +9,11 @@ import { MockLanguageModelV4 } from "ai/test";
 export type ModelTurn =
   | { text: string }
   | { toolCalls: Array<{ tool: string; input: unknown }> }
-  | { throws: Error };
+  | { throws: Error }
+  /** Never answers, and ignores the abort signal, like a model server that hangs. */
+  | { hang: true }
+  /** Answers with `then` after delayMs, ignoring the abort signal. */
+  | { delayMs: number; then: ModelTurn };
 
 const usage = {
   inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
@@ -22,13 +26,19 @@ export function scriptedModel(turns: ModelTurn[], options: { repeatLast?: boolea
   let i = 0;
   const model = new MockLanguageModelV4({
     doGenerate: async () => {
-      const turn = turns[Math.min(i, turns.length - 1)];
+      let turn = turns[Math.min(i, turns.length - 1)];
       if (!options.repeatLast && i >= turns.length) {
         i++;
         return { content: [{ type: "text", text: "Done." }], finishReason: { unified: "stop", raw: "stop" }, usage, warnings: [] };
       }
       i++;
       if (!turn) throw new Error("scriptedModel needs at least one turn");
+      while (turn && "delayMs" in turn) {
+        const { delayMs } = turn;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        turn = turn.then;
+      }
+      if ("hang" in turn) return new Promise<never>(() => {});
       if ("throws" in turn) throw turn.throws;
       if ("text" in turn) {
         return { content: [{ type: "text", text: turn.text }], finishReason: { unified: "stop", raw: "stop" }, usage, warnings: [] };

@@ -29,7 +29,7 @@ const UNSETTLED = "This invoice's text is encoded too many times to read safely.
  * can trigger a payment. The model is untrusted, so every field it returns must also be grounded
  * in the text it was shown. Anything that does not validate ends the run for human review.
  */
-export async function extractInvoice(rawText: string, deps: { model: LanguageModel }): Promise<ExtractionResult> {
+export async function extractInvoice(rawText: string, deps: { model: LanguageModel; abortSignal?: AbortSignal }): Promise<ExtractionResult> {
   if (typeof rawText !== "string" || rawText.length > MAX_INVOICE_CHARS) return needsReview(TOO_LONG);
   let text: string;
   try {
@@ -50,6 +50,7 @@ export async function extractInvoice(rawText: string, deps: { model: LanguageMod
       output: Output.object({ schema: ExtractedInvoice }),
       temperature: 0,
       maxRetries: 1,
+      abortSignal: deps.abortSignal,
     });
     invoice = ExtractedInvoice.parse(output);
   } catch (error) {
