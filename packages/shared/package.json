@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@scure/bip39": "^2.4.0",
     "ripple-address-codec": "^5.0.1",
     "zod": "^4.6.7"
   }

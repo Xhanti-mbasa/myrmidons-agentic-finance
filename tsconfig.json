@@ -6,8 +6,22 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "preserve",
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["packages/*/src", "packages/*/test", "packages/*/test-support", "services/*/src", "services/*/test", "services/*/eval", "scripts/test", "scripts/make-invoice-pdfs.ts"]
+  "include": [
+    "packages/*/src",
+    "packages/*/test",
+    "packages/*/test-support",
+    "services/*/src",
+    "services/*/test",
+    "services/*/eval",
+    "scripts/test",
+    "scripts/make-invoice-pdfs.ts",
+    "apps/*/src",
+    "apps/*/test",
+    "apps/*/app"
+  ]
 }

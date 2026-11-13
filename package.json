@@ -9,6 +9,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p .",
     "dev:mock": "SHUCAMOXA_MOCK=1 pnpm --filter @shucamoxa/mock-backend start",
+    "dev:web": "pnpm --filter @shucamoxa/web dev",
     "xrpl": "tsx services/backend/src/xrpl-demo.ts"
   },
   "devDependencies": {
