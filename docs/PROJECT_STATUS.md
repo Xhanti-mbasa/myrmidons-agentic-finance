@@ -1,5 +1,7 @@
 # Shucamoxa implementation status and handoff
 
+> **Implementation review, 13 November 2026:** See [the current ticket backlog](IMPLEMENTATION_BACKLOG.md) for a source-checked inventory at `47b6c55`. It covers all 21 Markdown files, 13 completed implementation slices and 40 remaining tickets. Older sections below are historical snapshots and contain retired commands; they are not a current deployment inventory. No runtime or ledger tests were run for this documentation review.
+
 Updated: 13 November 2026 (Africa/Johannesburg).
 Source-inspection baseline commit: `c808928f075f5bc50c737924f3c480a9f56dd73b`.
 This snapshot records evidence available while writing the PRD. It is not live
