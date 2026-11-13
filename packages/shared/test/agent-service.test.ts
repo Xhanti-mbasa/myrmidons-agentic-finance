@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   AgentError,
+  ChatRequest,
+  ChatStreamToolEvent,
   InvoiceOutcome,
+  MAX_CHAT_MESSAGE_CHARS,
   MAX_INVOICE_TEXT_CHARS,
   ProcessInvoiceRequest,
   ProcessInvoiceResponse,
@@ -62,5 +65,34 @@ describe("AgentError", () => {
   it("rejects an unknown code or a stack", () => {
     expect(AgentError.safeParse({ error: "TypeError", message: "x" }).success).toBe(false);
     expect(AgentError.safeParse({ error: "internal_error", message: "x", stack: "at y" }).success).toBe(false);
+  });
+});
+
+describe("ChatRequest", () => {
+  it("accepts a message between 1 and 2000 chars", () => {
+    expect(ChatRequest.safeParse({ message: "hello" }).success).toBe(true);
+    expect(ChatRequest.safeParse({ message: "x".repeat(MAX_CHAT_MESSAGE_CHARS) }).success).toBe(true);
+  });
+
+  it.each([
+    ["empty message", { message: "" }],
+    ["message over 2000 chars", { message: "x".repeat(MAX_CHAT_MESSAGE_CHARS + 1) }],
+    ["extra field", { message: "hello", user: "owner" }],
+    ["missing message", {}],
+  ])("rejects %s", (_label, value) => {
+    expect(ChatRequest.safeParse(value).success).toBe(false);
+  });
+});
+
+describe("ChatStreamToolEvent", () => {
+  it("accepts start and end events with only permitted fields", () => {
+    expect(ChatStreamToolEvent.safeParse({ name: "find_supplier", phase: "start", ok: true }).success).toBe(true);
+    expect(ChatStreamToolEvent.safeParse({ name: "pay", phase: "end", ok: true, ruleCode: "OK" }).success).toBe(true);
+    expect(ChatStreamToolEvent.safeParse({ name: "pay", phase: "end", ok: false, refused: true }).success).toBe(true);
+  });
+
+  it("rejects events with extra fields like arguments or results", () => {
+    expect(ChatStreamToolEvent.safeParse({ name: "pay", phase: "end", ok: true, args: {} }).success).toBe(false);
+    expect(ChatStreamToolEvent.safeParse({ name: "pay", phase: "end", ok: true, result: {} }).success).toBe(false);
   });
 });

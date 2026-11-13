@@ -1,6 +1,18 @@
-import { generateText, isStepCount, type LanguageModel } from "ai";
+import { generateText, isStepCount, streamText, type LanguageModel } from "ai";
 import { z } from "zod";
-import { fromCents, InvoiceNumber, Rules as RulesContract, ruleExplanation, SupplierName, toCents, type PayResult, type ExtractedInvoice, type RuleCode } from "@shucamoxa/shared";
+import {
+  fromCents,
+  InvoiceNumber,
+  Rules as RulesContract,
+  ruleExplanation,
+  SupplierName,
+  toCents,
+  type PayResult,
+  type ExtractedInvoice,
+  type RuleCode,
+  type ChatStreamEvent,
+  type ChatStreamToolEvent,
+} from "@shucamoxa/shared";
 import { backendClient, type BackendClient, type BackendDeps } from "./backend";
 import { extractInvoice } from "./extraction";
 import { describeStall, PAYMENT_OUTCOME_UNKNOWN, resolveLimits, RunGuard } from "./limits";
@@ -184,7 +196,201 @@ export function createAgent(deps: AgentDeps) {
     return { reply: `${text}\n\n${summary}`, summary, payments: state.payResults };
   }
 
-  return { processInvoice, chat };
+  /**
+   * Streaming owner chat (T13). Streams tool-call redacted events, text deltas, deterministic summary,
+   * error, and done over an AsyncIterable for SSE consumption.
+   */
+  function chatStream(message: string, signal?: AbortSignal): AsyncIterable<ChatStreamEvent> {
+    const q = new AsyncQueue<ChatStreamEvent>();
+    const run = new RunGuard(limits);
+    const combinedSignal = signal ? AbortSignal.any([signal, run.signal]) : run.signal;
+    const backend = backendClient(deps, run);
+
+    (async () => {
+      try {
+        const rules = await readRules(backend);
+        if (!rules) {
+          q.push({
+            event: "summary",
+            data: { summary: "Could not confirm the kill switch is off, so nothing was paid.", payments: [] },
+          });
+          q.push({ event: "done", data: {} });
+          return;
+        }
+        if (rules.killSwitch) {
+          q.push({
+            event: "summary",
+            data: { summary: ruleExplanation("KILL_SWITCH_ON"), payments: [] },
+          });
+          q.push({ event: "done", data: {} });
+          return;
+        }
+
+        if (combinedSignal.aborted) return;
+
+        // Same code-read mandate as chatRun: who and how much the owner asked for, never the model.
+        const state = newRunState(null, limitsOf(rules), {
+          amount: ownerAmountFromMessage(message),
+          supplierId: rules.suppliers ? ownerSupplierFromMessage(message, rules.suppliers) : null,
+        });
+        const baseTools = agentTools(backend, state);
+
+        const wrappedTools: Record<string, any> = {};
+        for (const [name, t] of Object.entries(baseTools)) {
+          const origExecute = t.execute as ((...a: any[]) => Promise<unknown>) | undefined;
+          wrappedTools[name] = {
+            ...t,
+            execute: async (...args: any[]) => {
+              if (combinedSignal.aborted) {
+                throw combinedSignal.reason ?? new Error("Aborted");
+              }
+              q.push({
+                event: "tool",
+                data: { name, phase: "start", ok: true },
+              });
+              try {
+                const result = await origExecute?.(...args);
+                const isRefused = Boolean(result && typeof result === "object" && "refused" in result && (result as any).refused);
+                const isBlocked = Boolean(result && typeof result === "object" && "status" in result && (result as any).status === "blocked");
+                const isBackendFail = Boolean(result && typeof result === "object" && "ok" in result && (result as any).ok === false);
+                const ok = !isRefused && !isBlocked && !isBackendFail;
+
+                let ruleCode: RuleCode | undefined;
+                if (result && typeof result === "object") {
+                  if ("ruleCode" in result && typeof (result as any).ruleCode === "string") {
+                    ruleCode = (result as any).ruleCode;
+                  } else if (
+                    "body" in result &&
+                    (result as any).body &&
+                    typeof (result as any).body === "object" &&
+                    "ruleCode" in (result as any).body &&
+                    typeof (result as any).body.ruleCode === "string"
+                  ) {
+                    ruleCode = (result as any).body.ruleCode;
+                  }
+                }
+                if (!ruleCode && name === "request_approval") {
+                  ruleCode = state.approvals.at(-1)?.ruleCode;
+                }
+
+                const toolData: ChatStreamToolEvent = {
+                  name,
+                  phase: "end",
+                  ok,
+                  ...(isRefused ? { refused: true } : {}),
+                  ...(ruleCode ? { ruleCode } : {}),
+                };
+                q.push({ event: "tool", data: toolData });
+                return result;
+              } catch (err) {
+                q.push({
+                  event: "tool",
+                  data: { name, phase: "end", ok: false },
+                });
+                throw err;
+              }
+            },
+          };
+        }
+
+        const result = streamText({
+          model: deps.plannerModel,
+          system: PLANNER_SYSTEM + CHAT_RULES,
+          prompt: message,
+          tools: wrappedTools,
+          stopWhen: isStepCount(STEP_LIMIT),
+          temperature: 0,
+          abortSignal: combinedSignal,
+        });
+
+        // fullStream, not textStream: streamText reports a provider failure as an error part rather
+        // than throwing, and textStream would just end, so a failed run would look like a clean one.
+        for await (const part of result.fullStream) {
+          if (combinedSignal.aborted) return;
+          if (part.type === "error") throw part.error;
+          if (part.type === "text-delta" && part.text) {
+            const redacted = redactAddresses(part.text) as string;
+            q.push({ event: "text", data: { delta: redacted } });
+          }
+        }
+
+        if (combinedSignal.aborted) return;
+
+        const summary = chatSummary(state);
+        q.push({
+          event: "summary",
+          data: { summary, payments: state.payResults },
+        });
+        q.push({ event: "done", data: {} });
+      } catch (error) {
+        if (combinedSignal.aborted) return;
+        q.push({
+          event: "error",
+          data: { message: "The agent could not finish." },
+        });
+        q.push({ event: "done", data: {} });
+      } finally {
+        q.end();
+      }
+    })();
+
+    return q;
+  }
+
+  return { processInvoice, chat, chatStream };
+}
+
+export class AsyncQueue<T> implements AsyncIterable<T> {
+  private queue: T[] = [];
+  private resolvers: Array<(result: IteratorResult<T>) => void> = [];
+  private ended = false;
+  private error: unknown = null;
+
+  push(item: T) {
+    if (this.ended) return;
+    if (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift()!;
+      resolve({ value: item, done: false });
+    } else {
+      this.queue.push(item);
+    }
+  }
+
+  end() {
+    if (this.ended) return;
+    this.ended = true;
+    while (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift()!;
+      resolve({ value: undefined as any, done: true });
+    }
+  }
+
+  fail(err: unknown) {
+    if (this.ended) return;
+    this.ended = true;
+    this.error = err;
+    while (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift()!;
+      resolve({ value: undefined as any, done: true });
+    }
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<T> {
+    return {
+      next: () => {
+        if (this.queue.length > 0) {
+          return Promise.resolve({ value: this.queue.shift()!, done: false });
+        }
+        if (this.error) return Promise.reject(this.error);
+        if (this.ended) {
+          return Promise.resolve({ value: undefined as any, done: true });
+        }
+        return new Promise<IteratorResult<T>>((resolve) => {
+          this.resolvers.push(resolve);
+        });
+      },
+    };
+  }
 }
 
 /**
