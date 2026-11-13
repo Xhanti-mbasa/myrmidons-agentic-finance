@@ -38,7 +38,7 @@ const vectors: Array<[string, string, object, string]> = [
   ["XRPL-20", "Ledger rejects disabled master and absent regular key bypass", { expectedEngineResult: "tefMASTER_DISABLED", wallets: "fresh Testnet runtime wallets required" }, "XRPL disable master key; CCSS9 1.02.1.1 Signing Configuration"],
 ];
 for (const [id, title, vector, standard] of vectors) attack(id, title, "policy/receipt boundary; deployment gates separate", standard,
-  Number(id.slice(5))>=19 ? 'NOT_IMPLEMENTED' : ['XRPL-01','XRPL-02','XRPL-03','XRPL-04','XRPL-05','XRPL-06','XRPL-07','XRPL-08','XRPL-09','XRPL-10','XRPL-11','XRPL-14','XRPL-16','XRPL-17','XRPL-18'].includes(id)?'BLOCKED':'VULNERABLE',
+  Number(id.slice(5))>=19 ? 'NOT_IMPLEMENTED' : ['XRPL-01','XRPL-02','XRPL-03','XRPL-04','XRPL-05','XRPL-06','XRPL-07','XRPL-08','XRPL-09','XRPL-10','XRPL-11','XRPL-12','XRPL-14','XRPL-16','XRPL-17','XRPL-18'].includes(id)?'BLOCKED':'VULNERABLE',
   'real local policy signatures/production verification; scripted ledger metadata; no live funds', async () => {
     // Preserve concrete mutations and expected conditions for the implementation team; no network.
     if (Object.keys(vector).length === 0) throw new Error("Missing attack vector");

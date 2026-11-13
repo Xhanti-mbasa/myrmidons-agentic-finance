@@ -140,11 +140,11 @@ describe("hex private key rules", () => {
     }
   });
 
-  it("lets a line that names the value a hash through, so tx hashes and the log chain don't fail CI", () => {
+  it("rejects raw keys regardless of hash-like labels or checksum comments", () => {
     const value = hex(64);
-    for (const line of [`txHash: "${value}"`, `prev_hash=${value}`, `GITLEAKS_SHA256: ${value}`, `digest: ${value}`]) {
+    for (const line of [`txHash: "${value}"`, `prev_hash=${value}`, `GITLEAKS_SHA256: ${value}`, `digest: ${value}`, `KEY=${value} # checksum`]) {
       expect(secrets(bare, line)).toEqual([value]);
-      expect(allowed(bare, { path: "fixtures/ledger.json", secret: value, line })).toBe(true);
+      expect(allowed(bare, { path: "fixtures/ledger.json", secret: value, line })).toBe(false);
     }
   });
 
@@ -171,7 +171,7 @@ describe("allowlists stay narrow", () => {
     const paths = RULES.flatMap((r) => r.allowlists.flatMap((a) => a.paths));
     expect(paths.length).toBeGreaterThan(0);
     for (const p of paths) {
-      expect(p).toMatch(/^\^[\w/-]+(\\\.[\w-]+)+\$$/);
+      expect(p).toMatch(/^\^(?:\\\.)?[\w/-]+(\\\.[\w-]+)+\$$/);
       const file = p.slice(1, -1).replace(/\\\./g, ".");
       expect(existsSync(join(REPO_ROOT, file)), file).toBe(true);
     }

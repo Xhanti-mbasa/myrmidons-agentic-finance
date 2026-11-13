@@ -30,6 +30,30 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.client.start()
         self.addCleanup(self.client.stop)
 
+    async def test_projection_keeps_mandate_controls_but_removes_private_fields(self):
+        canary = "ab" * 32
+        self.reply = httpx.Response(200, json={"enabled": True, "total_budget": "200.00",
+            "suppliers": [{"supplier_id": "sup_karoo", "name": "Karoo", "address": "private", "secret": canary}],
+            "note": canary, "private_key": canary})
+        result = await server.get_mandate()
+        self.assertEqual(result, {"enabled": True, "total_budget": "200.00",
+            "suppliers": [{"supplier_id": "sup_karoo", "name": "Karoo"}]})
+        self.assertNotIn(canary, str(result))
+
+    async def test_known_fields_redact_key_and_address_text_before_truncation(self):
+        canary = "ab" * 32
+        self.reply = httpx.Response(200, json={"invoice_id": "INV-001", "supplier_name": "x" * 480 + canary})
+        result = await server.get_invoice("INV-001")
+        self.assertNotIn(canary[:20], str(result))
+        self.reply = httpx.Response(200, json={"invoice_id": "INV-001", "supplier_name": "rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv"})
+        self.assertNotIn("rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv", str(await server.get_invoice("INV-001")))
+
+    async def test_oversized_payment_response_is_unknown_and_not_retried(self):
+        self.reply = httpx.Response(200, content=b"x" * (server.MAX_RESPONSE_BYTES + 1))
+        result = await server.pay_invoice("INV-001", "Due")
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(len(self.requests), 1)
+
     async def test_seven_discoverable_tools(self):
         tools = await server.mcp.list_tools()
         self.assertEqual({t.name for t in tools}, {

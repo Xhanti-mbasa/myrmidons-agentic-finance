@@ -462,6 +462,11 @@ describe("Policy Checks (T21)", () => {
   });
 
   describe("Memo structure check: MEMO_MISMATCH", () => {
+    it("rejects a validly shaped substituted audit memo", () => {
+      const ctx = createContext({ Memos: [{ Memo: { MemoType: toHex(MEMO_TYPE), MemoData: "b".repeat(64) } }] });
+      expect(checkMemoStructure(ctx)).toBe("MEMO_MISMATCH");
+    });
+
     it("rejects no memo (empty Memos array)", () => {
       const ctx = createContext({ Memos: [] });
       expect(checkMemoStructure(ctx)).toBe("MEMO_MISMATCH");

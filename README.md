@@ -87,3 +87,15 @@ pnpm demo:check
 ```
 
 First use asks privately for your Open WebUI admin email/password, then keeps a private local session for later starts. Existing chat/payment state is preserved. See [the demo test guide](docs/DEMO_TEST_GUIDE.md) for plugin controls, the complete scenario matrix, fast-response settings and evidence limits.
+
+## Security evidence and release scope
+
+The default harness demonstration uses **simulated settlement**. Implemented
+policy/wallet checks and local tests do not prove that an isolated signer,
+ledger quorum, funded RLUSD treasury or on-ledger revocation is deployed.
+The latest retained adversarial run has 63 BLOCKED, 8 VULNERABLE and 7
+NOT_IMPLEMENTED cases, with zero Testnet transactions executed by that run.
+Expected failures are not successful controls. See [the security assessment](SECURITY_ASSESSMENT.md),
+[reporting guidance](SECURITY.md), and [current evidence](security/evidence/results.json).
+The retained report identifies its base commit and dirty working-tree status;
+CI-generated reports identify the actual checked-out commit.

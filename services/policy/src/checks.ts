@@ -291,6 +291,11 @@ export const checkMemoStructure: PolicyCheck = (ctx: PolicyCheckContext): RuleCo
     return "MEMO_MISMATCH";
   }
 
+  // Bind the checked transaction bytes to the requested audit hash, not merely its shape.
+  if (memoObj.MemoData.toUpperCase() !== ctx.request.request.logEntryHash.toUpperCase()) {
+    return "MEMO_MISMATCH";
+  }
+
   // Reject any unexpected fields in the memo object
   for (const key of Object.keys(memoObj)) {
     if (key !== "MemoType" && key !== "MemoData") {

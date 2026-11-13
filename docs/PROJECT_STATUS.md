@@ -449,3 +449,15 @@ the chat is not established. The mitigation in `7837bb6` remains unverified on
 the user's fresh WebUI chat; the transcript alone does not identify its applied
 preset version. Keep the finding open until actual tool discovery/replay proves
 that unrelated tools are unavailable, while backend authority remains enforced.
+
+## Submission security repair
+
+At main `75c158e` plus the candidate working-tree fixes, 1,925 TypeScript tests,
+45 Python tests and 15 MCP tests passed. Fresh adversarial evidence passed with
+63 BLOCKED / 8 VULNERABLE / 7 NOT_IMPLEMENTED and zero Testnet transactions.
+The retained file replaces the obsolete 25-missing snapshot and records the base
+commit and dirty status honestly. MCP output projection/stream limits, strict
+public-hash scanner exceptions, decoded-memo/request binding, install-script
+suppression and an OCI-digest WebUI pin were added. See SECURITY_ASSESSMENT.md
+for limitations; neither a clean scanner nor a green expected-failure job proves
+production security or independently enforced live RLUSD settlement.
