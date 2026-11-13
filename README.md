@@ -76,3 +76,17 @@ gitleaks version
 To scan the whole history yourself, run `gitleaks git --config .gitleaks.toml --redact --no-banner .`.
 
 `git commit --no-verify` skips the hook, but CI runs the same checks on the pull request.
+
+## Developer-only XRPL Testnet demonstration
+
+With Node 22 and the pinned pnpm version, run `pnpm install --frozen-lockfile`
+then `pnpm xrpl`. The command needs access to the official XRPL Testnet and
+its faucet. It creates and funds two temporary in-memory wallets, signs a 1 XRP
+payment locally, prints the hash before submitting, and checks the validated
+ledger result and payment fields. Keys are discarded at exit. It uses test XRP,
+not RLUSD, and is separate from the application payment endpoint.
+
+If submission times out or fails, the outcome may be unknown: use the printed
+hash and Testnet explorer to reconcile it; do not automatically send a new
+payment. This single-wallet demo has no product policy or independent signer;
+the later payment flow requires additional signing and policy controls.

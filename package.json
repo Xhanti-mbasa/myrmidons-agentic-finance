@@ -6,10 +6,12 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "xrpl": "tsx services/backend/src/xrpl-demo.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },
