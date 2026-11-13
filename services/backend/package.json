@@ -1,0 +1,10 @@
+{
+  "name": "@shucamoxa/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@shucamoxa/shared": "workspace:*",
+    "xrpl": "^5.3.0"
+  }
+}

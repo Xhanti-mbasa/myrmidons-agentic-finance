@@ -33,6 +33,22 @@ No release claim should be based only on an enum, comment, mock response, older
 test count or earlier assistant statement. Run the current checks and record the
 actual commit and results when working on the relevant area.
 
+### Developer XRP demonstration (13 November 2026)
+
+Working tree based on `cb3b4bd`: `services/backend` adds an isolated single-signature
+Testnet XRP demonstration with temporary wallets and validated-result checks.
+This is not an RLUSD or agent payment and does not satisfy AC-01 or GAP-05/06.
+The confirmation predicate has simulated tests. A live Testnet run validated
+`tesSUCCESS` for 1 XRP, with matching sender, recipient and delivered amount:
+transaction `C965811C463F2E5E019A4EA379F4A1F61E0F4544431F001FF5A31BFA34AD2E8E`.
+An earlier validated payment exposed the API's `DeliverMax` field and the demo
+correctly refused to claim success until the check was updated. Typecheck and
+391 shared/agent/backend tests passed on Node 24; 24 tests were skipped. The full
+suite failed 46 script tests on Windows, including missing `sh` on PATH and
+POSIX file-mode assumptions; the tracked-path guard passed using Git's shell. Next:
+implement durable reconciliation and the independently enforced policy/signing
+boundary before connecting a product payment flow.
+
 ## Known integration gaps at this baseline
 
 | ID | Gap | Required next action |
