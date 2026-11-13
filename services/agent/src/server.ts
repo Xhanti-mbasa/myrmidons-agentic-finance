@@ -1,11 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { streamSSE } from "hono/streaming";
 import type { LanguageModel } from "ai";
 import {
   AgentError,
-  ChatRequest,
   ProcessInvoiceRequest,
   ProcessInvoiceResponse,
   type AgentDecision,
@@ -206,24 +204,6 @@ export function createAgentServer(deps: AgentServerDeps) {
     } finally {
       inFlight.delete(invoiceId);
     }
-  });
-
-  app.post("/agent/chat", async (c) => {
-    const body = await readJson(c);
-    if (!body.ok) return fail(c, "invalid_json");
-    const request = ChatRequest.safeParse(body.value);
-    if (!request.success) return fail(c, "invalid_request");
-
-    return streamSSE(c, async (stream) => {
-      await serially(async () => {
-        for await (const event of agent.chatStream(request.data.message, c.req.raw.signal)) {
-          await stream.writeSSE({
-            event: event.event,
-            data: typeof event.data === "string" ? event.data : JSON.stringify(event.data),
-          });
-        }
-      });
-    });
   });
 
   app.notFound((c) => fail(c, "not_found"));

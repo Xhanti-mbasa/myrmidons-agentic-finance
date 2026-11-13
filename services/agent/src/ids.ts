@@ -1,19 +1,20 @@
+import { createHash } from "node:crypto";
+
 /** RFC 4648 base32 alphabet (upper case, no padding). */
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-const cryptoBytes = (n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n));
-
 /**
  * The invoice number for a payment or approval that comes from owner chat rather than an invoice:
- * `CHAT-<YYYYMMDD UTC>-<8 base32 chars>` from 40 random bits. It can never equal a supplier invoice
- * number, so chat cannot squat on one. Shared with T08 (chat pay); keep the scheme in this one place.
+ * `CHAT-<YYYYMMDD UTC>-<8 base32 chars>` from sha256(normalised message + date).
+ * Deterministic so that Open WebUI "Regenerate" does not create duplicate payments.
  */
-export function chatInvoiceNumber(now: Date = new Date(), randomBytes: (n: number) => Uint8Array = cryptoBytes): string {
-  const bytes = randomBytes(5);
+export function chatInvoiceNumber(message: string, now: Date = new Date()): string {
+  const date = now.toISOString().slice(0, 10).replaceAll("-", "");
+  const normalised = (message ?? "").trim().toLowerCase();
+  const hash = createHash("sha256").update(normalised + date).digest();
   let bits = 0n;
-  for (const b of bytes) bits = (bits << 8n) | BigInt(b);
+  for (let i = 0; i < 5; i++) bits = (bits << 8n) | BigInt(hash[i]!);
   let suffix = "";
   for (let i = 7; i >= 0; i--) suffix += BASE32[Number((bits >> BigInt(i * 5)) & 31n)];
-  const date = now.toISOString().slice(0, 10).replaceAll("-", "");
   return `CHAT-${date}-${suffix}`;
 }

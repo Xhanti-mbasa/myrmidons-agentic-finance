@@ -46,6 +46,8 @@ export type RunState = {
    * Chat pay and request_approval refuse unless they match both.
    */
   chatMandate: ChatMandate | null;
+  /** Chat mode only: the original message text from the owner. */
+  chatMessage?: string;
   /**
    * Chat mode only: every payment chat pay sent to POST /payments, as code built it (code-generated
    * CHAT- invoice number), with the backend's parsed answer or null if there was no usable answer.
@@ -60,7 +62,7 @@ export type RunState = {
  * - supplierId: the one approved supplier the message names, resolved against the whole list from
  *   GET /rules (ownerSupplierFromMessage), or null if none, several, a negation, or no valid list.
  */
-export type ChatMandate = { amount: string | null; supplierId: string | null };
+export type ChatMandate = { amount: string | null; supplierId: string | null; message?: string };
 
 /**
  * The invoice being processed, as extraction read it and code resolved it. supplierName and
@@ -76,11 +78,17 @@ export type Mandate = {
 
 export type Limits = { perPaymentCap: string; remaining: string | null };
 
-export function newRunState(mandate: RunState["mandate"], limits: Limits, chatMandate: ChatMandate | null = null): RunState {
+export function newRunState(
+  mandate: RunState["mandate"],
+  limits: Limits,
+  chatMandate: ChatMandate | null = null,
+  chatMessage?: string,
+): RunState {
   return {
     mandate,
     limits,
     chatMandate,
+    chatMessage: chatMessage ?? chatMandate?.message,
     chatPayments: [],
     requestedApprovalKinds: new Set(),
     knownSupplierIds: new Set(),
@@ -228,12 +236,13 @@ function paymentApproval(input: PaymentApprovalInput, state: RunState): { refusa
   const amount = fromCents(toCents(mandate ? mandate.amount : input.amount));
   const ruleCode = overLimit(amount, state.limits);
   if (!ruleCode) return { refusal: "This amount is within the per-payment cap and the remaining budget, so no approval is needed. Use pay." };
+  const messageText = state.chatMessage ?? state.chatMandate?.message ?? "";
   const parsed = ApprovalRequest.safeParse({
     kind: "payment",
     payload: mandate
       ? { invoiceNumber: mandate.invoiceNumber, supplierId: mandate.supplierId, amount, reason: input.reason }
       : // Chat: code names the request, so a model can't squat on a real invoice number (same scheme as T08).
-        { invoiceNumber: chatInvoiceNumber(), supplierId: input.supplierId, amount, reason: input.reason },
+        { invoiceNumber: chatInvoiceNumber(messageText), supplierId: input.supplierId, amount, reason: input.reason },
   });
   if (!parsed.success) return { refusal: "The approval request does not satisfy the approval contract." };
   return { request: parsed.data, ruleCode };
@@ -380,7 +389,8 @@ function chatPayTool(backend: BackendClient, state: RunState) {
     execute: async (input) => {
       const refusal = carriesAddress(input.reason) ? ADDRESS_IN_TEXT : refuseChatMoney(input, state);
       if (refusal) return { refused: true, reason: refusal };
-      const request = PayRequest.parse({ ...input, invoiceNumber: chatInvoiceNumber() });
+      const messageText = state.chatMessage ?? state.chatMandate?.message ?? "";
+      const request = PayRequest.parse({ ...input, invoiceNumber: chatInvoiceNumber(messageText) });
       const attempt: RunState["chatPayments"][number] = { request, result: null };
       state.chatPayments.push(attempt); // before the await, so parallel calls see it
       const reply = await backend.pay(request);

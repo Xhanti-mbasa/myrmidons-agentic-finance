@@ -210,18 +210,34 @@ describe("logForModel", () => {
 });
 
 describe("chatInvoiceNumber", () => {
-  it("is CHAT-, the UTC date, and 8 RFC 4648 base32 characters from 5 random bytes", () => {
+  it("is CHAT-, the UTC date, and 8 RFC 4648 base32 characters from sha256 of normalised message + date", () => {
     const at = new Date("2026-11-13T23:30:00-05:00"); // 14 Nov in UTC
-    expect(chatInvoiceNumber(at, () => new Uint8Array([0, 0, 0, 0, 0]))).toBe("CHAT-20261114-AAAAAAAA");
-    expect(chatInvoiceNumber(at, () => new Uint8Array([255, 255, 255, 255, 255]))).toBe("CHAT-20261114-77777777");
-    expect(chatInvoiceNumber(at, () => new Uint8Array([0x66, 0x6f, 0x6f, 0x62, 0x61]))).toBe("CHAT-20261114-MZXW6YTB");
+    const num = chatInvoiceNumber("Pay Karoo $30 now", at);
+    expect(num).toMatch(/^CHAT-20261114-[A-Z2-7]{8}$/);
   });
 
-  it("asks for exactly 5 random bytes and differs between calls by default", () => {
-    const sizes: number[] = [];
-    chatInvoiceNumber(new Date(), (n) => (sizes.push(n), new Uint8Array(n)));
-    expect(sizes).toEqual([5]);
-    expect(chatInvoiceNumber()).not.toBe(chatInvoiceNumber());
+  it("is deterministic: same message text on same day produces the same CHAT- invoice number", () => {
+    const at = new Date("2026-11-13T23:30:00-05:00");
+    const num1 = chatInvoiceNumber("Pay Karoo $30 now", at);
+    const num2 = chatInvoiceNumber("Pay Karoo $30 now", at);
+    expect(num1).toBe(num2);
+  });
+
+  it("normalises message whitespace and casing so Regenerate produces the same invoice number", () => {
+    const at = new Date("2026-11-13T23:30:00-05:00");
+    const num1 = chatInvoiceNumber("Pay Karoo $30 now", at);
+    const num2 = chatInvoiceNumber("  pay karoo $30 now  ", at);
+    expect(num1).toBe(num2);
+  });
+
+  it("produces different invoice numbers for different messages or different dates", () => {
+    const at1 = new Date("2026-11-13T10:00:00Z");
+    const at2 = new Date("2026-11-14T10:00:00Z");
+    const num1 = chatInvoiceNumber("Pay Karoo $30 now", at1);
+    const num2 = chatInvoiceNumber("Pay Karoo $40 now", at1);
+    const num3 = chatInvoiceNumber("Pay Karoo $30 now", at2);
+    expect(num1).not.toBe(num2);
+    expect(num1).not.toBe(num3);
   });
 });
 
@@ -246,6 +262,18 @@ describe("chat payment guards (T08, G6)", () => {
     expect(backend.payments).toHaveLength(1);
     expect(backend.payments[0]!.body).toEqual({ supplierId: "sup_karoo", amount: "30.00", invoiceNumber: expect.stringMatching(CHAT_NUMBER), reason: "Owner asked" });
     expect(answer.payments).toHaveLength(1);
+  });
+
+  it("regenerating the same chat message produces the exact same deterministic invoice number", async () => {
+    const { agent: agent1, backend: backend1 } = setup([findKaroo, { toolCalls: [chatPay("30.00")] }, { text: "Paid." }]);
+    await agent1.chat("Pay Karoo $30 now");
+    const firstInvoiceNumber = backend1.payments[0]!.body.invoiceNumber;
+    expect(firstInvoiceNumber).toMatch(CHAT_NUMBER);
+
+    const { agent: agent2, backend: backend2 } = setup([findKaroo, { toolCalls: [chatPay("30.00")] }, { text: "Paid." }]);
+    await agent2.chat("Pay Karoo $30 now");
+    const secondInvoiceNumber = backend2.payments[0]!.body.invoiceNumber;
+    expect(secondInvoiceNumber).toBe(firstInvoiceNumber);
   });
 
   it("G6: three parallel pay calls in one turn make at most one payment", async () => {
