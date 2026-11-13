@@ -111,6 +111,13 @@ Do not run the unconfigured gateway against a real-value backend for a demo.
 
 ## 6. Payment state and reconciliation requirements
 
+`services/backend/src/wallet-adapter.ts` provides a coordinator wallet adapter
+with durable per-intent tracking and ledger lookup. It depends on a trusted
+external signer that must independently enforce the policy permit, revocation,
+and source control; no such signer is implemented here. Tests with fake signers
+do not establish an independent signing boundary. Unresolved pre-sign claims
+remain blocked for manual recovery, including after a restart.
+
 The separate developer-only RLUSD CLI uses two locally saved Testnet wallets,
 direct single-signature transfers, and a pre-submission pending record. It blocks
 new sends while an outcome is unresolved. It is not the product payment service

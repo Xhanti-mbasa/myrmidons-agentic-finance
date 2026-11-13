@@ -26,12 +26,13 @@ issuer, recipient and delivered amount: transaction
 The CLI is separate from the product and does not establish independent signing,
 policy enforcement, or agent payment acceptance (AC-01).
 
-Wallet adapter work in the current working tree adds `prepare-transfer.ts` to
-construct a bounded Testnet RLUSD transaction from a coordinator transfer,
-including its audit memo. This has simulated unit-test evidence only. It is not
-a wallet adapter: signing, authorization verification, durable transaction
-tracking, submission and reconciliation are still unimplemented for the
-coordinator. The policy co-sign and transfer-permit contracts remain distinct.
+Wallet adapter work in the current working tree adds bounded transaction
+preparation and an `XrplWalletAdapter` with SQLite tracking and ledger lookup.
+Simulated tests use a fake signer and mocked ledger. The adapter requires an
+independently enforcing signer, which is not implemented or connected here; the
+policy co-sign and transfer-permit contracts remain distinct. It is not evidence
+of a protected end-to-end payment or live adapter settlement. Next, agree and
+integrate the policy/signer contract and validate ledger-enforced authorization.
 
 | Component | Evidence / status | What this does not establish |
 |---|---|---|
