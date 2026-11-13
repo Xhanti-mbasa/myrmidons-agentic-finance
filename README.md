@@ -98,3 +98,32 @@ If submission times out or fails, the outcome may be unknown: use the printed
 hash and Testnet explorer to reconcile it; do not automatically send a new
 payment. This single-wallet demo has no product policy or independent signer;
 the later payment flow requires additional signing and policy controls.
+
+## Developer-only Testnet RLUSD
+
+Run with Node 22 and the pinned pnpm version:
+
+```sh
+pnpm xrpl:rlusd setup
+pnpm xrpl:rlusd balances
+pnpm xrpl:rlusd send
+```
+
+`setup` creates or reuses two wallets, funds their XRP reserves as needed and
+confirms their official Testnet RLUSD trust lines. Request test RLUSD for the
+printed sender address at https://tryrlusd.com/ before sending. `balances` reads
+validated XRP and RLUSD balances; `send` submits exactly 1 RLUSD and checks the
+validated transaction and delivered amount. This is isolated from the agent and
+does not implement the product's independent signing or policy controls.
+
+Wallet seeds and payment tracking are stored in the Git-ignored
+`services/backend/wallets/` directory, restricted to the current user. Other
+processes running under that same OS user may still access them; use a separate
+backend identity for isolation. Never copy these files into the agent environment.
+The command uses only the fixed Testnet endpoint. The pending payment record is
+written before submission; if the outcome is unknown, a new send is blocked.
+Run `send` again to check the same hash: a confirmed payment is recorded and the
+command stops without sending again. For other outcomes, reconcile the hash and
+expiry using validated ledger history before manually resolving the pending file;
+never delete it merely because a timeout elapsed. An interrupted process can
+leave `rlusd.lock`; after confirming no command is running, remove only that lock.

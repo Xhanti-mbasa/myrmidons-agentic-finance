@@ -111,6 +111,12 @@ Do not run the unconfigured gateway against a real-value backend for a demo.
 
 ## 6. Payment state and reconciliation requirements
 
+The separate developer-only RLUSD CLI uses two locally saved Testnet wallets,
+direct single-signature transfers, and a pre-submission pending record. It blocks
+new sends while an outcome is unresolved. It is not the product payment service
+and has no independent policy or signing boundary. Its local account credentials
+must be isolated from the agent by deployment identity, not merely by file names.
+
 The isolated `pnpm xrpl` developer demonstration creates two disposable Testnet
 wallets, funds them from the faucet and sends 1 XRP with a single local signature.
 It is not the application payment endpoint or a policy-authorized payment. It

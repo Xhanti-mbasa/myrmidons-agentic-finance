@@ -16,6 +16,23 @@ source/tests. See [PRD](PRD.md) and [technical specification](TECHNICAL_SPEC.md)
 
 ## Current inventory
 
+Developer RLUSD CLI working tree update: `services/backend/src/rlusd-demo.ts`
+provides reusable local Testnet wallets, trust-line setup, balance reads and a
+single-signature 1 RLUSD send with pre-submission tracking. On 13 November 2026,
+live Testnet setup confirmed both trust lines. After the sender was funded, the
+developer CLI confirmed a validated `tesSUCCESS` transfer of 1 RLUSD with matching
+issuer, recipient and delivered amount: transaction
+`85D9384CD5A42DCCC34830E8E0FACB0F53E286F7A2B9463930F1B8E5D5E77DE1`.
+The CLI is separate from the product and does not establish independent signing,
+policy enforcement, or agent payment acceptance (AC-01).
+
+Wallet adapter work in the current working tree adds `prepare-transfer.ts` to
+construct a bounded Testnet RLUSD transaction from a coordinator transfer,
+including its audit memo. This has simulated unit-test evidence only. It is not
+a wallet adapter: signing, authorization verification, durable transaction
+tracking, submission and reconciliation are still unimplemented for the
+coordinator. The policy co-sign and transfer-permit contracts remain distinct.
+
 | Component | Evidence / status | What this does not establish |
 |---|---|---|
 | Shared contracts | Source present in `packages/shared/src/`; schema, money, constants and log helper tests present. Current name is `@shucamoxa/shared`. | Deployed services actually validate every response or implement every declared rule. |
