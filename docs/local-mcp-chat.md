@@ -1,8 +1,8 @@
 # Local MCP and interactive model chat
 
-The chat host and MCP server run on your laptop. Qwen continues running in the
-shared container. No port forwarding is needed for local MCP: it communicates
-through stdin/stdout. The remote model still needs its existing SSH tunnel.
+The chat host, MCP server and Qwen model run on your own computer by default.
+Local Ollama uses `http://127.0.0.1:11434`; no SSH tunnel is needed. MCP communicates
+through stdin/stdout. The shared container remains an explicit deployment option.
 Ollama does not itself open MCP connections; the chat host discovers schemas,
 sends them to Qwen and routes requested calls back to the local MCP server.
 
@@ -23,28 +23,46 @@ versions as the merged payment gateway. This is an editable install: subsequent
 Python code edits in VS Code are used when you restart the command. On Windows,
 activate `.venv\Scripts\Activate.ps1` in PowerShell instead.
 
+## Download the same model locally
+
+Install [Ollama for your operating system](https://ollama.com/download).
+On Linux follow the [official installation instructions](https://docs.ollama.com/linux).
+Start its service, or run `ollama serve` in a separate terminal if it is not
+already running. Do this on your computer, outside SSH.
+
+From the repository root, using the repository venv:
+
+```bash
+.venv/bin/w3node model setup --host http://127.0.0.1:11434
+.venv/bin/w3node chat --host http://127.0.0.1:11434
+```
+
+Setup downloads `qwen3:1.7b-q4_K_M` (approximately 1.4 GB once) through Ollama,
+then compares `/api/tags` to `model-profiles/base-model.lock.json`. The lock's
+manifest digest comes from the owner's supplied server output; it is not a
+checksum of one GGUF file. Matching installed models are reused without a pull.
+An installed mismatched model is left alone and setup fails. A newly downloaded
+mismatch also fails verification: the mutable registry tag may have moved.
+Review the version deliberately rather than silently rewriting the lock.
+Verification does not archive the old registry manifest; retain your own pinned
+artifacts if you need recovery after an upstream version disappears.
+
+`chat`, `model setup` and `model build` default to local 11434. `OLLAMA_HOST`
+overrides this default, and `--host` overrides the environment. Explicit local
+flags above prevent an old tunnel environment variable selecting the server.
+The startup line always shows the endpoint actually used. The TypeScript
+agent's `.env.example` also uses local Ollama, with `/v1` for its OpenAI client.
+
 ## First test: MCP connected, zero tools
 
-In terminal A on the laptop, keep the existing model connection open:
-
-```bash
-w3node users connect xhanti
-```
-
-That opens the container terminal and forwards local 11435 to Ollama's 11434.
-Use your own provisioned username. In terminal B **on the laptop**, activate the
-venv and run:
-
-```bash
-w3node chat
-```
+With local Ollama ready, run `w3node chat` in your activated repository venv.
 
 The default `config/mcp.local.json` launches a local sandbox subprocess and
 performs a real MCP initialization and tools/list request. Expected startup:
 
 ```text
 MCP sandbox: initialized; 0 tool(s)
-Model: qwen3:1.7b-q4_K_M at http://127.0.0.1:11435
+Model: qwen3:1.7b-q4_K_M at http://127.0.0.1:11434
 you>
 ```
 
@@ -54,9 +72,7 @@ server exposes none. This proves MCP discovery and ordinary model chat, not tool
 execution. `/clear` clears the conversation; `/quit` closes chat and its local
 MCP subprocess. No curl command is needed.
 
-To chat without MCP at all, run `w3node chat --no-mcp`. If Ollama runs on your
-laptop, use `--host http://127.0.0.1:11434` and no SSH tunnel. To use a different
-installed model, pass `--model NAME`. This host accepts an Ollama origin, not a
+To chat without MCP at all, run `w3node chat --no-mcp`. To use a different installed model, pass `--model NAME`. This host accepts an Ollama origin, not a
 `/v1` OpenAI-compatible base URL. First model loading may take a while on CPU.
 
 ## Second test: explicitly enable one harmless tool
@@ -103,8 +119,9 @@ This first bridge supports stdio, not HTTP/SSE MCP endpoints, resources, prompts
 sampling, elicitation or multimodal tool output. Text/JSON tool output is the
 supported initial path. Do not assume protocol support beyond tool discovery/call.
 
-The merged `mcp_gateway/server.py` is a separate payment-backend adapter with five
-tools. It is not enabled by the default config. Its proposed backend contract is
+The merged `mcp_gateway/server.py` has seven tools: five legacy invoice-backend tools plus `pay` and transfer
+status for the new coordinator. See `services/payments/README.md` for the separate
+transfer API and required wallet/policy adapters. It is not enabled by the default config. Its proposed backend contract is
 different from the existing TypeScript agent's backend client; they are not
 silently interchangeable. See `mcp_gateway/README.md` before any integration.
 `config/mcp.payments.example.json` shows how to connect it locally later, with
@@ -133,14 +150,13 @@ w3node model build w3node-xhanti-v1
 w3node chat --model w3node-xhanti-v1
 ```
 
-The build calls Ollama's create API over the existing tunnel and creates or
-updates the named development model on that instance. It reuses the base model
-already there; it does not download/copy its weights to your laptop. Development
+The build calls the selected Ollama instance (local by default) and creates or
+updates the named development model there. It reuses the base weights already
+pulled by setup; changing a profile does not copy the whole base model again. Development
 names must begin `w3node-`, so the command won't overwrite `qwen3:1.7b-q4_K_M`.
 Use a unique name per teammate/experiment; rebuilding an existing development name
 updates it. The chat leaves the model's system prompt in effect unless you supply
-an explicit `--system-file`. The tiny CPU instance should be used for one test at
-a time; the CLI does not manage GPU scheduling or isolate model memory per user.
+an explicit `--system-file`. The CLI does not manage GPU scheduling or isolate model memory per user.
 
 These changes do not train weights. To test an **already trained compatible GGUF**
 checkpoint from your laptop:
@@ -165,6 +181,28 @@ immutable weight pin. Never commit weight binaries, tokens, private keys or real
 payment/customer data. Runtime builds themselves are not Git commits: push the
 source profile/manifest changes separately through your normal branch/PR workflow.
 
+## Deploy the same revision on the shared server
+
+Commit your profile, MCP code/config and locks from VS Code and push your branch.
+After review, check out that same revision wherever you run it. Git tracks recipes
+and references; it does not automatically deploy or store the 1.4 GB base weights.
+
+Keep `w3node users connect YOUR_USERNAME` open in a separate terminal, then run
+from the checkout on your laptop:
+
+```bash
+w3node model setup --host http://127.0.0.1:11435
+w3node model build w3node-xhanti-v1 --host http://127.0.0.1:11435
+w3node chat --host http://127.0.0.1:11435 --model w3node-xhanti-v1
+```
+
+These commands target the shared Ollama through SSH. MCP still executes on the
+computer running `w3node chat`; deploying a model does not deploy your local MCP
+process or its dependencies. To run the entire host on the server, install the
+same checkout/dependencies there and use server-local 11434. Credentials remain
+outside Git. The existing `model pin/pull` downloads selected HTTPS artifacts;
+it is separate from `model setup`, which pulls the locked Ollama base model.
+
 ## Verification and limits
 
 ```bash
@@ -177,6 +215,12 @@ and echo execution, and run the full terminal CLI against a local scripted Ollam
 HTTP fixture. Model-response logic and build APIs are simulated. They do not
 prove that your remote Qwen generated a call, that a real GGUF loads, or that a
 payment backend works. Run the two interactive tests above on your laptop for
-the final live-model check. If chat cannot reach Ollama, check that terminal A
-is still connected and port 11435 is free. MCP errors usually mean a bad command,
+the final live-model check. If local chat cannot reach Ollama, check that it is running on local 11434.
+For the shared option, check that SSH is connected and port 11435 is available. MCP errors usually mean a bad command,
 missing dependencies, or stdout output from the server that isn't MCP protocol.
+
+
+Local execution removes the model tunnel and shared-instance contention, but
+speed depends on your CPU/GPU, memory and model load time. This chat client still
+buffers a full response before printing it; moving local does not add streaming.
+Use `ollama ps` during a reply to inspect the processor actually used.

@@ -33,6 +33,8 @@ type Options = {
   /** Replace the payment service's answer. */
   payResponse?: (body: any) => { status: number; json: unknown };
   log?: unknown[];
+  /** Match confidence GET /suppliers reports (default 0.95), or a function of the query and the matched supplier. */
+  supplierConfidence?: number | ((query: string, supplier: FakeSupplier) => number);
 };
 
 export function fakeBackend(options: Options = {}) {
@@ -80,7 +82,9 @@ export function fakeBackend(options: Options = {}) {
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
       const match = suppliers.find((s) => s.name.toLowerCase().includes(q) || q.includes(s.name.toLowerCase()));
       if (!match) return json(200, { notFound: true });
-      return json(200, { supplierId: match.id, name: match.name, confidence: 0.95, ...(options.leakAddresses ? { xrplAddress: match.xrplAddress } : {}) });
+      const sc = options.supplierConfidence ?? 0.95;
+      const confidence = typeof sc === "function" ? sc(url.searchParams.get("q") ?? "", match) : sc;
+      return json(200, { supplierId: match.id, name: match.name, confidence, ...(options.leakAddresses ? { xrplAddress: match.xrplAddress } : {}) });
     }
     if (route === "POST /payments") {
       const r = (options.payResponse ?? defaultPay)(body);

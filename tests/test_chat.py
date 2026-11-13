@@ -13,7 +13,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from w3node.chat import configuration, endpoint, local_tools, turn
+from w3node.chat import configuration, endpoint, failure_details, launch, local_tools, turn
 
 HAS_CHAT = importlib.util.find_spec("mcp") is not None and importlib.util.find_spec("httpx") is not None
 SOURCE = str(Path(__file__).resolve().parents[1] / "src")
@@ -27,6 +27,31 @@ def config(demo=False):
             "command": "{python}", "args": ["-m", "w3node.sandbox_mcp"] + (["--demo-tool"] if demo else []),
             "env": {"PYTHONPATH": SOURCE}}}}))
         yield path
+
+
+@unittest.skipUnless(HAS_CHAT, "Install .[chat] to test request failures")
+class FailureTests(unittest.TestCase):
+    def test_nested_groups_reveal_ollama_error(self):
+        import httpx
+        request = httpx.Request("POST", "http://localhost:11434/api/chat", headers={"Authorization": "secret-test-header"})
+        response = httpx.Response(500, request=request, json={"error": "model requires more memory"})
+        error = httpx.HTTPStatusError("hidden request details", request=request, response=response)
+        nested = ExceptionGroup("SDK wrapper", [ExceptionGroup("inner", [error])])
+        self.assertEqual(failure_details(nested), "Ollama HTTP 500: model requires more memory")
+        args = argparse.Namespace(host="http://127.0.0.1:11434")
+        from unittest.mock import AsyncMock
+        with patch("w3node.chat.chat", new=AsyncMock(side_effect=nested)):
+            with self.assertRaisesRegex(ValueError, "Ollama HTTP 500: model requires more memory") as caught:
+                launch(args)
+        self.assertNotIn("secret-test-header", str(caught.exception))
+
+    def test_timeout_connection_and_non_json_errors_are_actionable(self):
+        import httpx
+        self.assertIn("ReadTimeout", failure_details(ExceptionGroup("SDK", [httpx.ReadTimeout("request private payload")])) )
+        self.assertIn("cannot connect", failure_details(httpx.ConnectError("private connection details")))
+        request = httpx.Request("POST", "http://localhost:11434/api/chat")
+        response = httpx.Response(502, request=request, text="private proxy HTML")
+        self.assertEqual(failure_details(httpx.HTTPStatusError("private", request=request, response=response)), "Ollama HTTP 502")
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -184,3 +209,4 @@ class ModelBuildTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

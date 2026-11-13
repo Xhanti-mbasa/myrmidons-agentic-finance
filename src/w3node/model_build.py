@@ -52,5 +52,6 @@ def build_model(args):
             if result.get("status") != "success" or result.get("error"):
                 raise ValueError("Model build did not report success; inspect Ollama before testing")
     except httpx.HTTPError:
-        raise ValueError("Ollama build request failed; check model tunnel, base model and GGUF compatibility") from None
-    print(f"Built {args.name}. Test: w3node chat --model {args.name}")
+        raise ValueError(f"Ollama build request failed at {host}; check Ollama, base model and GGUF compatibility") from None
+    print(f"Built {args.name}. Test: w3node chat --host {host} --model {args.name}")
+

@@ -43,8 +43,9 @@ revocation and recovery design before implementing the live signing path.
 | `src/w3node/onboarding.py`, `deploy/` | Local key requests and root-controlled instance onboarding sync/scheduler definitions. |
 | `src/w3node/model_build.py`, `model-profiles/`, `model.lock.json` | Development model recipes, import and checksum-pinned component references. |
 
-W2-W5 target service implementations must be located/created explicitly. Do not
-invent backend, policy, payment or dashboard directories based on workstream labels.
+`services/payments/` now contains a SQLite transfer coordinator and private HTTP
+adapter. Its required wallet and independent-policy adapters are not implemented.
+W2/W4 invoice APIs, signer deployment and owner dashboard remain separate work.
 
 ## 3. Primary internal API baseline
 
@@ -68,7 +69,10 @@ agent must never receive an owner token simply because an endpoint is missing.
 ## 4. Separate MCP gateway contract
 
 The Python gateway exposes `get_mandate`, `get_balance`, `get_invoice`,
-`pay_invoice`, `get_payment_status`, against:
+`pay_invoice`, `get_payment_status` against the legacy invoice routes below, plus
+`pay(intent_id)` and `get_transfer_status(intent_id)` against the new transfer
+coordinator. The seven tools do not imply that the legacy invoice routes are
+implemented by the transfer host.
 
 | Method | Proposed gateway backend route |
 |---|---|
@@ -159,10 +163,19 @@ evidence that a payment occurred.
 
 ## 8. LLM, MCP and model development
 
-Qwen/Ollama is the development inference runtime reported for the shared Incus
-container; local chat defaults to `qwen3:1.7b-q4_K_M`. Developer MCP runs locally
-over stdio. The remote model remains reachable through the existing private
-model tunnel. No public Ollama listener is needed.
+Qwen/Ollama is the development inference runtime. Local chat/build/setup default
+to `http://127.0.0.1:11434` and `qwen3:1.7b-q4_K_M`. Developer MCP runs locally
+over stdio. `OLLAMA_HOST` overrides the default; explicit `--host` takes precedence.
+The shared Incus model remains reachable by explicitly selecting the private
+SSH tunnel on local 11435. No public Ollama listener is needed.
+
+`w3node model setup` pulls missing base weights and verifies the Ollama manifest
+digest against `model-profiles/base-model.lock.json`; matching cached models need
+no pull and mismatches fail verification. The initial digest is owner-reported
+from the shared server. This identity check does not archive upstream versions.
+Git stores the lock, profiles and MCP code; Ollama stores the actual base layers.
+The same revision can be set up/built on either endpoint. Setup is explicit,
+not a prerequisite automatically enforced before every chat/build.
 
 `w3node chat` is a generic development host, not the completed payment pipeline.
 Its default MCP server has zero tools; the demo config enables echo. Tool-call
@@ -213,3 +226,42 @@ When changing wire fields/statuses, update the shared contracts, all consumers,
 tests and this spec together. Resolve known mismatches in PROJECT_STATUS before
 asserting the system is integrated. Do not bypass CI/secret controls to land an
 integration. Operational access and payment authority are separate permissions.
+
+
+## 11. Owner-authorized transfer extension
+
+See `services/payments/README.md` for the authoritative new route table and
+`packages/shared/src/transfers.ts` for strict wire schemas. This extension supports
+internal registered-wallet transfers and approved people/vendors, with optional
+scheduling, independently of the unimplemented invoice `/payments` backend.
+
+The owner authorizes a stored immutable intent via a separate credential. Agent
+`pay` receives only `{intentId}`. Scope is derived from server-side credential
+mapping; neither a name-search confidence nor an agent-provided address can grant
+authority. Owner configuration is the current approved recipient channel.
+
+SQLite atomic transactions deduplicate owner/reference across source accounts,
+reserve the owner-wide budget and append hash-linked audit before external calls.
+Recipient-specific caps may override the global per-payment cap but never budget
+or kill switch. Policy edits retain spent/reserved totals. Five rejected pay
+requests in 60 seconds lock the offending authenticated principal's payment
+capability until owner unlock. This is not login lockout or semantic threat proof.
+
+Policy permits bind a prepared-payment digest. A final independent wallet/signer
+implementation must cryptographically verify this permit and the actual
+transaction against current authority before signing. Coordinator-level checks
+are not proof that the on-ledger signing topology prevents bypass. Required
+adapters have no permissive production default. Receipts are trusted only after
+adapter verification of actual Testnet ledger evidence; submit is not settled.
+
+Future intents become scheduled without reserving money; an authenticated host
+timer invokes due processing and rechecks policy then. Unknown/submitted state
+and reservations persist without TTL release, across process restarts. Lookup
+never signs/resubmits. Pre-submit crashes remain unknown for manual recovery if
+no submission identity exists. The wallet must persist identity before broadcast.
+
+Audit links use shared canonical hashing. The core checks the existing chain
+before new execution; external anchoring, incoming-ledger monitoring, deployment
+isolation and legal compliance remain separate requirements. OS read-only tool
+code and private payment DB permissions must be enforced at deployment, not by
+model instructions. No live transfer, signer or scheduler deployment is claimed.

@@ -25,7 +25,7 @@ source/tests. See [PRD](PRD.md) and [technical specification](TECHNICAL_SPEC.md)
 | Model profiles/import | Source present in `model_build.py`; profile and GGUF blob flow tested with simulated APIs. | Fine-tuning, tensor editing, successful import of a real trained GGUF or actual live model rebuild. |
 | Component manifests | Source present in CLI `model pin/pull`; selective checksum verification/cache tests. | A populated registry/manifest for all deployed model bytes; initial downloader supports unauthenticated HTTPS only. |
 | Team onboarding | Client requests and bounded root sync/timer/cron definitions in source. Xhanti account/access configured interactively in supplied output. | Server sync installed/enabled with verified credentials, preapproved identities and working automatic invitations. |
-| Python payment MCP gateway | Source present in `mcp_gateway/`; five tools and simulated backend tests. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
+| Python payment MCP gateway | Source present in `mcp_gateway/`; seven tools and simulated backend tests. New transfer tools use a separate coordinator API. | Compatible real backend, live payment integration or policies enforced merely by tool annotations. |
 | Independent policy/signing service (W2) | `CosignRequest`/`CosignResponse`, rule codes and target invariants present as shared contracts. | A deployed co-signer or ledger configuration making its approval mandatory. |
 | Payment service / XRPL execution (W3) | Shared contracts and target constants exist. | Live signer, durable operation store, submit/reconcile implementation or final Testnet settlement proof. |
 | Backend/auth/audit service (W4) | Client expectations, schema/log primitives and fake backend tests exist. | Running authenticated owner/agent APIs, atomic reservations or durable audit persistence. |
@@ -103,10 +103,12 @@ python -m unittest discover -s mcp_gateway -p 'test_*.py' -v
 sh scripts/check-tracked-paths.sh
 ```
 
-Terminal A on the developer's computer: `w3node users connect YOUR_USERNAME`.
-Terminal B in the local checkout/activated venv: `w3node chat`. Default MCP has
-zero tools; `w3node chat --mcp config/mcp.demo.json` opts into echo. The shared
-model still needs its SSH tunnel; local stdio MCP needs no forwarded port.
+Local development: install/start Ollama on the developer computer, then run
+`w3node model setup` and `w3node chat` in the checkout/activated venv. Default
+MCP has zero tools; `w3node chat --mcp config/mcp.demo.json` opts into echo.
+The shared option requires `w3node users connect YOUR_USERNAME` in another
+terminal and explicit `--host http://127.0.0.1:11435`. Local stdio MCP needs no
+forwarded port.
 
 Commands assume installed tooling and already-authorized access; they do not
 grant privileges or install server automation by themselves. Check current docs
@@ -128,3 +130,94 @@ Do not append chat transcripts, private invoice contents, credentials or people'
 private account details. Keep this file a current summary rather than a growing
 dump of every session. A fresh LLM must inspect the current task's source/tests
 and report uncertainty instead of treating this dated snapshot as live truth.
+
+
+## 13 November 2026: local inference workflow
+
+FR-18: CLI chat/build/setup now default to local Ollama 11434; the TypeScript
+agent example uses the local `/v1` endpoint. The shared server is an explicit
+11435 tunnel option. New `model_setup.py` downloads missing base models, reuses
+matching cache and verifies the manifest against `base-model.lock.json`, whose
+initial digest is from owner-supplied server output. Profiles and MCP source
+remain in Git; large weights remain in Ollama/artifact storage. This is inference
+and model import tooling, not training, automatic deployment or streaming output.
+
+Validation: Python tests cover endpoint precedence, cache reuse, streamed pull
+flow, digest mismatch and failed/incomplete downloads using scripted Ollama APIs;
+existing tests exercise actual local MCP subprocess discovery/echo. Owner output
+now confirms a successful local pull and matching digest, followed by zero-tool
+MCP discovery. The first live chat failed with a wrapped ExceptionGroup; its
+underlying cause is not yet established. The CLI now unwraps nested SDK task
+groups to report bounded Ollama HTTP errors, timeout and connection failures.
+Regression tests simulate those failures; no successful local inference or
+benchmark is claimed. Next: owner pulls this fix, reruns chat and shares the
+specific error if it fails; compare `--no-mcp` and direct Ollama inference.
+
+## 13 November 2026: deterministic pay implementation
+
+FR-20/21/22 and part of GAP-05: `services/payments/src/payment.ts` adds a durable
+SQLite transfer coordinator; `http.ts` fixes identity/scope from private server
+credentials. `packages/shared/src/transfers.ts` defines new strict contracts,
+without silently replacing invoice APIs. MCP adds `pay` and transfer status.
+The agent references a separately owner-authorized stored intent, not arbitrary
+addresses/amounts. Owner-specific caps, cumulative budgets, persistent reservation
+and deduplication, due execution, credential lockout, audit and reconciliation
+are implemented and covered by simulated tests. No live signer is bundled.
+
+Tests use temporary SQLite, fake policy/ledger adapters and a real local HTTP
+listener. Existing shared/agent and Python tooling tests are checked separately.
+This is not evidence of real blockchain settlement, incoming-wallet monitoring,
+contact identity verification, legal compliance or OS isolation deployment.
+Remaining: friend-owned wallet adapter, mandatory independent policy/signing
+verification, trusted owner UI/backend, ledger recovery/anchors and timer
+deployment. The existing invoice agent and `/v1` gateway routes still require
+explicit integration; the new coordinator does not implement those routes.
+
+Validation for the transfer change: 486 TypeScript tests passed, 24 optional live
+evaluations skipped; typecheck passed. The new transfer project contributes 21
+tests. Python CLI tests: 47 passed; MCP gateway tests: 10 passed, including a
+real strict transfer MCP subprocess against a scripted HTTP backend. Local
+installation reported the existing lockfile `ws@8.23.0` minimum-release-age
+policy; installed compiler/test binaries were used without changing dependencies
+or relaxing that policy. GitHub CI remains the clean-install verification.
+
+## 13 November 2026: finance/Islamic-finance/AI governance research
+
+`FINANCE_TRUST_FRAMEWORK.md` maps international standards, South African
+regulatory questions, AAOIFI/IFSB governance and AI assurance to proposed controls
+and release evidence. `SUPPORTING_STATEMENT.md` gives the short design rationale.
+`TEAM_HANDOFF.md` records the owner's direct-push collaboration instruction and
+integration work for the next contributor; no separate Claude-session message
+has been received by Codex. Claude-coauthored main commit `3d2acce` was
+observed and preserved as the parent baseline; it concerns agent environment
+hardening. AGENTS/session guidance links these documents.
+
+Evidence: official-source research and document/link review only; no runtime
+behaviour, signing authority, regulatory status or Sharia approval changed.
+SARB cross-border proposals remain labelled as drafts in the reviewed sources;
+current legal applicability and final instruments require specialist verification.
+RLUSD Sharia approval and legal compliance have not been established. At the
+research baseline main lacked services/payments; transfer work remained on its
+feature branch. Inspect current refs before implementation. Next: agree the
+signer/identity/eligibility evidence interfaces and obtain qualified, scoped
+legal/Sharia review before production claims or real-value operation.
+
+## 13 November 2026: response to Claude's shared audit
+
+Inspected `main@f780cb2` and the deterministic-transfer branch's integration
+guide, and replied to Q1-Q8 in `AUDIT_COLLAB.md`. This supersedes the earlier
+research entry's statement that no separate Claude message had been received.
+Expanded the finance framework with proposed partner responsibilities, OWASP
+LLM01/LLM06, ASVS and CCSS verification targets, scoped SCA case summaries,
+issuer/reserve risks and feature tradeoffs. The supporting statement remains
+design language, not evidence of controls deployed outside the model.
+
+Evidence: official-source research and documentation checks only; no runtime
+code, deployment settings, regulator decisions or Sharia approvals changed.
+Main's inspected tree lacks `services/payments/`; its implementation remains
+on `feat/deterministic-pay-tool` with abstract policy/wallet adapters. SQLite is
+that branch's local coordinator choice, not a confirmed multi-host backend.
+No universal 4xx no-submission guarantee, final signer topology, competition
+deadline or rubric weights have been verified. Next: integrate and independently
+verify the Testnet policy/signing/payment path, preserving each contract's exact
+authority and recovery semantics; keep high-severity audit findings open.

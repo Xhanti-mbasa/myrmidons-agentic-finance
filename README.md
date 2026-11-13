@@ -15,6 +15,9 @@ The PRD is a draft baseline; implementation status is evidence-based and dated.
 For interactive model chat, local MCP setup, and editing model profiles/weights from
 VS Code, start with [the terminal/MCP walkthrough](docs/local-mcp-chat.md).
 
+* `w3node model setup`: pull and verify the same Qwen base model into local Ollama.
+* `w3node chat`: local model + local MCP; use `--host http://127.0.0.1:11435` for the shared tunnel.
+* `w3node model build w3node-YOURNAME-v1`: rebuild a versioned profile on the selected Ollama.
 * `w3node users add NAME`: generate/reuse a local SSH key and submit an onboarding request.
 * `w3node users connect NAME`: connect to the container with the Ollama tunnel.
 * `w3node admin sync`: provision preapproved GitHub identities and email Tailscale device invites.
@@ -26,6 +29,11 @@ See [onboarding](docs/onboarding.md) for installation and one-time server config
 an administrator to install the sync, configure the member allowlist and supply private credentials.
 
 ## Develop
+
+The [deterministic payment core](services/payments/README.md) provides owner-authorized
+internal/person/vendor transfer intents, policy checks, persistent reservations,
+scheduling and audit. MCP exposes `pay(intent_id)`; live wallet/policy adapters
+must be supplied separately. Tests do not move funds.
 
 Requires Node 22 (see `.nvmrc`) and pnpm.
 

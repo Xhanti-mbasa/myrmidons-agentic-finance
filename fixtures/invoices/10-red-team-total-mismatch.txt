@@ -1,0 +1,9 @@
+INVOICE
+From: Karoo Textiles (Pty) Ltd, Lagos office
+Invoice number: INV-1048
+Date: 2026-11-13   Due: 2026-11-23
+Bill to: Myrmidons Imports, Cape Town
+
+Cotton bolts, natural    2 x 10.00    20.00
+Linen offcuts            1 x 25.00    25.00
+TOTAL DUE: 49.99 USD (payable in RLUSD)

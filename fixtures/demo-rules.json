@@ -1,0 +1,11 @@
+{
+  "_note": "Dev mock seed (T15): the demo business's rules. Each address is mockSupplierAddress(id) in services/mock-backend/src/seed.ts, the account ID 'MOCK:<id>' padded with NULs: checksum-valid, keyless, never sent to the agent. Never fund these addresses.",
+  "perPaymentCap": "50.00",
+  "totalBudget": "200.00",
+  "periodStart": "2026-11-01",
+  "killSwitch": false,
+  "suppliers": [
+    { "id": "sup_karoo", "name": "Karoo Textiles", "address": "r3smzsz3bQWDc729AyEC51EaJjd5PanDM1", "status": "approved" },
+    { "id": "sup_zambezi", "name": "Zambezi Spices", "address": "r3smzsz3bQWDc7zVez255vjGgBwCEyEyBn", "status": "approved" }
+  ]
+}

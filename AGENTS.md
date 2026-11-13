@@ -9,7 +9,8 @@ name in code. Older PayGuard identifiers are historical, not a separate product.
 1. `docs/PRD.md`: product, customer, scope, requirements and acceptance criteria.
 2. `docs/TECHNICAL_SPEC.md`: architecture, contracts and security boundaries.
 3. `docs/PROJECT_STATUS.md`: dated implementation evidence, gaps and next work.
-4. The source, tests and any nested instructions relevant to the requested task.
+4. `docs/FINANCE_TRUST_FRAMEWORK.md` and `docs/TEAM_HANDOFF.md` for finance/AI governance and current collaboration.
+5. The source, tests and any nested instructions relevant to the requested task.
 
 The PRD is a draft product baseline, not evidence of implementation. The status
 document is a snapshot, not live monitoring. Check the current branch, working
@@ -49,6 +50,7 @@ development checks, not the finished finance product.
   substitutes for those controls.
 - The TypeScript agent API and Python MCP gateway API are currently different.
   Do not wire them together by assumption. See `docs/TECHNICAL_SPEC.md`.
+- Never describe an LLM as infallible or the product as legally/Sharia compliant or certified from prompts, tests or design documents. Follow the sourced governance guide and record actual independent approvals separately.
 - Privy is an evaluated candidate, not an installed integration or a final signer
   decision. Ghostsig is not evidence of unattended signing support.
 

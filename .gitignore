@@ -36,3 +36,6 @@ artifacts/
 .DS_Store
 .idea/
 .vscode/
+
+# Dev mock backend state (T15): approvals queue file
+.mock/
