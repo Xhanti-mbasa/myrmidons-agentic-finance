@@ -7,7 +7,8 @@
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
     "test": "vitest run",
-    "test:eval": "RUN_EVAL=1 vitest run eval"
+    "test:eval": "RUN_EVAL=1 vitest run eval",
+    "mutate": "stryker run"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.90",
@@ -20,6 +21,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^8.7.1",
+    "@stryker-mutator/vitest-runner": "^8.7.1",
     "tsx": "^4.23.15"
   }
 }

@@ -607,7 +607,16 @@ function redactText(text: string): string {
   for (const [start, end] of addressSpans(text).reverse()) out = out.slice(0, start) + HIDDEN + out.slice(end);
   return out.replace(X_ADDRESS, HIDDEN).replace(XRPL_ADDRESS, HIDDEN);
 }
-const ADDRESS_KEYS = new Set(["xrplAddress", "address", "destination", "Destination", "destinationTag"]);
+const ADDRESS_KEYS = new Set([
+  "xrpladdress",
+  "xrpl_address",
+  "address",
+  "destination",
+  "destinationtag",
+  "account",
+  "payto",
+  "wallet",
+]);
 
 /**
  * Wallet addresses never reach the model, even if a backend endpoint leaks one. Applied to every tool
@@ -618,7 +627,9 @@ export function redactAddresses(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactAddresses);
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value).filter(([k]) => !ADDRESS_KEYS.has(k)).map(([k, v]) => [k, redactAddresses(v)]),
+      Object.entries(value)
+        .filter(([k]) => !ADDRESS_KEYS.has(k.toLowerCase()))
+        .map(([k, v]) => [k, redactAddresses(v)]),
     );
   }
   return value;

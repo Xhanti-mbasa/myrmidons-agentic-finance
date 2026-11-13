@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApprovalRequest } from "@shucamoxa/shared";
+import { ApprovalRequest, ruleExplanation } from "@shucamoxa/shared";
 import { createAgent, INVALID_INVOICE_NUMBER, MIN_SUPPLIER_CONFIDENCE, tradingName } from "../src/agent";
 import { scriptedModel, type ModelTurn } from "./support/scripted-model";
 import { AGENT_TOKEN, BACKEND_URL, fakeBackend } from "./support/fake-backend";
@@ -104,6 +104,17 @@ describe("processInvoice: what the planner model is shown", () => {
 
     const offered = (plannerModel.calls[0]!.tools ?? []).map((t) => t.name).sort();
     expect(offered).toEqual(["find_supplier", "get_rules", "pay", "propose_supplier", "query_log", "request_approval"]);
+  });
+
+  it("runs the planner model with temperature: 0 on every call", async () => {
+    const { agent, plannerModel } = setup({ planner: [findKaroo, payKaroo()] });
+
+    await agent.processInvoice(KAROO_INVOICE);
+
+    expect(plannerModel.calls.length).toBeGreaterThan(0);
+    for (const call of plannerModel.calls) {
+      expect(call.temperature).toBe(0);
+    }
   });
 });
 
@@ -343,6 +354,22 @@ describe("processInvoice: a hostile model cannot move money it should not", () =
     expect(backend.payments).toHaveLength(0);
   });
 
+  it.each(["30", "30.0"])("mandate '30.00' accepts pay.amount '%s' and settles the invoice", async (amount) => {
+    const { agent, backend } = setup({ planner: [findKaroo, payKaroo({ amount })] });
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+    expect(backend.payments).toHaveLength(1);
+    expect(backend.payments[0]!.body.amount).toBe(amount);
+    expect(outcome.decision).toBe("paid");
+  });
+
+  it("mandate '30.00' refuses pay.amount '30.01'", async () => {
+    const { agent, backend, plannerModel } = setup({ planner: [findKaroo, payKaroo({ amount: "30.01" })] });
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+    expect(backend.payments).toHaveLength(0);
+    expect(outcome.decision).toBe("needs_review");
+    expect(plannerModel.everythingTheModelSaw).toContain("The amount must equal the invoice total, 30.00");
+  });
+
   it("sends no payment for an invoice number other than the one being processed", async () => {
     const { agent, backend } = setup({ planner: [findKaroo, payKaroo({ invoiceNumber: "INV-9999" })] });
     await agent.processInvoice(KAROO_INVOICE);
@@ -458,6 +485,22 @@ describe("processInvoice: outcomes come from the backend's rule code, not the mo
     const outcome = await agent.processInvoice(KAROO_INVOICE);
     expect(outcome.decision).toBe("needs_review");
   });
+
+  it("reports blocked with KILL_SWITCH_ON when POST /payments returns blocked KILL_SWITCH_ON even if GET /rules said false", async () => {
+    const { agent } = setup({
+      planner: [findKaroo, payKaroo()],
+      backend: {
+        killSwitch: false,
+        payResponse: () => ({ status: 200, json: { status: "blocked", ruleCode: "KILL_SWITCH_ON", logId: "log_ks_1" } }),
+      },
+    });
+
+    const outcome = await agent.processInvoice(KAROO_INVOICE);
+
+    expect(outcome.decision).toBe("blocked");
+    expect(outcome.ruleCode).toBe("KILL_SWITCH_ON");
+    expect(outcome.explanation).toBe(ruleExplanation("KILL_SWITCH_ON"));
+  });
 });
 
 describe("processInvoice: things only the owner can decide", () => {
@@ -554,6 +597,55 @@ describe("processInvoice: the model never sees a supplier's wallet address", () 
     await agent.processInvoice(KAROO_INVOICE);
 
     expect(plannerModel.everythingTheModelSaw).not.toMatch(/rLeaked/);
+  });
+
+  it("redacts an address leaked under key 'wallet' AND inside a sentence in a tool result", async () => {
+    const leakedSentence = `Supplier payout went to ${ATTACKER_TEST_ADDRESS} on ledger`;
+    const { agent, plannerModel } = setup({
+      planner: [{ toolCalls: [{ tool: "get_rules", input: {} }] }, findKaroo, payKaroo()],
+      backend: {
+        extraRules: {
+          wallet: ATTACKER_TEST_ADDRESS,
+          details: leakedSentence,
+        },
+      },
+    });
+
+    await agent.processInvoice(KAROO_INVOICE);
+
+    const seen = plannerModel.everythingTheModelSaw;
+    const compact = seen.replace(/[^A-Za-z0-9]/g, "");
+    expect(seen).not.toContain(ATTACKER_TEST_ADDRESS);
+    expect(compact).not.toContain(ATTACKER_TEST_ADDRESS);
+    expect(seen).not.toContain('"wallet"');
+    expect(seen).toContain("[address hidden]");
+  });
+
+  it("strips keys xrpl_address, account, payTo, wallet case-insensitively and redacts X-addresses in tool results", async () => {
+    const xSentence = `Dispatched to account ${ATTACKER_TEST_X_ADDRESS} successfully`;
+    const { agent, plannerModel } = setup({
+      planner: [{ toolCalls: [{ tool: "get_rules", input: {} }] }, findKaroo, payKaroo()],
+      backend: {
+        extraRules: {
+          WALLET: ATTACKER_TEST_ADDRESS,
+          xrpl_address: ATTACKER_TEST_ADDRESS,
+          Account: ATTACKER_TEST_X_ADDRESS,
+          payTo: ATTACKER_TEST_X_ADDRESS,
+          details: xSentence,
+        },
+      },
+    });
+
+    await agent.processInvoice(KAROO_INVOICE);
+
+    const seen = plannerModel.everythingTheModelSaw;
+    const compact = seen.replace(/[^A-Za-z0-9]/g, "");
+    expect(seen).not.toContain(ATTACKER_TEST_ADDRESS);
+    expect(seen).not.toContain(ATTACKER_TEST_X_ADDRESS);
+    expect(compact).not.toContain(ATTACKER_TEST_ADDRESS);
+    expect(compact).not.toContain(ATTACKER_TEST_X_ADDRESS);
+    expect(seen).not.toMatch(/"(?:WALLET|wallet|xrpl_address|Account|account|payTo|payto)"/i);
+    expect(seen).toContain("[address hidden]");
   });
 
   it.each([
