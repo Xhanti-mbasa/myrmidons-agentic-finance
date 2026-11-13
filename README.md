@@ -27,6 +27,8 @@ signing authority are not.
 
 ## Product and team development
 
+Current source-checked work inventory: [implementation backlog and tickets](docs/IMPLEMENTATION_BACKLOG.md).
+
 Read [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md),
 [technical specification](docs/TECHNICAL_SPEC.md), and
 [implementation status](docs/PROJECT_STATUS.md).
