@@ -121,6 +121,83 @@ describe("deterministic pay tool", () => {
     expect(f.wallet.submit).toHaveBeenCalledTimes(1);
   });
 
+  it("uses a stricter recipient override and admits the exact cumulative budget boundary", async () => {
+    const f = fixture();
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00", recipientCaps: { johnson: "40.00" } });
+    const over = f.create({ amount: "40.01", reference: "STRICT-OVER" });
+    expect((await f.service.pay(agent, { intentId: over })).code).toBe("OVER_PER_PAYMENT_CAP");
+    const a = f.create({ amount: "40.00", reference: "EXACT-A" });
+    const b = f.create({ amount: "60.00", recipientId: "vendor", reference: "EXACT-B" });
+    expect((await f.service.pay(agent, { intentId: a })).status).toBe("settled");
+    expect((await f.service.pay(agent, { intentId: b })).status).toBe("settled");
+    const c = f.create({ amount: "0.01", reference: "FIRST-OVER" });
+    expect((await f.service.pay(agent, { intentId: c })).code).toBe("OVER_BUDGET");
+    expect(f.service.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
+    expect(f.wallet.submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves spent plus unknown reservations through policy edits and restart without rollover", async () => {
+    const f = fixture();
+    const a = f.create({ amount: "40.00", reference: "SPENT" });
+    expect((await f.service.pay(agent, { intentId: a })).status).toBe("settled");
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    const b = f.create({ amount: "60.00", reference: "RESERVED" });
+    expect((await f.service.pay(agent, { intentId: b })).status).toBe("unknown");
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00" });
+    expect(f.service.budget(owner)).toEqual({ spent: "40.00", reserved: "60.00" });
+    f.advance(8 * 86400000);
+    const next = f.reopen();
+    expect(next.budget(owner)).toEqual({ spent: "40.00", reserved: "60.00" });
+    const c = next.createIntent(owner, f.input({ amount: "0.01", reference: "NO-ROLLOVER",
+      expiresAt: "2026-12-01T00:00:00Z" })).intentId;
+    expect((await next.pay(agent, { intentId: c })).code).toBe("OVER_BUDGET");
+    expect((await next.pay(agent, { intentId: b })).status).toBe("unknown");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(2);
+    expect((await next.reconcile(agent, b)).status).toBe("settled");
+    expect(next.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
+  });
+
+  it("counts in-flight reservations across independent connections for different intents", async () => {
+    const f = fixture();
+    f.service.setPolicy(owner, { ...rules, totalBudget: "100.00" });
+    const a = f.create(), b = f.create({ amount: "0.01", reference: "OTHER-CONNECTION" });
+    let release!: (value: unknown) => void;
+    f.policy.authorize.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const pending = f.service.pay(agent, { intentId: a });
+    const second = new PaymentService(f.path, { policy: f.policy, wallet: f.wallet });
+    try {
+      expect((await second.pay(agent, { intentId: b })).code).toBe("OVER_BUDGET");
+      expect(second.budget(owner)).toEqual({ spent: "0.00", reserved: "100.00" });
+    } finally { second.close(); }
+    const payment = f.policy.authorize.mock.calls[0]![0];
+    release({ decision: "allow", paymentDigest: paymentDigest(payment), authorization: "test" });
+    expect((await pending).status).toBe("settled");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks an enabled policy edit while authorization is pending and releases only the unsubmitted reservation", async () => {
+    const f = fixture(), id = f.create();
+    f.policy.authorize.mockImplementationOnce(async (_payment, digest) => {
+      f.service.setPolicy(owner, { ...rules, perPaymentCap: "1.00", recipientCaps: {} });
+      return { decision: "allow", paymentDigest: digest, authorization: "test" };
+    });
+    expect((await f.service.pay(agent, { intentId: id })).code).toBe("POLICY_CHANGED");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect(f.wallet.submit).not.toHaveBeenCalled();
+  });
+
+  it("disabling stops new authority without releasing a previously uncertain submission", async () => {
+    const f = fixture(), id = f.create();
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("unknown");
+    const fresh = f.create({ amount: "1.00", reference: "DISABLED" });
+    f.service.setPolicy(owner, { ...rules, enabled: false });
+    expect((await f.service.pay(agent, { intentId: fresh })).code).toBe("KILL_SWITCH_ON");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "100.00" });
+    expect((await f.service.reconcile(agent, id)).status).toBe("settled");
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
   it("never rebinds an approved intent after a directory address changes", async () => {
     const f = fixture(), id = f.create();
     f.service.approveRecipient(owner, { id: "johnson", kind: "person", address: reserve });
