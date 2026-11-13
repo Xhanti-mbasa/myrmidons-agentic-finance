@@ -17,7 +17,7 @@ export type PreparedTransfer = Readonly<{
   intentId: string; ownerId: string; sourceAccountId: string; sourceAddress: string;
   recipientId: string; recipientKind: "internal" | "person" | "vendor"; destination: string; destinationTag?: number; amount: string;
   reference: string; network: typeof XRPL_TESTNET_WSS; currency: typeof RLUSD_CURRENCY_HEX;
-  issuer: typeof RLUSD_TESTNET_ISSUER; policyVersion: number; auditHash: string;
+  issuer: typeof RLUSD_TESTNET_ISSUER; expiresAt: string; policyVersion: number; auditHash: string;
 }>;
 export type AuditRecord = { seq: number; ts: string; ownerId: string; intentId: string | null;
   subjectId: string; event: string; details: Record<string, string>; prevHash: string; hash: string };
@@ -206,6 +206,29 @@ export class PaymentService {
     if (settled) policy.spent = fromCents(toCents(policy.spent) + toCents(intent.amount));
     this.put("policy", intent.ownerId, "active", policy); intent.reserved = false;
   }
+  /** Trusted policy/signer host only: never expose as an agent-controlled approval endpoint.
+   * Checks an existing reservation; does not create authority or re-submit a payment. */
+  checkSigningBoundary(payment: PreparedTransfer): void {
+    this.atomic(() => {
+      const ctx: Principal = { ownerId: payment.ownerId, subjectId: "signer", role: "owner" };
+      const intent = this.intent(ctx, payment.intentId);
+      if (!intent.prepared || !intent.reserved || intent.result.status !== "unknown" ||
+          paymentDigest(intent.prepared) !== paymentDigest(payment)) throw new PaymentError("POLICY_DENIED");
+      if (!verifyTransferAudit(this.auditRows(payment.ownerId))) throw new PaymentError("AUDIT_UNAVAILABLE");
+      if (Date.parse(intent.expiresAt) <= this.now().getTime()) throw new PaymentError("INTENT_EXPIRED");
+      const policy = this.get<Policy>("policy", payment.ownerId, "active");
+      if (!policy) throw new PaymentError("POLICY_UNAVAILABLE");
+      if (!policy.rules.enabled) throw new PaymentError("KILL_SWITCH_ON");
+      if (policy.version !== payment.policyVersion) throw new PaymentError("POLICY_CHANGED");
+      if (canonicalJson(this.resolve(ctx, intent)) !== canonicalJson(this.get("binding", payment.ownerId, intent.id)))
+        throw new PaymentError("INTENT_MISMATCH");
+      const cap = Object.hasOwn(policy.rules.recipientCaps, intent.recipientId) ?
+        policy.rules.recipientCaps[intent.recipientId]! : policy.rules.perPaymentCap;
+      if (toCents(intent.amount) > toCents(cap)) throw new PaymentError("OVER_PER_PAYMENT_CAP");
+      if (toCents(policy.spent) + toCents(policy.reserved) > toCents(policy.rules.totalBudget))
+        throw new PaymentError("OVER_BUDGET");
+    });
+  }
   async pay(ctx: Principal, input: unknown): Promise<TransferResult> {
     this.principal(ctx);
     const parsed = PayToolRequest.safeParse(input);
@@ -242,7 +265,7 @@ export class PaymentService {
       const payment: PreparedTransfer = { intentId: id, ownerId: ctx.ownerId,
         sourceAccountId: intent.sourceAccountId, recipientId: intent.recipientId, ...binding,
         amount: intent.amount, reference: intent.reference, network: XRPL_TESTNET_WSS,
-        currency: RLUSD_CURRENCY_HEX, issuer: RLUSD_TESTNET_ISSUER, policyVersion: policy.version, auditHash };
+        currency: RLUSD_CURRENCY_HEX, issuer: RLUSD_TESTNET_ISSUER, expiresAt: intent.expiresAt, policyVersion: policy.version, auditHash };
       intent.reserved = true; intent.policyVersion = policy.version; intent.prepared = payment;
       // Unknown until evidence proves an outcome; process death never re-enables submit.
       intent.result = { intentId: id, status: "unknown", code: "EXECUTION_UNKNOWN" }; this.save(intent);

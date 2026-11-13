@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { once } from "node:events";
 import { PaymentService, paymentDigest, verifyTransferAudit, type PaymentAdapters, type Principal } from "../src/payment";
+import { createSignedPolicyAdapter, createGuardedWalletAdapter } from "../src/signing";
 import { createTransferServer } from "../src/http";
 import { RLUSD_TESTNET_ISSUER, TransferResult } from "../../../packages/shared/src/index";
 
@@ -53,6 +54,22 @@ function fixture() {
 }
 
 describe("deterministic pay tool", () => {
+  it("uses real signed permits against durable current authority and refuses replay after settlement", async () => {
+    const f = fixture(), id = f.create(), keys = generateKeyPairSync("ed25519");
+    const check = async (payment: Parameters<typeof paymentDigest>[0]) => f.service.checkSigningBoundary(payment);
+    const clock = () => new Date("2026-11-13T00:00:00Z");
+    const policy = createSignedPolicyAdapter(keys.privateKey, check, clock);
+    const rawSubmit = vi.fn(f.wallet.submit.getMockImplementation()!);
+    const guarded = createGuardedWalletAdapter(keys.publicKey, check,
+      { submit: rawSubmit, lookup: f.wallet.lookup }, clock);
+    f.policy.authorize.mockImplementation(policy.authorize);
+    f.wallet.submit.mockImplementation(guarded.submit);
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("settled");
+    const [prepared, permit] = f.wallet.submit.mock.calls[0]!;
+    await expect(guarded.submit(prepared, permit)).rejects.toThrow("POLICY_DENIED");
+    expect(rawSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects contradictory public outcomes and settlement without a hash", () => {
     const base = { intentId: "ad2ae810-0787-49f2-a458-1c57bff0fb11" };
     expect(TransferResult.safeParse({ ...base, status: "settled", code: "OK" }).success).toBe(false);
