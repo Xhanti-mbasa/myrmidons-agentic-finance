@@ -1,0 +1,2 @@
+# Generated fixture PDFs must stay byte-identical (scripts/test/fixtures.test.ts): never convert line endings.
+*.pdf binary

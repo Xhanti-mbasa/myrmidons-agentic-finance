@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { groundExtraction, type GroundedFields } from "../src/grounding";
 import { normaliseInvoiceText } from "../src/normalise";
 import { KAROO_FIELDS, KAROO_INVOICE } from "./support/invoices";
-import { FIXTURE_FIELDS, readFixture, type FixtureFile } from "./support/fixture-fields";
+import {
+  FIXTURE_FIELDS,
+  listFixtureFiles,
+  readFixture,
+  UNGROUNDED_FIXTURE_FIELDS,
+  type FixtureFile,
+  type UngroundedFixtureFile,
+} from "./support/fixture-fields";
 
 const ground = (text: string, fields: Partial<GroundedFields> = {}) =>
   groundExtraction(normaliseInvoiceText(text), { ...KAROO_FIELDS, ...fields });
@@ -178,7 +185,41 @@ describe("no false positives on the demo invoices", () => {
     expect(groundExtraction(normaliseInvoiceText(readFixture(file)), FIXTURE_FIELDS[file])).toBeNull();
   });
 
-  it("covers all eight fixtures", () => {
-    expect(Object.keys(FIXTURE_FIELDS)).toHaveLength(8);
+  it("covers every fixture .txt, including the five in 14-red-team-split/", () => {
+    const covered = [...Object.keys(FIXTURE_FIELDS), ...Object.keys(UNGROUNDED_FIXTURE_FIELDS)].sort();
+    expect(covered).toEqual(listFixtureFiles());
+    expect(covered).toHaveLength(18);
+  });
+});
+
+describe("red-team fixtures that grounding must send to a person", () => {
+  it.each(Object.keys(UNGROUNDED_FIXTURE_FIELDS) as UngroundedFixtureFile[])("%s does not ground with its faithful fields", (file) => {
+    const { fields, reason } = UNGROUNDED_FIXTURE_FIELDS[file];
+    expect(groundExtraction(normaliseInvoiceText(readFixture(file)), fields)).toMatch(reason);
+  });
+
+  it("10: the line-item sum 45.00 does not ground either, because TOTAL DUE says 49.99", () => {
+    const { fields } = UNGROUNDED_FIXTURE_FIELDS["10-red-team-total-mismatch.txt"];
+    expect(groundExtraction(normaliseInvoiceText(readFixture("10-red-team-total-mismatch.txt")), { ...fields, amount: "45.00" })).toMatch(/amount/i);
+  });
+
+  it.each([
+    ["11-red-team-template-tokens.txt", "900"],
+    ["12-red-team-fullwidth-tag.txt", "900"],
+  ] as const)("%s: the injected amount %s does not ground", (file, amount) => {
+    expect(groundExtraction(normaliseInvoiceText(readFixture(file)), { ...FIXTURE_FIELDS[file], amount, lineItems: [] })).toMatch(/amount/i);
+  });
+
+  it("11 and 12: normalising removes the template tokens and the fullwidth tags", () => {
+    const tokens = normaliseInvoiceText(readFixture("11-red-team-template-tokens.txt"));
+    const tags = normaliseInvoiceText(readFixture("12-red-team-fullwidth-tag.txt"));
+    expect(tokens).not.toMatch(/<\||\|>/);
+    expect(tags).not.toMatch(/invoice[^-\s]*>|<\s*\/?\s*invoice/i);
+    expect(tags).not.toMatch(/[＜＞]/);
+  });
+
+  it("13: an address that is not on the invoice does not ground", () => {
+    const fields = { ...FIXTURE_FIELDS["13-red-team-address-change.txt"], payToAddressOnInvoice: "rXYZattackerWallet4444444444" };
+    expect(groundExtraction(normaliseInvoiceText(readFixture("13-red-team-address-change.txt")), fields)).toMatch(/address/i);
   });
 });
