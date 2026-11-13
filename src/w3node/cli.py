@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import sys
 
 
@@ -15,6 +16,16 @@ MARKER = "w3node-managed-v1"
 
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, text=True, **kwargs)
+
+
+def write_json(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as out:
+        temp = Path(out.name)
+        json.dump(data, out, indent=2)
+        out.write("\n")
+    os.replace(temp, path)
 
 
 def account(name):
