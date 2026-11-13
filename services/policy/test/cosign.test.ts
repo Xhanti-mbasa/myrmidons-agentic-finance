@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MEMO_TYPE,
   RLUSD_CURRENCY_HEX,
   RLUSD_TESTNET_ISSUER,
+  toHex,
   XRPL_TESTNET_WSS,
   type CosignRequest,
   type Rules,
@@ -40,7 +42,17 @@ function setupTest() {
   };
 
   const logs: PolicyLogEntry[] = [];
-  let currentRules: Rules = { ...VALID_RULES };
+  let currentRules: any = {
+    ...VALID_RULES,
+    suppliers: [
+      {
+        id: "sup_karoo",
+        name: "Karoo Textiles",
+        address: supplier.classicAddress,
+        status: "approved",
+      },
+    ],
+  };
   let rulesReaderOverride: (() => Promise<Rules> | Rules) | null = null;
 
   const { app } = createPolicyServer({
@@ -74,6 +86,15 @@ function setupTest() {
     Fee: "20",
     Sequence: 1,
     SigningPubKey: "",
+    Flags: 0x80000000,
+    Memos: [
+      {
+        Memo: {
+          MemoType: toHex(MEMO_TYPE),
+          MemoData: "a".repeat(64),
+        },
+      },
+    ],
     ...overrides,
   });
 
