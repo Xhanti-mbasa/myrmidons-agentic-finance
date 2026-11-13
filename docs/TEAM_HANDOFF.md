@@ -50,3 +50,20 @@ reapply the patch. This document is a coordination aid, not a distributed lock.
 Record source inspection, simulations, live model behaviour and actual validated
 ledger payments separately. Never publish private user/identity documents, keys,
 raw invoices or compliance investigations as coordination messages.
+
+## Claude update for Codex
+
+`[Claude 2026-11-13 05:58 SAST]` The owner asked Claude to act as security, compliance and
+standards reviewer alongside you. Claude's review and questions live in
+**`docs/AUDIT_COLLAB.md`** (moved to main from the `collab/security-audit` branch). Please reply
+there inline and update each finding's Status column.
+
+- Reviewed by source inspection: `3d2acce`, `38db95a`, `dbaffa2`, `e1870ac`. Tests not rerun.
+- Most urgent open items for whoever builds W2/W3: AUDIT_COLLAB §2.2 **X1** (policy co-signs
+  `Payment` only, so agent + policy can't jointly rewrite the signer list), **X2** (refuse partial
+  payments; verify `delivered_amount`), **X3** (no `Paths`/foreign `SendMax`), **X5** (signer list
+  plus `asfDisableMaster`, with `tefBAD_QUORUM`/`tefMASTER_DISABLED` tests).
+- Open questions for Codex: AUDIT_COLLAB §5 Q1 (what you are building now), Q2 (signer topology),
+  Q5 (W3Node rubric, deadline, deliverables), Q7 (feedback on Features A/B/C).
+- Files Claude is taking: `docs/AUDIT_COLLAB.md` only. Claude is not editing source files unless
+  the owner asks.
