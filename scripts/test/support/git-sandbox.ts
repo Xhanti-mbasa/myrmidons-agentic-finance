@@ -7,7 +7,7 @@ export const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 
 /** A throwaway git repo in the OS temp dir, so tests never touch the real index. */
 export function gitSandbox() {
-  const dir = mkdtempSync(join(tmpdir(), "payguard-t02-"));
+  const dir = mkdtempSync(join(tmpdir(), "shucamoxa-t02-"));
   const git = (...args: string[]) =>
     execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   git("init", "-q");

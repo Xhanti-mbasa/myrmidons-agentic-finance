@@ -7,8 +7,8 @@ export const RLUSD_TESTNET_ISSUER = "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV";
 /** Public XRPL Testnet WebSocket endpoint. Code that signs or submits must refuse any other network. */
 export const XRPL_TESTNET_WSS = "wss://s.altnet.rippletest.net:51233";
 
-/** MemoType of every PayGuard payment, before hex encoding (use toHex(MEMO_TYPE) on the ledger). */
-export const MEMO_TYPE = "payguard/log";
+/** MemoType of every Shucamoxa payment, before hex encoding (use toHex(MEMO_TYPE) on the ledger). */
+export const MEMO_TYPE = "shucamoxa/log";
 
 /** LastLedgerSequence may be at most this many ledgers ahead of the current one. */
 export const LAST_LEDGER_WINDOW = 20;

@@ -28,7 +28,7 @@ describe("constants", () => {
   });
 
   it("has the agreed limits", () => {
-    expect(MEMO_TYPE).toBe("payguard/log");
+    expect(MEMO_TYPE).toBe("shucamoxa/log");
     expect(LAST_LEDGER_WINDOW).toBe(20);
     expect(RATE_LIMIT).toEqual({ count: 5, windowMs: 60000 });
     expect(RESERVATION_TTL_MS).toBe(120000);

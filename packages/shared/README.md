@@ -1,6 +1,6 @@
-# @payguard/shared
+# @shucamoxa/shared
 
-The contracts every PayGuard service imports: Zod 4 schemas, money maths, the audit log hash chain and
+The contracts every Shucamoxa service imports: Zod 4 schemas, money maths, the audit log hash chain and
 XRPL Testnet constants. Import from here instead of redefining a shape, so no two workstreams can
 disagree about a field, a rule code, an amount or a hash.
 
@@ -42,7 +42,7 @@ W5 owner dashboard.
 | `toHex`, `fromHex` | log | UTF-8 text to upper-case hex and back, for memo fields | W2, W3 |
 | `RLUSD_CURRENCY_HEX`, `RLUSD_TESTNET_ISSUER` | constants | RLUSD on Testnet | W2, W3 |
 | `XRPL_TESTNET_WSS` | constants | Public Testnet WebSocket endpoint | W2, W3 |
-| `MEMO_TYPE` | constants | `"payguard/log"` (put `toHex(MEMO_TYPE)` on the ledger) | W2, W3 |
+| `MEMO_TYPE` | constants | `"shucamoxa/log"` (put `toHex(MEMO_TYPE)` on the ledger) | W2, W3 |
 | `LAST_LEDGER_WINDOW` | constants | 20 ledgers | W2, W3 |
 | `RATE_LIMIT` | constants | `{count: 5, windowMs: 60000}`, frozen | W2 |
 | `RESERVATION_TTL_MS` | constants | 120000 | W2, W3 |

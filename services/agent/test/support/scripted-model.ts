@@ -1,5 +1,5 @@
 /**
- * A scripted stand-in for the model server. The model is untrusted in PayGuard, so security tests
+ * A scripted stand-in for the model server. The model is untrusted in Shucamoxa, so security tests
  * script it to behave badly on purpose and then check what the agent let through.
  *
  * Each turn is what the model "says" on one call: plain text, or one or more tool calls.

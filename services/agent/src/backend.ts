@@ -1,5 +1,5 @@
 /**
- * The agent's only route to the rest of PayGuard: thin HTTP calls to the backend with the agent's
+ * The agent's only route to the rest of Shucamoxa: thin HTTP calls to the backend with the agent's
  * scoped token. Read and propose endpoints, plus POST /payments. Nothing here can change rules.
  */
 export type BackendDeps = { backendUrl: string; backendToken: string; fetch?: typeof fetch };

@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 function pathWith(stubGitleaks?: { exitCode: number }) {
-  const bin = mkdtempSync(join(tmpdir(), "payguard-t02-bin-"));
+  const bin = mkdtempSync(join(tmpdir(), "shucamoxa-t02-bin-"));
   cleanups.push(() => rmSync(bin, { recursive: true, force: true }));
   for (const tool of TOOLS) {
     const real = execFileSync("sh", ["-c", `command -v ${tool}`], { encoding: "utf8" }).trim();
@@ -89,7 +89,7 @@ describe("pre-commit hook without gitleaks", () => {
 });
 
 describe("pre-commit hook blocks local-only and env files even without gitleaks", () => {
-  it.each([".env", "services/agent/.env", "CLAUDE.md", ".scratch/payguard/spec.md", "docs/agents/x.md"])(
+  it.each([".env", "services/agent/.env", "CLAUDE.md", ".scratch/shucamoxa/spec.md", "docs/agents/x.md"])(
     "refuses a staged %s",
     (path) => {
       const { env } = pathWith();

@@ -1,5 +1,5 @@
 #!/bin/sh
-# PayGuard pre-commit hook. `pnpm install` turns it on (git config core.hooksPath .githooks).
+# Shucamoxa pre-commit hook. `pnpm install` turns it on (git config core.hooksPath .githooks).
 # 1. Refuses staged env files and local-only paths. Needs only git.
 # 2. Scans the staged changes for secrets with gitleaks, if gitleaks is installed.
 # CI runs both checks again, so skipping this hook (git commit --no-verify) only delays the failure.

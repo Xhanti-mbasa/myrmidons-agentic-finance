@@ -1,8 +1,8 @@
-# PayGuard gitleaks config: gitleaks' default rules plus XRPL seeds and hex private keys.
+# Shucamoxa gitleaks config: gitleaks' default rules plus XRPL seeds and hex private keys.
 # Used by CI (the "secrets" job) and by .githooks/pre-commit. Tested in scripts/test/gitleaks-config.test.ts.
 # Keep rule regexes to syntax that reads the same in Go and JavaScript, so that test stays honest.
 
-title = "PayGuard gitleaks config"
+title = "Shucamoxa gitleaks config"
 
 [extend]
 useDefault = true

@@ -32,7 +32,7 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.90
         version: 3.0.90(zod@4.6.7)
-      '@payguard/shared':
+      '@shucamoxa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       ai:

@@ -25,7 +25,7 @@ describe("check-tracked-paths refuses env files and local-only paths", () => {
     ["a nested CLAUDE.md", "services/agent/CLAUDE.md"],
     ["CLAUDE.local.md", "CLAUDE.local.md"],
     ["CONTEXT.md", "CONTEXT.md"],
-    ["a file under .scratch/", ".scratch/payguard/spec.md"],
+    ["a file under .scratch/", ".scratch/shucamoxa/spec.md"],
     ["a nested .scratch/", "services/agent/.scratch/notes.md"],
     ["a file under docs/agents/", "docs/agents/issue-tracker.md"],
     ["a file under docs/adr/", "docs/adr/0001-sqlite.md"],
