@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     projects: [
       "packages/shared",
+      "packages/db",
       "services/agent",
       "services/payments",
       "services/backend",
