@@ -236,3 +236,22 @@ Transfer extension agreed 13 November 2026: FR-20 through FR-22 add owner-initia
 transfers and scheduling alongside invoice payables. Semantic contact matching,
 incoming-wallet monitoring and live signing are separately integrated capabilities;
 their implementation is not established by the transfer coordinator.
+
+## 12. Separately authorized paid-resource extension (#32/#33)
+
+The owner subsequently authorized development against GitHub issues #32/#33.
+This extends the draft's original out-of-scope paid-x402 choice for an incremental
+Testnet prototype; it does not change AC-01 through AC-07 or establish release
+readiness. Article/API purchases require merchant/origin/resource binding, explicit
+pay/decline or an owner automatic-purchase mandate, independently enforced
+spending, duplicate/unknown-outcome recovery and paid-content delivery handling.
+
+Owner category/merchant mandates define per-purchase and weekly ZAR budgets,
+Monday 00:00 Africa/Johannesburg boundaries and no unused-capacity rollover.
+Unresolved reservations remain charged across periods. ZAR budget and RLUSD
+settlement are distinct: trusted expiring FX/fee evidence, conservative rounding
+and sufficient fixed-point precision are mandatory. R0.10 never implicitly means
+0.10 RLUSD. Existing cumulative transfer caps and revocation remain required.
+See [implementation backlog](IMPLEMENTATION_BACKLOG.md) for partial work and
+remaining integration gates. Purchasing access does not grant redistribution
+rights. No support by an arbitrary publisher is implied.

@@ -11,3 +11,4 @@ export * from "./transfers";
 export * from "./supplier-match";
 export * from "./signing";
 export * from "./purchase-budgets";
+export * from "./x402";

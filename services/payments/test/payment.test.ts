@@ -305,6 +305,21 @@ describe("deterministic pay tool", () => {
     expect(reopened.budget(owner)).toEqual({ spent: "100.00", reserved: "0.00" });
   });
 
+  it("releases a verified rejection exactly once without resubmitting", async () => {
+    const f = fixture(), id = f.create();
+    f.wallet.submit.mockRejectedValueOnce(new Error("uncertain broadcast"));
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("unknown");
+    f.wallet.lookup.mockImplementationOnce(async (_payment, digest) => ({ status: "rejected",
+      paymentDigest: digest, txHash, validated: true, ledgerIndex: 101, ledgerResult: "tecPATH_DRY" }));
+    expect((await f.service.reconcile(agent, id)).code).toBe("LEDGER_REJECTED");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect((await f.service.reconcile(agent, id)).status).toBe("rejected");
+    expect((await f.service.pay(agent, { intentId: id })).status).toBe("rejected");
+    expect(f.service.budget(owner)).toEqual({ spent: "0.00", reserved: "0.00" });
+    expect(f.wallet.lookup).toHaveBeenCalledTimes(1);
+    expect(f.wallet.submit).toHaveBeenCalledTimes(1);
+  });
+
   it("does not treat submit responses or malformed validation evidence as settlement", async () => {
     for (const reply of [{ status: "submitted", txHash }, { status: "settled", validated: false, txHash },
       { ...settled("b".repeat(64)) }]) {
@@ -344,6 +359,8 @@ describe("deterministic pay tool", () => {
       expect((await fetch(base + "/transfers/" + id)).status).toBe(401);
       const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
       expect((await fetch(base + "/transfers/intents", { method: "POST", headers, body: JSON.stringify(f.input()) })).status).toBe(403);
+      expect((await fetch(base + "/transfers/policy", { method: "PUT", headers,
+        body: JSON.stringify({ ...rules, enabled: false }) })).status).toBe(403);
       const response = await fetch(base + "/transfers/pay", { method: "POST", headers, body: JSON.stringify({ intentId: id }) });
       expect((await response.json()).status).toBe("settled");
       expect((await fetch(base + "/transfers/audit", { headers })).status).toBe(403);

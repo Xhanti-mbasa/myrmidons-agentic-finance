@@ -58,6 +58,11 @@ export class PurchaseBudgetService {
     const row = this.db.prepare("SELECT body FROM purchase_reservations WHERE owner=? AND id=?").get(owner,id);
     return row ? JSON.parse(row.body as string) as PurchaseReservation : fail("NOT_AUTHORIZED");
   }
+  reservation(ctx: Principal, purchaseId: string): PurchaseReservation | undefined {
+    this.auth(ctx);
+    const row = this.db.prepare("SELECT body FROM purchase_reservations WHERE owner=? AND id=?").get(ctx.ownerId,purchaseId);
+    return row ? JSON.parse(row.body as string) as PurchaseReservation : undefined;
+  }
   private save(value: PurchaseReservation): void {
     this.db.prepare("INSERT INTO purchase_reservations VALUES(?,?,?) ON CONFLICT(owner,id) DO UPDATE SET body=excluded.body")
       .run(value.ownerId,value.purchaseId,canonicalJson(value));

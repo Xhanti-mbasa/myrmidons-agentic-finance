@@ -258,3 +258,25 @@ before new execution; external anchoring, incoming-ledger monitoring, deployment
 isolation and legal compliance remain separate requirements. OS read-only tool
 code and private payment DB permissions must be enforced at deployment, not by
 model instructions. No live transfer, signer or scheduler deployment is claimed.
+
+## 12. Issue #30–#33 incremental payment extensions
+
+The existing cumulative, cent-based transfer budget is preserved; see
+[verification handoff](HANDOFF_ISSUE30.md). `PreparedTransfer` now also binds
+`expiresAt`. Shared `SigningPermitClaims` plus Ed25519 policy/wallet adapters
+authenticate the prepared digest, version, intent and expiry.
+`PaymentService.checkSigningBoundary` checks durable intent/reservation/current
+policy. These source-level adapters do not implement the wallet provider,
+serialize actual signing with revocation or establish mandatory ledger authority.
+See [policy handoff](HANDOFF_ISSUE31.md) before connecting a provider.
+
+`PurchaseBudgetService` is a separate private SQLite coordinator with shared
+six-decimal schemas, owner category/merchant configuration, trusted quote and
+outcome interfaces, atomic reservations and Johannesburg weekly accounting.
+Unresolved reservations carry into the current period; late confirmed settlement
+conservatively charges the confirmation week. Policy edits preserve usage and
+invalidate unexecuted old versions. There is no live FX/fee feed or automatic
+connection to the existing cumulative transfer budget.
+See [budget handoff](HANDOFF_ISSUE33.md). A trusted purchase execution adapter must
+compose all required policies and exact payment/fee bounds before signing; merely
+injecting permissive callbacks does not provide independent enforcement.

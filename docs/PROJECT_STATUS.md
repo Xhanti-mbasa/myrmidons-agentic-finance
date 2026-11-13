@@ -222,3 +222,22 @@ expected-failure semantics preserved, checksum-pinned gitleaks clean, and zero
 validated ledger transactions. Local runtime was Node 24/Python 3.12; repository
 Node 22/Python 3.11 verification remains the GitHub CI gate. No financial control
 was weakened or new live payment claimed.
+
+## 13 November 2026: issues #30–#33 local integration snapshot
+
+On `work/payment-issues-30-33`, #30 added cap, reservation, policy-edit,
+kill-switch and rejection regression checks; #31 added signed permit/guard
+source; #33 added a weekly category budget coordinator; #32 added a restricted
+x402 purchase prototype. See `HANDOFF_ISSUE30.md` through
+`HANDOFF_ISSUE33.md` and `IMPLEMENTATION_BACKLOG.md`.
+
+Local Node 22.23.5/pnpm 10.28.0 typecheck and 66 payment tests passed.
+These tests use fake wallet, ledger, quote, merchant and outcome adapters.
+The earlier full TypeScript suite had two unchanged `ownerChat` test failures
+(1,416 passed; 39 skipped). No validated Testnet transaction, paid resource
+access, deployed independent signer, live FX feed or facilitator integration
+was observed. The x402 purchase and budget services use separate SQLite
+transactions; retry detects existing budget state and refuses a second execution,
+but orphan-reservation reconciliation remains unresolved. Existing
+transfer cumulative budget is not yet bound to x402 execution. Keep #31–#33
+open for the stated end-to-end evidence.

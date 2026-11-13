@@ -38,11 +38,13 @@ authorization, so the caller must retain business identity correctly.
 
 ## Changes and reproducible evidence
 
-Added five tests in `services/payments/test/payment.test.ts` covering stricter
+Added six tests in `services/payments/test/payment.test.ts` covering stricter
 recipient override, exact budget boundary and first over-budget cent; combined
 spent/unknown reservations through edits/restart/calendar advancement; independent
 connections contending for capacity; enabled-policy version changes while
 awaiting authorization; and disable with an already uncertain submission.
+The HTTP test also verifies agent policy PUT denial; a rejection test verifies
+reservation release exactly once across repeated reconciliation/pay requests.
 No production interface, configuration or dependency changed for this issue.
 
 On Node `v22.23.5`, pnpm `10.28.0`:
@@ -55,8 +57,10 @@ python -m unittest discover -s mcp_gateway -p 'test_*.py' -v
 sh scripts/check-tracked-paths.sh
 ```
 
-Typecheck and 26 payment tests passed. Gateway and repository-guard results are
-recorded in the consolidated status snapshot after final validation. Tests use
+Initial typecheck and 26 payment tests passed. After #31 integration and the
+review additions, typecheck and 40 payment/signing tests passed. All 10 gateway
+tests and the tracked-path guard passed. The full pre-integration suite had two
+failures in unchanged ownerChat server tests (1,416 passed, 39 skipped). Tests use
 temporary SQLite databases, fake policy/wallet adapters and a loopback HTTP
 server. Two live SQLite connections are tested, rather than two independently
 running OS processes or a deployment crash drill.
