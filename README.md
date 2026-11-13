@@ -73,3 +73,17 @@ See [docs/HARNESS_DEMO.md](docs/HARNESS_DEMO.md) for the owner console, mandator
 policy/eligibility/audit gates, optional workflows, explicit bridge simulation,
 OpenAPI/MCP tools and Open WebUI registration. Start the standalone simulation
 with `pnpm harness:demo`, or the WebUI stack with `sh scripts/start-harness-demo.sh`.
+
+## One-command local demo and scenario checks
+
+With Docker Compose, Python 3.11+ and local Ollama running:
+
+```sh
+sh scripts/start-harness-demo.sh --rebuild
+# Repeat startup, without rebuilding:
+sh scripts/start-harness-demo.sh
+# Fresh isolated simulated payment/plugin scenarios (Node 22 + pinned pnpm):
+pnpm demo:check
+```
+
+First use asks privately for your Open WebUI admin email/password, then keeps a private local session for later starts. Existing chat/payment state is preserved. See [the demo test guide](docs/DEMO_TEST_GUIDE.md) for plugin controls, the complete scenario matrix, fast-response settings and evidence limits.

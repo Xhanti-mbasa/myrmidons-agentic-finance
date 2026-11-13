@@ -36,16 +36,25 @@ Demo grants/intents expire seven days after first setup.
 
 ## Open WebUI with the tools already registered
 
-Docker + Compose run both services; an inference server remains independently
-installed. The script preserves existing WebUI history and private configuration.
+Docker + Compose run both services; Python 3.11+ and an independently running
+local Ollama are required. No host Node installation is needed for Docker startup. The script preserves existing WebUI history and private configuration.
 
 ```sh
+sh scripts/start-harness-demo.sh --rebuild
+# Later starts reuse images, private credentials, policies and chat history:
 sh scripts/start-harness-demo.sh
 ```
 
 Open http://localhost:3000 and create/sign into the admin account. Connect your
-installed model in WebUI as described in `open-webui.md`. Then register the
-server and finance preset once (replace the model ID):
+installed model in WebUI as described in `open-webui.md`. The launcher now handles registration automatically: it uses your normal WebUI
+admin login privately on first use, and reuses a 0600 session file outside the
+harness mount on later starts. It does not require copying an API key. It also
+fixes the Linux container-to-host loopback connection, verifies model discovery,
+and applies a short-response/no-thinking finance preset. Use `--no-fast` to
+preserve existing inference settings. On a first-ever WebUI install, run with
+`--containers-only`, create the admin account, then rerun normally.
+
+The standalone manual registration command remains available (replace the model ID):
 
 ```sh
 python3 scripts/setup-webui-harness.py --base-model YOUR_INSTALLED_MODEL
@@ -62,6 +71,9 @@ For a host-native WebUI, pass `--harness-url http://127.0.0.1:8091`; also pass
 `--agent-token-file` with the standalone demo's private `agent.token` path. For a
 Docker WebUI with a host-native harness, explicitly configure private host
 reachability; a container cannot reach the host's loopback via host.docker.internal.
+
+For a reproducible 12-scenario local HTTP check, plugin locations, manual
+chat prompts and performance troubleshooting, see [DEMO_TEST_GUIDE.md](DEMO_TEST_GUIDE.md).
 
 The registration script targets the current official `/api/v1/configs/tool_servers`
 and `/api/v1/models/create` APIs. If your WebUI version differs, add the server

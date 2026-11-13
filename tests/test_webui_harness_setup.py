@@ -57,3 +57,46 @@ class SetupTests(unittest.TestCase):
         for url in ['http://remote.example', 'https://user:pass@example.com', 'https://example.com?token=secret']:
             with self.assertRaises(ValueError):
                 module.validate_url(url)
+
+class FastSetupTests(unittest.TestCase):
+    def test_fast_update_preserves_prompt_tools_and_unrelated_params(self):
+        calls = []
+        class Opener:
+            def open(self, request, timeout):
+                calls.append((request.full_url, json.loads(request.data) if request.data else None))
+                if '/models/model?' in request.full_url:
+                    return io.BytesIO(json.dumps({'id': 'shucamoxa-finance', 'name': 'Owner title', 'base_model_id': 'old',
+                        'params': {'system': 'Owner prompt', 'top_k': 17}, 'meta': {'toolIds': ['server:shucamoxa']}}).encode())
+                return io.BytesIO(b'{}')
+        result = module.install('http://127.0.0.1:3000', 'http://127.0.0.1:8091', 'admin', 'a' * 40, 'model', Opener(), fast=True)
+        updated = calls[-1][1]
+        self.assertEqual(result['preset'], 'fast_settings_updated')
+        self.assertEqual(updated['params']['system'], 'Owner prompt')
+        self.assertEqual(updated['params']['top_k'], 17)
+        self.assertEqual(updated['meta']['toolIds'], ['server:shucamoxa'])
+        self.assertFalse(updated['params']['think'])
+        self.assertEqual(updated['params']['max_tokens'], 512)
+        self.assertNotIn('a' * 40, json.dumps(updated))
+
+    def test_local_network_migration_verifies_agent_before_replacing_connection(self):
+        calls = []
+        class Opener:
+            def open(self, request, timeout):
+                calls.append(request)
+                if request.full_url.endswith('/tool_servers') and request.data is None:
+                    return io.BytesIO(b'{"TOOL_SERVER_CONNECTIONS":[{"url":"http://harness:8091","info":{"id":"shucamoxa"}}]}')
+                if request.full_url.endswith('/get_capabilities'):
+                    self_auth = request.get_header('Authorization')
+                    if self_auth != 'Bearer ' + 'a' * 40: raise AssertionError('Agent credential required')
+                    return io.BytesIO(b'{"evidence":"simulated"}')
+                return io.BytesIO(b'{}')
+        module.install('http://127.0.0.1:3000', 'http://127.0.0.1:8091', 'admin', 'a' * 40, 'model', Opener(), allow_local_migration=True)
+        self.assertTrue(calls[1].full_url.endswith('/get_capabilities'))
+        self.assertTrue(calls[2].full_url.endswith('/tool_servers'))
+
+    def test_migration_flag_still_refuses_remote_repointing(self):
+        class Opener:
+            def open(self, request, timeout):
+                return io.BytesIO(b'{"TOOL_SERVER_CONNECTIONS":[{"url":"https://other.example","info":{"id":"shucamoxa"}}]}')
+        with self.assertRaises(ValueError):
+            module.install('http://127.0.0.1:3000', 'http://127.0.0.1:8091', 'admin', 'a' * 40, 'model', Opener(), allow_local_migration=True)

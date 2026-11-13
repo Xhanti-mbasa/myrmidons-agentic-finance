@@ -35,7 +35,12 @@ def validate_url(value):
     return value.rstrip('/')
 
 
-def install(base_url, harness_url, api_key, agent_key, model, opener=None):
+FAST_PARAMS = {'think': False, 'temperature': 0, 'max_tokens': 512,
+               'num_ctx': 8192, 'num_predict': 512, 'keep_alive': '30m'}
+
+
+def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fast=False,
+            allow_local_migration=False):
     base_url = validate_url(base_url)
     harness_url = validate_url(harness_url)
     if len(agent_key) < 32 or not api_key or api_key == agent_key:
@@ -52,8 +57,18 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None):
     # Preserve all unrelated connections. Refuse to repoint an existing server with this ID.
     connections = call('/api/v1/configs/tool_servers').get('TOOL_SERVER_CONNECTIONS') or []
     existing = [c for c in connections if (c.get('info') or {}).get('id') == 'shucamoxa']
-    if existing and any(c.get('url', '').rstrip('/') != harness_url for c in existing):
-        raise ValueError('Existing shucamoxa connection points elsewhere; review it in WebUI before replacing')
+    changed = [c for c in existing if c.get('url', '').rstrip('/') != harness_url]
+    if changed:
+        local_aliases = {'http://harness:8091', 'http://127.0.0.1:8091'}
+        if not (allow_local_migration and harness_url in local_aliases and
+                all(c.get('url', '').rstrip('/') in local_aliases for c in changed)):
+            raise ValueError('Existing shucamoxa connection points elsewhere; review it in WebUI before replacing')
+        # Verify the new local endpoint accepts the actual scoped agent credential before migration.
+        request = urllib.request.Request(harness_url + '/tools/get_capabilities', data=b'{}',
+            headers={'Authorization': 'Bearer ' + agent_key, 'Content-Type': 'application/json'})
+        with opener.open(request, timeout=10) as response:
+            if json.load(response).get('evidence') not in {'simulated', 'testnet'}:
+                raise ValueError('Local harness verification failed')
     connection = {'url': harness_url, 'path': 'openapi.json', 'type': 'openapi', 'auth_type': 'bearer',
                   'key': agent_key, 'config': {'enable': True}, 'info': {'id': 'shucamoxa', 'name': 'Shucamoxa governed tools'}}
     merged = [c for c in connections if (c.get('info') or {}).get('id') != 'shucamoxa'] + [connection]
@@ -64,13 +79,26 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None):
               'meta': {'description': 'Owner-controlled finance harness. Inspect evidence mode before reporting a payment.',
                        'toolIds': ['server:shucamoxa'], 'capabilities': {'vision': False, 'file_upload': False}},
               'access_grants': []}
+    if fast:
+        preset['params'].update(FAST_PARAMS)
     try:
-        call('/api/v1/models/model?id=shucamoxa-finance')
+        current = call('/api/v1/models/model?id=shucamoxa-finance')
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise
         call('/api/v1/models/create', preset)
     else:
+        if fast:
+            # Preserve the owner's prompt, capabilities, tool list and unrelated parameters.
+            # An explicit fast setup changes only these inference settings and the selected base model.
+            updated = {key: current[key] for key in
+                       ('id', 'base_model_id', 'name', 'is_active', 'params', 'meta', 'access_grants') if key in current}
+            if updated.get('id') != 'shucamoxa-finance':
+                raise ValueError('Unexpected model response; no preset changed')
+            updated['base_model_id'] = model
+            updated['params'] = {**(current.get('params') or {}), **FAST_PARAMS}
+            call('/api/v1/models/model/update', updated)
+            return {'tools_registered': True, 'preset': 'fast_settings_updated'}
         # Preserve an existing model's owner-edited prompt/settings. Registering twice is safe.
         return {'tools_registered': True, 'preset': 'already_present_preserved'}
     return {'tools_registered': True, 'preset': 'created'}
@@ -83,9 +111,10 @@ def main():
     p.add_argument('--agent-token-file', default='secrets/harness/agent.token')
     p.add_argument('--admin-token-file')
     p.add_argument('--base-model', required=True, help='Installed model ID with native tool calling')
+    p.add_argument('--fast', action='store_true', help='Disable thinking and bound replies on the finance preset')
     args = p.parse_args()
     key = private_read(args.admin_token_file) if args.admin_token_file else getpass.getpass('Open WebUI admin API key/session token: ')
-    result = install(args.webui_url, args.harness_url, key, private_read(args.agent_token_file), args.base_model)
+    result = install(args.webui_url, args.harness_url, key, private_read(args.agent_token_file), args.base_model, fast=args.fast)
     print(json.dumps(result))
     print('Open WebUI → select Shucamoxa · Governed Finance. Tools use the agent credential only.')
 
@@ -93,6 +122,10 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except urllib.error.HTTPError as exc:
+        print('Registration failed: HTTP %s at %s. No response body or credential logged.' %
+              (exc.code, urlparse(exc.url).path), file=sys.stderr)
+        sys.exit(1)
     except Exception:
         print('Registration failed. Check the admin credential, WebUI API version, installed model and container reachability. No secret details logged.', file=sys.stderr)
         sys.exit(1)

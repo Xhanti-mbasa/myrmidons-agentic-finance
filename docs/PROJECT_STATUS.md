@@ -397,3 +397,25 @@ Dedicated funded Testnet wallets, compatible approved publisher, reviewed fresh
 quote, deployed signing isolation and actual allowed/blocked settlement evidence
 remain release gates. Live cross-chain bridging and native browser purchasing
 remain further integrations; profile labels do not establish legal compliance.
+
+## Local startup and scenario runner (13 November 2026)
+
+`sh scripts/start-harness-demo.sh` now orchestrates local Docker/Ollama readiness,
+Linux loopback networking, admin sign-in/session reuse, scoped tool registration,
+model discovery and harmless preload. Admin sessions are 0600 files outside the
+harness state mount; no password is retained. Existing tokens, DBs, policies,
+chat history, unrelated connections and owner prompts/tools are preserved.
+Explicit owner-token rotation is available for an exposed console credential;
+it does not reset financial state or expose the replacement token in output.
+Fast finance-preset parameters disable thinking and bound generation; no model
+or laptop speed benchmark is claimed. See `DEMO_TEST_GUIDE.md`.
+
+`pnpm demo:check` passed all 12 isolated simulated scenarios over actual local
+HTTP, using fresh temporary state and the existing durable coordinators. No
+model, ledger, faucet or merchant was contacted. TypeScript typecheck passed;
+1,804 TypeScript tests and 43 Python tests passed. Python startup/installer tests exercise private
+session reuse through a real local HTTP fixture, state preservation, secret
+separation, model selection, symlink refusal and bounded health waits. Docker
+orchestration, actual WebUI 0.13.3 registration, native tool calling and latency
+on the owner's machine still require deployment verification. The payment,
+policy/signing and ledger controls were not relaxed by this startup change.
