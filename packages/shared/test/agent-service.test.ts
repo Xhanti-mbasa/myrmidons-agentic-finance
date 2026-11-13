@@ -18,6 +18,10 @@ describe("ProcessInvoiceRequest", () => {
     expect(ProcessInvoiceRequest.safeParse({ ...valid, text: "x".repeat(MAX_INVOICE_TEXT_CHARS) }).success).toBe(true);
   });
 
+  it("accepts an invoice ID and pdfBase64", () => {
+    expect(ProcessInvoiceRequest.safeParse({ invoiceId: "inv_1", pdfBase64: "JVBERi0..." }).success).toBe(true);
+  });
+
   it.each([
     ["text over the limit", { ...valid, text: "x".repeat(MAX_INVOICE_TEXT_CHARS + 1) }],
     ["empty text", { ...valid, text: "" }],
@@ -26,6 +30,9 @@ describe("ProcessInvoiceRequest", () => {
     ["an invoice ID with a space", { ...valid, invoiceId: "inv 1" }],
     ["a 65-character invoice ID", { ...valid, invoiceId: "a".repeat(65) }],
     ["no invoice ID", { text: "INVOICE" }],
+    ["both text and pdfBase64", { invoiceId: "inv_1", text: "INVOICE", pdfBase64: "JVBERi0..." }],
+    ["neither text nor pdfBase64", { invoiceId: "inv_1" }],
+    ["empty pdfBase64", { invoiceId: "inv_1", pdfBase64: "" }],
   ])("rejects %s", (_label, value) => {
     expect(ProcessInvoiceRequest.safeParse(value).success).toBe(false);
   });

@@ -5,6 +5,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "fixtures:pdf": "node scripts/make-invoice-pdfs.ts",
+    "agent:invoice": "tsx services/agent/src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p .",
