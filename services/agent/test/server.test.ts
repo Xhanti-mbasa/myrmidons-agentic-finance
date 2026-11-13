@@ -213,7 +213,7 @@ describe("logging", () => {
 describe("ownerChat: the seam the chat adapter (T13) calls", () => {
   const latest = "Pay Karoo $30 now";
   const payKarooFromChat: ModelTurn = {
-    toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", invoiceNumber: "OWNER-1", reason: "Owner asked" } }],
+    toolCalls: [{ tool: "pay", input: { supplierId: "sup_karoo", amount: "30.00", reason: "Owner asked" } }],
   };
 
   it("passes only the latest owner turn to the agent", async () => {
@@ -243,7 +243,7 @@ describe("ownerChat: the seam the chat adapter (T13) calls", () => {
     const answer = await ownerChat({ latestOwnerTurn: "Did I pay Karoo this month?" });
 
     expect((await invoice).status).toBe(200);
-    expect(answer.reply).toBe("Chat run.");
+    expect(answer.reply).toBe("Chat run.\n\nNo payment was made.");
   });
 });
 
