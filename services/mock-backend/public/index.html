@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PayGuard owner</title>
+  <link rel="stylesheet" href="/owner/app.css">
+  <script src="/owner/app.js" defer></script>
+</head>
+<body data-view="login">
+  <div id="banner" class="banner" role="alert" hidden></div>
+
+  <section id="login" class="login" aria-labelledby="login-title">
+    <h1 id="login-title">Myrmidons PayGuard</h1>
+    <p class="muted">Owner sign-in for Myrmidons Imports, Cape Town.</p>
+    <form id="login-form" class="stack" autocomplete="off">
+      <label for="login-token">Owner token</label>
+      <input id="login-token" name="token" type="password" required spellcheck="false">
+      <button type="submit" class="primary">Sign in</button>
+      <p id="login-error" class="error-text" role="status"></p>
+    </form>
+  </section>
+
+  <div id="app" class="app">
+    <header id="top" class="top">
+      <div class="brand">
+        <h1>Myrmidons PayGuard · Myrmidons Imports, Cape Town</h1>
+        <p class="sub"><span class="badge">XRPL Testnet</span> <span id="mode-note" class="muted">Sample business, sample invoices.</span></p>
+      </div>
+      <div class="kill">
+        <button id="kill-switch" class="switch" type="button" role="switch" aria-checked="false" aria-describedby="kill-state">
+          <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+          <span class="switch-label">Kill switch</span>
+        </button>
+        <p id="kill-state" class="kill-state">Agent may pay approved suppliers</p>
+      </div>
+      <form id="logout-form" class="logout"><button type="submit" class="quiet">Sign out</button></form>
+    </header>
+    <p id="revoked" class="revoked" role="status" hidden>Agent payment authority revoked</p>
+
+    <main class="grid">
+      <section class="panel mandate" aria-labelledby="mandate-title">
+        <h2 id="mandate-title">Mandate</h2>
+        <p class="muted small">Rules the agent cannot change. Period from <span id="period-start">…</span>.</p>
+        <div class="figures">
+          <div><span class="figure" id="cap">…</span><span class="figure-label">Per-payment cap</span></div>
+          <div><span class="figure" id="budget">…</span><span class="figure-label">Total budget</span></div>
+        </div>
+        <div class="bar" id="budget-bar" role="img" aria-label="Budget use">
+          <span class="seg spent" id="bar-spent"></span><span class="seg reserved" id="bar-reserved"></span>
+        </div>
+        <dl class="legend">
+          <div><dt><span class="key spent"></span>Spent</dt><dd id="spent">…</dd></div>
+          <div><dt><span class="key reserved"></span>Reserved</dt><dd id="reserved">…</dd></div>
+          <div><dt><span class="key remaining"></span>Remaining</dt><dd id="remaining">…</dd></div>
+        </dl>
+        <details class="edit">
+          <summary>Change limits</summary>
+          <form id="limits-form" class="limits">
+            <label for="limit-cap">Per-payment cap (USD)</label>
+            <input id="limit-cap" inputmode="decimal" required pattern="\d{1,12}(\.\d{1,2})?">
+            <label for="limit-budget">Total budget (USD)</label>
+            <input id="limit-budget" inputmode="decimal" required pattern="\d{1,12}(\.\d{1,2})?">
+            <button type="submit" class="primary">Save limits</button>
+            <p id="limits-status" class="small" role="status"></p>
+          </form>
+        </details>
+        <h3>Approved suppliers</h3>
+        <ul id="suppliers" class="suppliers"></ul>
+      </section>
+
+      <section class="panel inbox" aria-labelledby="inbox-title">
+        <h2 id="inbox-title">Invoice inbox</h2>
+        <div class="demo" role="group" aria-label="Load a demo invoice">
+          <span class="muted small">Load demo invoice</span>
+          <button type="button" class="chip" data-invoice="01">01</button>
+          <button type="button" class="chip" data-invoice="02">02</button>
+          <button type="button" class="chip" data-invoice="03">03</button>
+          <button type="button" class="chip" data-invoice="04">04</button>
+          <button type="button" class="chip" data-invoice="05">05</button>
+          <button type="button" class="chip" data-invoice="06">06</button>
+        </div>
+        <form id="invoice-form" class="stack">
+          <label for="invoice-text" class="visually-hidden">Invoice text</label>
+          <textarea id="invoice-text" rows="11" maxlength="20000" spellcheck="false" placeholder="Paste an invoice, or load a demo one."></textarea>
+          <button id="send-invoice" type="submit" class="primary">Send to agent</button>
+        </form>
+        <div id="result" class="result" aria-live="polite" hidden>
+          <p class="result-head"><span id="result-decision" class="pill"></span> <span id="result-rule" class="code"></span></p>
+          <p id="result-explanation"></p>
+          <p id="result-tx" class="small muted"></p>
+          <ul id="result-flags" class="flags"></ul>
+          <div id="result-suspicious" class="suspicious" hidden>
+            <h3>Instructions found in the invoice, ignored</h3>
+            <ul id="suspicious-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel approvals" aria-labelledby="approvals-title">
+        <h2 id="approvals-title">Approvals</h2>
+        <p id="approvals-empty" class="muted">Nothing is waiting for you.</p>
+        <ul id="approvals" class="approval-list"></ul>
+      </section>
+
+      <section class="panel activity" aria-labelledby="activity-title">
+        <h2 id="activity-title">Activity</h2>
+        <p class="muted small">Every decision, newest first. Each row is chained to the one before it.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Time</th><th scope="col">Supplier</th><th scope="col" class="num">Amount</th><th scope="col">Decision</th><th scope="col">Rule</th><th scope="col">Explanation</th><th scope="col">Ledger</th></tr>
+            </thead>
+            <tbody id="activity"></tbody>
+          </table>
+        </div>
+        <p id="activity-empty" class="muted">No activity yet. Send an invoice to the agent to start.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

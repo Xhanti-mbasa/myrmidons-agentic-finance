@@ -89,7 +89,8 @@ describe("POST /payments", () => {
 
   it("blocks every payment with KILL_SWITCH_ON once the owner turns the kill switch on", async () => {
     backend = await startTestBackend();
-    expect((await backend.owner("POST", "/dev/kill-switch", { on: true })).status).toBe(200);
+    const owner = await backend.ownerSession();
+    expect((await owner("POST", "/owner/api/kill-switch", { on: true })).status).toBe(200);
     const res = await backend.agent("POST", "/payments", pay("INV-1042", "30.00"));
     expect(res.json).toMatchObject({ status: "blocked", ruleCode: "KILL_SWITCH_ON" });
     expect((await rules()).killSwitch).toBe(true);

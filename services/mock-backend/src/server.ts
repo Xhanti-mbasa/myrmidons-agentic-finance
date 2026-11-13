@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createAdaptorServer } from "@hono/node-server";
 import { createMockApp } from "./app";
 import { loadMockConfig } from "./config";
+import { createOwnerApp, isOwnerPath } from "./owner";
 import { loadSeed, parseSeed, type MockSeed } from "./seed";
 import { MockStore } from "./store";
 
@@ -18,6 +19,8 @@ export type StartOptions = {
   port?: number;
   seed?: MockSeed;
   approvalsFile?: string;
+  /** Overrides the 90-second agent timeout of POST /owner/api/invoices (tests). */
+  agentTimeoutMs?: number;
 };
 
 /** Starts the dev mock on 127.0.0.1. Throws (rejects) unless SHUCAMOXA_MOCK=1; see loadMockConfig. */
@@ -25,13 +28,19 @@ export async function startMockBackend(options: StartOptions): Promise<{ url: st
   const config = loadMockConfig(options.env);
   const seed = options.seed ? parseSeed(options.seed) : loadSeed();
   const store = new MockStore(seed, options.approvalsFile ?? DEFAULT_APPROVALS_FILE);
-  const server = createAdaptorServer({ fetch: createMockApp(config, store).fetch });
+  const agentApp = createMockApp(config, store);
+  let origins: readonly string[] = [];
+  const ownerApp = createOwnerApp({ config, store, origins: () => origins, agentTimeoutMs: options.agentTimeoutMs });
+  // /owner and /owner/* are the owner dashboard (session cookie); everything else is the agent API (bearer).
+  const fetch = (request: Request) => (isOwnerPath(new URL(request.url).pathname) ? ownerApp.fetch(request) : agentApp.fetch(request));
+  const server = createAdaptorServer({ fetch });
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(options.port ?? config.port, MOCK_HOST, () => resolve());
   });
   const { port } = server.address() as AddressInfo;
+  origins = [`http://${MOCK_HOST}:${port}`, `http://localhost:${port}`];
   return {
     url: `http://${MOCK_HOST}:${port}`,
     close: () =>

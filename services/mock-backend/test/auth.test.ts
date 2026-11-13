@@ -1,37 +1,47 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { startTestBackend, type TestBackend } from "./support/backend";
+import { AGENT_TOKEN, startTestBackend, type TestBackend } from "./support/backend";
 
 let backend: TestBackend;
 afterEach(() => backend?.close());
 
-describe("POST /dev/kill-switch (mock only, owner token only)", () => {
-  it("refuses the agent token with 403 and leaves the kill switch off", async () => {
+describe("POST /owner/api/kill-switch (owner session only; replaces the deleted /dev/kill-switch)", () => {
+  it("refuses the agent token with 401 and leaves the kill switch off", async () => {
     backend = await startTestBackend();
-    expect((await backend.agent("POST", "/dev/kill-switch", { on: true })).status).toBe(403);
+    expect((await backend.raw("POST", "/owner/api/kill-switch", { Authorization: `Bearer ${AGENT_TOKEN}`, Origin: backend.origin }, { on: true })).status).toBe(401);
     expect((await backend.agent("GET", "/rules")).json.killSwitch).toBe(false);
   });
 
   it("refuses the agent token turning it off again", async () => {
     backend = await startTestBackend();
-    await backend.owner("POST", "/dev/kill-switch", { on: true });
-    expect((await backend.agent("POST", "/dev/kill-switch", { on: false })).status).toBe(403);
+    const owner = await backend.ownerSession();
+    await owner("POST", "/owner/api/kill-switch", { on: true });
+    expect((await backend.raw("POST", "/owner/api/kill-switch", { Authorization: `Bearer ${AGENT_TOKEN}`, Origin: backend.origin }, { on: false })).status).toBe(401);
     expect((await backend.agent("GET", "/rules")).json.killSwitch).toBe(true);
   });
 
-  it("accepts MOCK_OWNER_TOKEN with 200 and logs the change as the owner", async () => {
+  it("accepts the owner session with 200 and logs the change as the owner", async () => {
     backend = await startTestBackend();
-    const on = await backend.owner("POST", "/dev/kill-switch", { on: true });
+    const owner = await backend.ownerSession();
+    const on = await owner("POST", "/owner/api/kill-switch", { on: true });
     expect(on).toMatchObject({ status: 200, json: { killSwitch: true } });
-    const off = await backend.owner("POST", "/dev/kill-switch", { on: false });
+    const off = await owner("POST", "/owner/api/kill-switch", { on: false });
     expect(off).toMatchObject({ status: 200, json: { killSwitch: false } });
     const events = (await backend.agent("GET", "/log")).json.map((e: { event: string; actor: string }) => `${e.actor}:${e.event}`);
     expect(events).toEqual(["owner:kill_switch_off", "owner:kill_switch_on"]);
   });
 
-  it("is 401 without a token and 400 for a bad body", async () => {
+  it("is 401 without a session and 400 for a bad body", async () => {
     backend = await startTestBackend();
-    expect((await backend.anonymous("POST", "/dev/kill-switch", { on: true })).status).toBe(401);
-    expect((await backend.owner("POST", "/dev/kill-switch", { on: "yes" })).status).toBe(400);
+    expect((await backend.raw("POST", "/owner/api/kill-switch", { Origin: backend.origin }, { on: true })).status).toBe(401);
+    const owner = await backend.ownerSession();
+    expect((await owner("POST", "/owner/api/kill-switch", { on: "yes" })).status).toBe(400);
+  });
+
+  it("no longer serves /dev/kill-switch, even with the owner token", async () => {
+    backend = await startTestBackend();
+    expect((await backend.owner("POST", "/dev/kill-switch", { on: true })).status).toBe(404);
+    expect((await backend.agent("POST", "/dev/kill-switch", { on: true })).status).toBe(404);
+    expect((await backend.agent("GET", "/rules")).json.killSwitch).toBe(false);
   });
 });
 

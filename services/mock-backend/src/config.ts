@@ -9,8 +9,13 @@ export type MockConfig = {
   readonly port: number;
   readonly agentTokenDigest: Buffer;
   readonly ownerTokenDigest: Buffer;
+  /** Where POST /owner/api/invoices forwards to, or null when AGENT_URL isn't set (the route answers 503). */
+  readonly agent: AgentProxyConfig | null;
   readonly __brand: "MockConfig";
 };
+
+/** The agent's origin and the Authorization header for it. The header is a getter, so the token never serialises. */
+export type AgentProxyConfig = { readonly origin: string; readonly authorization: () => string };
 
 type Env = Record<string, string | undefined>;
 
@@ -36,8 +41,33 @@ export function loadMockConfig(env: Env): MockConfig {
     port: typeof port === "number" ? port : port.data,
     agentTokenDigest: digest(agent),
     ownerTokenDigest: digest(owner),
+    agent: loadAgentProxy(env, [agent, owner]),
     __brand: "MockConfig",
   };
+}
+
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/** AGENT_URL and AGENT_INBOUND_TOKEN: both or neither. AGENT_URL is a bare http origin on this machine. */
+function loadAgentProxy(env: Env, otherTokens: string[]): AgentProxyConfig | null {
+  const rawUrl = env.AGENT_URL ?? "";
+  const rawToken = env.AGENT_INBOUND_TOKEN ?? "";
+  if (rawUrl === "" && rawToken === "") return null;
+  if (rawUrl === "") throw new Error("mock-backend: AGENT_INBOUND_TOKEN is set but AGENT_URL is not; set both or neither");
+  const token = requireToken(env, "AGENT_INBOUND_TOKEN");
+  if (otherTokens.includes(token)) throw new Error("mock-backend: AGENT_INBOUND_TOKEN must differ from MOCK_AGENT_TOKEN and MOCK_OWNER_TOKEN");
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("mock-backend: AGENT_URL must be a URL like http://127.0.0.1:8790");
+  }
+  const bare = url.username === "" && url.password === "" && url.pathname === "/" && url.search === "" && url.hash === "" && !rawUrl.includes("@");
+  if (url.protocol !== "http:" || !LOOPBACK_HOSTS.has(url.hostname) || !bare) {
+    throw new Error("mock-backend: AGENT_URL must be a bare http origin on this machine, like http://127.0.0.1:8790");
+  }
+  const authorization = `Bearer ${token}`;
+  return { origin: url.origin, authorization: () => authorization };
 }
 
 function requireToken(env: Env, name: string): string {
@@ -50,6 +80,11 @@ function requireToken(env: Env, name: string): string {
 
 function digest(token: string): Buffer {
   return createHash("sha256").update(token, "utf8").digest();
+}
+
+/** POST /owner/login: constant time over equal-length digests, so neither length nor content leaks. */
+export function ownerTokenMatches(config: MockConfig, presented: string): boolean {
+  return timingSafeEqual(digest(presented), config.ownerTokenDigest);
 }
 
 export type Role = "agent" | "owner";

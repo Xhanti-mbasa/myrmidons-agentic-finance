@@ -5,9 +5,6 @@ import { ApprovalRequest, ApprovalResponse, LogEntry, LogFilter, PayRequest, Pay
 import { roleOf, type MockConfig, type Role } from "./config";
 import type { MockStore } from "./store";
 
-/** Mock-only routes. Not shared contracts: W4's owner API (T31) defines its own. */
-const KillSwitchBody = z.strictObject({ on: z.boolean() });
-const KillSwitchState = z.strictObject({ killSwitch: z.boolean() });
 const SupplierQuery = z.strictObject({ q: SupplierName });
 const LogPage = z.array(LogEntry).max(50);
 const ErrorBody = z.strictObject({ error: z.string() });
@@ -15,8 +12,9 @@ const ErrorBody = z.strictObject({ error: z.string() });
 type Env = { Variables: { role: Role } };
 
 /**
- * The mock's HTTP surface. Every response body is parsed with its schema before it is sent, so the
- * mock can't answer off-contract: a parse failure becomes a generic 500.
+ * The mock's agent-facing HTTP surface (bearer tokens). The owner dashboard under /owner is a separate
+ * app (owner.ts). Every response body is parsed with its schema before it is sent, so the mock can't
+ * answer off-contract: a parse failure becomes a generic 500.
  */
 export function createMockApp(config: MockConfig, store: MockStore) {
   const app = new Hono<Env>();
@@ -43,13 +41,6 @@ export function createMockApp(config: MockConfig, store: MockStore) {
     await next();
   };
   const jsonBody = async (c: Context<Env>): Promise<unknown> => c.req.json().catch(() => undefined);
-
-  app.use("/dev/*", only("owner"));
-  app.post("/dev/kill-switch", async (c) => {
-    const body = KillSwitchBody.safeParse(await jsonBody(c));
-    if (!body.success) return fail(c, 400, "expected {on: boolean}");
-    return send(c, KillSwitchState, await store.setKillSwitch(body.data.on));
-  });
 
   app.get("/rules", only("agent"), (c) => send(c, Rules, store.rules()));
 

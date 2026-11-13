@@ -11,6 +11,8 @@ import {
   toCents,
   toHex,
   type ApprovalRequest,
+  type OwnerActivityRow,
+  type OwnerApproval,
   type ApprovalResponse,
   type LogFilter,
   type PayRequest,
@@ -18,6 +20,8 @@ import {
   type RuleCode,
   type Rules,
   type SupplierLookup,
+  shortAddress,
+  testnetExplorerUrl,
 } from "@shucamoxa/shared";
 import type { MockSeed } from "./seed";
 
@@ -38,18 +42,30 @@ export function mockTxHash(n: number): string {
 
 type StoredPayment = { supplierId: string; cents: bigint; result: PayResult };
 type NewEntry = Omit<LogEntry, "seq" | "ts" | "prevHash" | "hash">;
+type StoredApproval = { approvalId: string; ts: string; request: ApprovalRequest; status: "pending" | "approved" | "rejected" };
+
+/** Why an owner write was refused, for the owner API to map to a status. */
+export class OwnerRefusal extends Error {
+  constructor(
+    readonly reason: "budget_below_committed" | "approval_not_found" | "approval_decided",
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 /**
  * The mock's whole state, in memory. Every write runs through one in-process queue, so the budget
  * check and the log append of one request finish before the next request's check starts.
  */
 export class MockStore {
-  private readonly capCents: bigint;
-  private readonly budgetCents: bigint;
+  private capCents: bigint;
+  private budgetCents: bigint;
   private spentCents = 0n;
   private killSwitch: boolean;
   private readonly payments = new Map<string, StoredPayment>();
   private readonly log: LogEntry[] = [];
+  private readonly approvals: StoredApproval[] = [];
   private txCount = 0;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -147,6 +163,7 @@ export class MockStore {
       const line = { approvalId, ts: new Date().toISOString(), status: "pending", kind: request.kind, payload: request.payload };
       await mkdir(dirname(this.approvalsFile), { recursive: true, mode: 0o700 });
       await appendFile(this.approvalsFile, `${JSON.stringify(line)}\n`, { mode: 0o600 });
+      this.approvals.push({ approvalId, ts: line.ts, request, status: "pending" });
       const payment = request.kind === "payment" ? request.payload : null;
       await this.append({
         actor: "agent",
@@ -164,7 +181,7 @@ export class MockStore {
     });
   }
 
-  /** Owner-only (POST /dev/kill-switch). Logs only an actual change. */
+  /** Owner-only (POST /owner/api/kill-switch). Logs only an actual change. */
   setKillSwitch(on: boolean): Promise<{ killSwitch: boolean }> {
     return this.serialise(async () => {
       if (on !== this.killSwitch) {
@@ -199,6 +216,119 @@ export class MockStore {
       })
       .reverse()
       .slice(0, LOG_PAGE_SIZE);
+  }
+
+  // ---- Owner dashboard (M04). Owner session only; see owner.ts. ----
+
+  /**
+   * Sets the per-payment cap and the total budget. Refuses a budget below what is already spent plus
+   * reserved, so lowering it can never make committed money look unspent.
+   */
+  setLimits(perPaymentCap: string, totalBudget: string): Promise<Rules> {
+    return this.serialise(async () => {
+      const cap = toCents(perPaymentCap);
+      const budget = toCents(totalBudget);
+      const committed = this.spentCents + toCents(this.rules().reserved);
+      if (budget < committed) {
+        throw new OwnerRefusal("budget_below_committed", `total budget can't be below spent plus reserved (${fromCents(committed)})`);
+      }
+      if (cap !== this.capCents || budget !== this.budgetCents) {
+        const before = `cap ${fromCents(this.capCents)}, budget ${fromCents(this.budgetCents)}`;
+        this.capCents = cap;
+        this.budgetCents = budget;
+        await this.append({
+          actor: "owner",
+          event: "rules_changed",
+          invoiceNumber: null,
+          supplierId: null,
+          amount: null,
+          ruleCode: null,
+          explanation: `Owner changed the limits from ${before} to cap ${fromCents(cap)}, budget ${fromCents(budget)}.`,
+          txHash: null,
+          ledgerResult: null,
+        });
+      }
+      return this.rules();
+    });
+  }
+
+  /** Records the owner's decision on a pending approval. It never pays and never adds a supplier. */
+  decideApproval(approvalId: string, decision: "approve" | "reject"): Promise<{ approvalId: string; status: "approved" | "rejected" }> {
+    return this.serialise(async () => {
+      const approval = this.approvals.find((a) => a.approvalId === approvalId);
+      if (!approval) throw new OwnerRefusal("approval_not_found", "no such approval");
+      if (approval.status !== "pending") throw new OwnerRefusal("approval_decided", `approval already ${approval.status}`);
+      const status = decision === "approve" ? "approved" : "rejected";
+      const line = { approvalId, ts: new Date().toISOString(), status, kind: approval.request.kind };
+      await appendFile(this.approvalsFile, `${JSON.stringify(line)}\n`, { mode: 0o600 });
+      approval.status = status;
+      const { request } = approval;
+      const payment = request.kind === "payment" ? request.payload : null;
+      await this.append({
+        actor: "owner",
+        event: "approval_decided",
+        invoiceNumber: request.payload.invoiceNumber,
+        supplierId: payment?.supplierId ?? null,
+        amount: payment ? fromCents(toCents(payment.amount)) : null,
+        ruleCode: null,
+        explanation: `Owner ${status} the ${request.kind === "payment" ? "payment" : "new supplier"} request. Recorded only: nothing was paid or added.`,
+        txHash: null,
+        ledgerResult: null,
+      });
+      return { approvalId, status };
+    });
+  }
+
+  /** Approved suppliers with a shortened address, for the owner only. */
+  ownerSuppliers(): { id: string; name: string; shortAddress: string }[] {
+    return this.approved().map((s) => ({ id: s.id, name: s.name, shortAddress: shortAddress(s.address) }));
+  }
+
+  /** Pending approvals, oldest first. A supplier proposal shows only a shortened address. */
+  pendingApprovals(): OwnerApproval[] {
+    return this.approvals
+      .filter((a) => a.status === "pending")
+      .map(({ approvalId, ts, request }): OwnerApproval =>
+        request.kind === "payment"
+          ? {
+              approvalId,
+              ts,
+              kind: "payment",
+              invoiceNumber: request.payload.invoiceNumber,
+              supplierId: request.payload.supplierId,
+              supplierName: this.supplierName(request.payload.supplierId),
+              shortAddress: null,
+              amount: fromCents(toCents(request.payload.amount)),
+              reason: request.payload.reason,
+            }
+          : {
+              approvalId,
+              ts,
+              kind: "supplier",
+              invoiceNumber: request.payload.invoiceNumber,
+              supplierId: null,
+              supplierName: request.payload.name,
+              shortAddress: request.payload.address ? shortAddress(request.payload.address) : null,
+              amount: null,
+              reason: request.payload.evidence,
+            },
+      );
+  }
+
+  /**
+   * The newest 50 log rows with supplier names. explorerUrl only for a payment validated on the ledger
+   * (tesSUCCESS): a mock hash is never linked.
+   */
+  ownerActivity(): OwnerActivityRow[] {
+    return this.queryLog({}).map(({ prevHash: _prevHash, hash: _hash, ...entry }) => ({
+      ...entry,
+      supplierName: entry.supplierId ? this.supplierName(entry.supplierId) : null,
+      ...(entry.txHash && entry.ledgerResult === "tesSUCCESS" ? { explorerUrl: testnetExplorerUrl(entry.txHash) } : {}),
+    }));
+  }
+
+  private supplierName(supplierId: string): string | null {
+    return this.seed.suppliers.find((s) => s.id === supplierId)?.name ?? null;
   }
 
   /** Only called inside serialise, so seq and prevHash can't race. */
