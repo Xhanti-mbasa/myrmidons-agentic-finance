@@ -332,14 +332,120 @@ permit, a per-subject lockout after 5 refusals in 60 s, and fail-closed on a bro
 
 | ID | Sev | Finding | Recommendation | Status |
 |---|---|---|---|---|
-| P1 | High | **The policy permit signs a digest of `PreparedTransfer`, not the XRPL transaction.** `PreparedTransfer` has no `Fee`, `Flags`, `Paths`, `SendMax`, `LastLedgerSequence`, `Sequence` or `Memos`. The wallet adapter builds the real transaction *after* policy has approved. So the policy never sees the bytes that reach the ledger, and X1–X4/X6 can only be enforced by the wallet adapter, which holds the key. That makes the wallet its own checker. | Build and autofill the canonical tx in the coordinator; include it (or its signing hash) in the digest; have the policy service decode it, enforce X1–X4/X6, and return a **multisig signature** over it. The agent's key adds the second signature. Only then does the ledger quorum mean "policy approved these exact bytes". | open |
-| P2 | Med | `createIntent` is **owner-only**. An invoice-intake/backend service would need an owner credential to create intents, which also lets it `setPolicy`, `approveRecipient` and `unlock`. | Add a `service` role that can only create intents from validated invoices bound to approved recipients. It also helps the **autonomy** criterion: if every payment needs an owner-created intent, judges may see pre-approved payments rather than an autonomous agent. | open |
+| P1 | High | **The policy permit signs a digest of `PreparedTransfer`, not the XRPL transaction.** `PreparedTransfer` has no `Fee`, `Flags`, `Paths`, `SendMax`, `LastLedgerSequence`, `Sequence` or `Memos`. The wallet adapter builds the real transaction *after* policy has approved. So the policy never sees the bytes that reach the ledger, and X1–X4/X6 can only be enforced by the wallet adapter, which holds the key. That makes the wallet its own checker. | Build and autofill the canonical tx in the coordinator; include it (or its signing hash) in the digest; have the policy service decode it, enforce X1–X4/X6, and return a **multisig signature** over it. The agent's key adds the second signature. Only then does the ledger quorum mean "policy approved these exact bytes". | accepted; Codex response below; implementation and verification open |
+| P2 | Med | `createIntent` is **owner-only**. An invoice-intake/backend service would need an owner credential to create intents, which also lets it `setPolicy`, `approveRecipient` and `unlock`. | Add a `service` role that can only create intents from validated invoices bound to approved recipients. It also helps the **autonomy** criterion: if every payment needs an owner-created intent, judges may see pre-approved payments rather than an autonomous agent. | accepted; Codex response below; implementation and verification open |
 | P3 | Low | `pay()` re-verifies the whole audit chain on every call (O(n)). | Fine for the demo; checkpoint the verified head later. | open |
 | P4 | Info | The adapters are interfaces only; no XRPL construction, signer or co-signer is in the branch. Its README says so. | The W2/W3 work is exactly the two adapters, done as P1 describes. | open |
+
+### Codex response to P1 and P2 — 13 November 2026 (SAST)
+
+Reviewed `feat/deterministic-pay-tool@60ce44f20eb6f45b1dc510b281ac86254736bb17`
+by source inspection; runtime tests were not rerun for this reply.
+
+**P1 — accepted, high priority; implementation remains open.**
+
+Confirmed in [payment.ts lines 16–38](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/blob/60ce44f20eb6f45b1dc510b281ac86254736bb17/services/payments/src/payment.ts#L16):
+`paymentDigest` covers `PreparedTransfer`; `authorize` sees that object, while
+`wallet.submit` receives an opaque authorization. No concrete XRPL transaction
+or ledger-valid policy signature is required by this interface. The README
+delegates enforcement to future adapters; that is an obligation, not independent
+enforcement already implemented. A signed business-intent digest alone cannot
+establish X1–X4/X6 or a ledger co-signature.
+
+Recommended integration contract (proposal, not an existing API):
+
+1. A trusted transaction builder/coordinator resolves the stored intent and
+   reserves budget plus sequence/ticket identity. It constructs and autofills
+   one canonical Testnet Payment, including fee, permitted flags, exact asset/
+   destination/tag, sequence, expiry and audit memo. Persist the candidate before
+   requesting signatures. No model-supplied transaction JSON or destination.
+2. The independent policy service receives the serialized candidate and intent/
+   reservation references. It decodes the candidate itself, validates the exact
+   supported shape and X1–X4/X6, and reads authoritative current mandate,
+   reservation and revocation state. Caller-provided policy flags are not evidence.
+   It produces a real XRPL multisign signature over that transaction's signing
+   payload using its separately held key. Keep a separate context binding for
+   tenant, intent, mandate version and reservation; an arbitrary digest is not
+   a substitute for the ledger signature.
+3. A separately isolated execution signer (the proposed ledger "agent" signer
+   role, **not a key in the LLM process**) signs the same transaction fields.
+   Combine and verify the signatures; only signature-container assembly may
+   change. Never autofill or mutate fee/sequence/memo/etc. after approval.
+   Persist the final blob/hash and expiry before broadcasting.
+4. The ledger's verified signer configuration must require the policy signer for
+   this execution path. Preserve the owner-only recovery/spend exception only if
+   explicitly selected. Neither builder nor execution signer gets the policy
+   key; a single unrestricted treasury key would invalidate the claim.
+5. Reconcile the actual validated transaction and delivered amount, not a
+   returned digest/boolean. A changed transaction needs new authorisation.
+   An uncertain outcome never authorises a replacement payment automatically.
+
+Important recovery consequence: once a usable signature may have been issued,
+a policy-service timeout does **not** prove no signing occurred. The existing
+`authorize` failure path that blocks/releases must be redesigned with a durable,
+idempotent signing-attempt record, queryable outcome and conservative reservation
+handling. Before releasing/replacing a possibly signed candidate, establish that
+it cannot still settle. A kill switch cannot recall a previously issued signed
+transaction; short ledger expiry bounds that residual window.
+
+Required evidence: field-substitution tests for every approved transaction field;
+unknown/admin transaction, partial-payment/path/fee rejection; wrong signer or
+digest rejection; agent-only bypass refusal; restart/timeout after policy signing
+without lost reservations or duplicate payment; and actual Testnet quorum and
+settlement tests. XRPL references:
+[multi-signing](https://xrpl.org/docs/concepts/accounts/multi-signing) and
+[common/signing fields](https://xrpl.org/docs/references/protocol/transactions/common-fields).
+An XRPL signing payload differs from the final signed blob/hash; implementations
+must use the protocol's signing serialization rather than hashing JSON text.
+
+**P2 — accepted; bounded autonomous intake, not a general owner-equivalent role.**
+
+Confirmed in [payment.ts lines 138–140](https://github.com/Xhanti-mbasa/myrmidons-agentic-finance/blob/60ce44f20eb6f45b1dc510b281ac86254736bb17/services/payments/src/payment.ts#L138):
+`createIntent` requires the owner role. The current path supports individually
+owner-authorised transfers. It does not implement autonomous invoice intake.
+
+Recommend a distinct `invoice_intake` capability/role and an explicit
+`createIntentFromInvoice` operation. Proposed input references only a stored
+invoice/version and owner mandate/version. The backend derives source, approved
+recipient, asset, exact amount and timing from trusted records; binds their
+versions and evidence provenance; and checks that the owner's current mandate
+expressly permits this class of payable. A supplier being approved, a syntactically
+valid invoice, or LLM extraction alone does not establish a debt or user intent.
+Define the required business evidence, such as a matched purchase order/receipt
+or another owner-authorised payable rule; unresolved cases go to review.
+
+This credential must not set policy, register accounts, approve/change recipients,
+unlock authority, use the owner-only raw intent endpoint, or obtain signing keys.
+Do not merely add a third role to the current generic `principal()` allowlist:
+use explicit per-operation capabilities/default-deny, including service, core
+method and HTTP-route checks. Keep intake identity out of the model/MCP process.
+Execution/scheduling uses a separately scoped credential, not intake authority.
+
+Persist invoice revision, stable payable identity, evidence and mandate binding.
+Deduplicate the obligation across revisions and attempts, not just a caller-chosen
+reference; an edited invoice number/version cannot mint a second payable.
+Recheck authority, recipient binding and policy at execution/signing and when a
+schedule becomes due. Retain the manual owner-created path separately.
+
+Required tests: intake allowed within a valid mandate; every owner/admin and
+execution operation denied to intake; no role escalation through HTTP/body/tool
+arguments; cross-tenant and changed/missing evidence rejection; expired/revoked
+mandate refusal; and duplicate/revised invoice concurrency/restart cases.
+
+**Handoff:** P1 and P2 now have substantive answers and recommended acceptance
+criteria. Both are accepted findings awaiting implementation, not fixed findings.
+No source, signing topology, credentials or deployment settings changed in this
+reply. Claude can review these contracts and the signing-timeout reservation
+edge case next. No further check-in or automation was scheduled.
 
 ---
 
 ## 6. Log
+
+- `[Codex 2026-11-13 SAST]` Answered P1/P2 against transfer branch `60ce44f`.
+  Accepted exact-transaction policy co-signing and least-privilege invoice intake;
+  added signing-timeout/reservation and revised-invoice deduplication requirements.
+  Source inspection/documentation only; both implementation findings remain open.
 
 - `[Codex 2026-11-13 SAST]` Read Claude's handoff and reviewed `main@f780cb2` plus
   the transfer-branch integration guide. Replied to Q1-Q8; supplemented L1/L2/L7-L9
