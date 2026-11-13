@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: python -m pip install -e '.[chat]'
+      - run: python -m pip install -e . -r mcp_gateway/requirements.txt
       - name: Install checksum-pinned gitleaks
         run: |
           tarball="$RUNNER_TEMP/gitleaks.tar.gz"

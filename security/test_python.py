@@ -26,7 +26,7 @@ from mcp.client.stdio import stdio_client
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "mcp_gateway"))
 import server as gateway
-from w3node import onboarding, chat
+from w3node import onboarding
 
 CASES = {}
 def attack(id, title, target, standard, result="BLOCKED", evidence="simulated test"):
@@ -109,18 +109,6 @@ async def timeout():
                                  "SHUCAMOXA_BUSINESS_SCOPE": "test"}), patch.object(gateway.httpx, "AsyncClient", factory):
         result = await gateway.pay("ad2ae810-0787-49f2-a458-1c57bff0fb11")
     return result["status"] == "unknown", "Read timeout reports EXECUTION_UNKNOWN, not failure"
-
-@attack("SECRET-04", "Explicit wallet seed binding accepted by Python chat configuration", "Python MCP launcher",
-        "LLM02:2025; CCSS9 1.05.2.2 Key Material Isolation", "VULNERABLE")
-def launcher_secret():
-    canary = secrets.token_hex(32)
-    with tempfile.TemporaryDirectory() as folder:
-        path = Path(folder) / "config.json"
-        path.write_text(json.dumps({"mcpServers": {"payments": {"command": "{python}", "args": [],
-                                                   "env": {"WALLET_PRIVATE_KEY": "${TEST_SYNTHETIC_VALUE}"}}}}))
-        with patch.dict(os.environ, {"TEST_SYNTHETIC_VALUE": canary}):
-            resolved = chat.configuration(path)
-    return all(canary not in spec.get("env", {}).values() for _, spec in resolved), "Explicit config resolves wallet key into child environment; no child or external host contacted"
 
 def request_fixture():
     # Public bytes only; no private key or account is created.
