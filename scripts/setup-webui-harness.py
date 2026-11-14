@@ -36,7 +36,16 @@ def validate_url(value):
 
 
 FAST_PARAMS = {'think': False, 'temperature': 0, 'max_tokens': 512,
-               'num_ctx': 8192, 'num_predict': 512, 'keep_alive': '30m'}
+               'num_ctx': 8192, 'num_predict': 512, 'keep_alive': '24h'}
+# Open WebUI runs these extra generations on the SAME local model after every reply
+# (title, tags, follow-up chips, autocomplete). On one local GPU/CPU they queue in front
+# of the next answer, so the finance demo turns them off.
+BACKGROUND_TASKS = ('ENABLE_TITLE_GENERATION', 'ENABLE_TAGS_GENERATION', 'ENABLE_FOLLOW_UP_GENERATION',
+                    'ENABLE_AUTOCOMPLETE_GENERATION', 'ENABLE_SEARCH_QUERY_GENERATION',
+                    'ENABLE_RETRIEVAL_QUERY_GENERATION')
+# Earlier shipped prompts began with this line and told the model to call three tools
+# before answering. Replace them on --fast; any owner-written prompt is preserved.
+SHIPPED_PROMPT_PREFIX = 'You are Shucamoxa, '
 # Open WebUI 0.13.3 otherwise defaults builtin tool injection to True for native FC.
 # Disable automatic task/automation/memory/code tools on this finance preset.
 FINANCE_CAPABILITIES = {'vision': False, 'file_upload': False, 'builtin_tools': False,
@@ -82,19 +91,30 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fa
                   'key': agent_key, 'config': {'enable': True}, 'info': {'id': 'shucamoxa', 'name': 'Shucamoxa governed tools'}}
     merged = [c for c in connections if (c.get('info') or {}).get('id') != 'shucamoxa'] + [connection]
     call('/api/v1/configs/tool_servers', {'TOOL_SERVER_CONNECTIONS': merged})
+    shipped_prompt = (ROOT / 'config/harness-system-prompt.txt').read_text()
     preset = {'id': 'shucamoxa-finance', 'base_model_id': model, 'name': 'Shucamoxa · Governed Finance',
-              'is_active': True, 'params': {'system': (ROOT / 'config/harness-system-prompt.txt').read_text(),
+              'is_active': True, 'params': {'system': shipped_prompt,
                                           'function_calling': 'native'},
               'meta': finance_meta({'description': 'Owner-controlled finance harness. Inspect evidence mode before reporting a payment.'}),
               'access_grants': []}
     if fast:
         preset['params'].update(FAST_PARAMS)
+    tasks = 'unchanged'
+    if fast:
+        try:
+            config = call('/api/v1/tasks/config')
+            if any(config.get(k) for k in BACKGROUND_TASKS if k in config):
+                call('/api/v1/tasks/config/update', {**config, **{k: False for k in BACKGROUND_TASKS if k in config}})
+            tasks = 'background_generation_off'
+        except (urllib.error.URLError, ValueError, TypeError):
+            tasks = 'background_generation_unchanged'
     try:
         current = call('/api/v1/models/model?id=shucamoxa-finance')
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise
         call('/api/v1/models/create', preset)
+        return {'tools_registered': True, 'preset': 'created', 'tasks': tasks}
     else:
         hardened_meta = finance_meta(current.get('meta'))
         if fast or hardened_meta != current.get('meta'):
@@ -107,11 +127,12 @@ def install(base_url, harness_url, api_key, agent_key, model, opener=None, *, fa
             if fast:
                 updated['base_model_id'] = model
                 updated['params'] = {**(current.get('params') or {}), **FAST_PARAMS}
+                if str(updated['params'].get('system', '')).startswith(SHIPPED_PROMPT_PREFIX):
+                    updated['params']['system'] = shipped_prompt
             call('/api/v1/models/model/update', updated)
-            return {'tools_registered': True, 'preset': 'fast_settings_updated' if fast else 'tool_scope_updated'}
+            return {'tools_registered': True, 'preset': 'fast_settings_updated' if fast else 'tool_scope_updated', 'tasks': tasks}
         # Preserve an existing model's owner-edited prompt/settings. Registering twice is safe.
-        return {'tools_registered': True, 'preset': 'already_present_preserved'}
-    return {'tools_registered': True, 'preset': 'created'}
+        return {'tools_registered': True, 'preset': 'already_present_preserved', 'tasks': tasks}
 
 
 def main():
