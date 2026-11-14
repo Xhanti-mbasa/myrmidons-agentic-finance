@@ -181,7 +181,7 @@ describe("deterministic pay tool", () => {
     let release!: (value: unknown) => void;
     f.policy.authorize.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
     const pending = f.service.pay(agent, { intentId: a });
-    const second = new PaymentService(f.path, { policy: f.policy, wallet: f.wallet });
+    const second = new PaymentService(f.path, { policy: f.policy, wallet: f.wallet }, () => new Date("2026-11-13T00:00:00Z"));
     try {
       expect((await second.pay(agent, { intentId: b })).code).toBe("OVER_BUDGET");
       expect(second.budget(owner)).toEqual({ spent: "0.00", reserved: "100.00" });
