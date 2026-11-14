@@ -1,10 +1,12 @@
 /** `pnpm --filter @shucamoxa/policy start`: policy service, on 127.0.0.1:8791 unless configured. */
 import { serve } from "@hono/node-server";
+import { rulesReaderFromEnv } from "./http-rules-reader";
 import { createPolicyServer } from "./server";
 
 try {
   const { app, host, port } = createPolicyServer({
     env: process.env,
+    rulesReader: rulesReaderFromEnv(process.env),
   });
   const server = serve({ fetch: app.fetch, hostname: host, port }, () => {
     console.log(JSON.stringify({ event: "listening", host, port }));

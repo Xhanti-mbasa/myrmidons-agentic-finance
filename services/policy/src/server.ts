@@ -11,7 +11,7 @@ import {
 import { Wallet } from "xrpl";
 import { DEFAULT_POLICY_CHECKS, type PolicyCheck, type PolicyCheckContext } from "./checks";
 import { loadPolicyConfig, type PolicyServerConfig } from "./config";
-import { readRules, type RulesReaderLike } from "./rules-reader";
+import { readRules, type ReadableRules, type RulesReaderLike } from "./rules-reader";
 import { decodeAndVerifyAgentSignedBlob } from "./verify";
 
 export const MAX_POLICY_REQUEST_BYTES = 64 * 1024; // 64 KB
@@ -136,7 +136,7 @@ export function createPolicyServer(deps: PolicyServerDeps) {
       }
 
       // 2. Read rules
-      let rules: Rules;
+      let rules: ReadableRules;
       try {
         rules = deps.rulesReader ? await readRules(deps.rulesReader) : DEFAULT_RULES;
       } catch {

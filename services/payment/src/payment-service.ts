@@ -27,6 +27,11 @@ import type {
   XrplClientLike,
 } from "./types";
 
+function signedTxJson(blob: string): Record<string, unknown> {
+  const { Signers: _signers, ...tx } = decode(blob) as Record<string, unknown>;
+  return tx;
+}
+
 export class PaymentService {
   private readonly agentWallet: Wallet;
   private readonly treasuryAccount: string;
@@ -164,7 +169,7 @@ export class PaymentService {
           {
             Memo: {
               MemoType: toHex(MEMO_TYPE),
-              MemoData: toHex(logEntryHash),
+              MemoData: logEntryHash.toUpperCase(), // the 32-byte audit hash itself, as the policy checks
             },
           },
         ],
@@ -206,7 +211,9 @@ export class PaymentService {
 
       // Calls POST /cosign on policy service
       const cosignPayload: CosignRequest = {
-        txJson: autofilled as unknown as Record<string, unknown>,
+        // Exactly what was signed: the policy compares txJson with the decoded blob byte for byte,
+        // and encoding normalises values (e.g. amount "30.00" decodes as "30").
+        txJson: signedTxJson(agentSigned.tx_blob),
         agentSignedBlob: agentSigned.tx_blob,
         request: {
           supplierId: request.supplierId,
