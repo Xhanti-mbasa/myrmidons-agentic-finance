@@ -12,7 +12,9 @@ from mcp.types import Tool, TextContent
 app = Server('Shucamoxa governed harness')
 ALLOWED = frozenset({'get_capabilities', 'get_policy', 'policy_check', 'compliance_check', 'pay',
                      'get_transfer_status', 'purchase_resource', 'reconcile_purchase',
-                     'read_purchased_resource', 'get_audit_log', 'run_flow', 'bridge_quote'})
+                     'read_purchased_resource', 'get_audit_log', 'run_flow', 'bridge_quote',
+                     'get_instructions', 'list_payees', 'propose_payee', 'propose_payment',
+                     'propose_mandate', 'pay_payee', 'list_proposals'})
 
 
 def settings():

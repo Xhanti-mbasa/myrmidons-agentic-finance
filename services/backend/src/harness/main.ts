@@ -54,8 +54,14 @@ async function main() {
     console.log('Shucamoxa owner console: http://localhost:8091');
     console.log(demo ? 'SIMULATION: no blockchain funds move. Owner token file: ' + join(state, 'owner.token') : 'TESTNET adapter mode: live settlement requires the configured private backends.');
   });
+  // Scheduler: pays owner-confirmed scheduled payments when due. Respects the kill switch.
+  let ticking = false;
+  const tick = async () => { if (ticking) return; ticking = true;
+    try { const r = await h.runDue(); const ran = 'results' in r ? r.results ?? [] : []; if (ran.length) console.log('Scheduler ran ' + ran.length + ' due payment(s).'); }
+    catch { console.error('Scheduler run failed; payments remain stored for the next run.'); } finally { ticking = false; } };
+  const timer = setInterval(() => void tick(), 30000); void tick();
   let stopping = false;
-  const stop = () => { if (stopping) return; stopping = true; server.close(() => { h.close(); closeDemo(); }); };
+  const stop = () => { if (stopping) return; stopping = true; clearInterval(timer); server.close(() => { h.close(); closeDemo(); }); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
 }
 void main().catch(() => { console.error('Harness refused startup. Check private configuration, file permissions and audit integrity.'); process.exitCode = 1; });

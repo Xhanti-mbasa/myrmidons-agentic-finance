@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { AccountId, TransferId } from './transfers';
+import { XrplAddress } from './ids';
+import { Amount } from './money';
 export const HarnessAction = z.enum(['pay', 'purchase', 'bridge']);
 export const HarnessTarget = z.strictObject({ action: HarnessAction, targetId: z.string().min(1).max(64) }).superRefine((v, ctx) => {
   if (!(v.action === 'pay' ? TransferId : AccountId).safeParse(v.targetId).success)
@@ -33,3 +35,14 @@ export const HarnessPurchase = z.strictObject({ purchaseId: TransferId });
 export const HarnessFlowRequest = z.strictObject({ flowId: AccountId });
 export const HarnessBridge = z.strictObject({ routeId: AccountId });
 export const HarnessEmpty = z.strictObject({});
+
+/* Conversational mandates. The agent can only PROPOSE; the owner confirms outside chat.
+ * A confirmed mandate lets the agent pay one approved payee up to a cap per period. */
+export const MandatePeriod = z.enum(['daily', 'weekly', 'monthly']);
+export type MandatePeriod = z.infer<typeof MandatePeriod>;
+const Note = z.string().max(140).optional();
+export const ProposePayee = z.strictObject({ name: z.string().trim().min(1).max(60), address: XrplAddress, note: Note });
+export const ProposePayment = z.strictObject({ payeeId: AccountId, amount: Amount, executeAt: z.iso.datetime().optional(), note: Note });
+export const ProposeMandate = z.strictObject({ payeeId: AccountId, cap: Amount, period: MandatePeriod, note: Note });
+export const PayPayee = z.strictObject({ payeeId: AccountId, amount: Amount, note: Note });
+export const ProposalDecision = z.strictObject({ proposalId: z.uuid() });

@@ -20,6 +20,7 @@
     "harness:start": "tsx services/backend/src/harness/main.ts",
     "demo:start": "python3 scripts/start-local-demo.py",
     "demo:check": "tsx scripts/demo-scenarios.ts",
+    "demo:conversation": "tsx scripts/conversation-scenarios.ts",
     "test:demo": "vitest run services/backend/test/harness.test.ts services/backend/test/demo-scenarios.test.ts"
   },
   "devDependencies": {
