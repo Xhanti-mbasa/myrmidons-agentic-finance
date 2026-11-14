@@ -3,11 +3,14 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { HarnessEmpty, HarnessPay, HarnessResource, HarnessPurchase, HarnessTarget,
   HarnessBridge, HarnessFlowRequest, HarnessPolicyUpdate, ProposePayee, ProposePayment, ProposeMandate, PayPayee,
-  ProposalDecision } from '@shucamoxa/shared';
+  ProposalDecision, XrplAddress } from '@shucamoxa/shared';
 import { Harness, HarnessError, INJECTION } from './core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dashboard } from './ui';
+
+const CheckRecipient = z.strictObject({ address: z.string().trim().min(1).max(64) });
+const History = z.strictObject({ limit: z.number().int().min(1).max(50).optional() });
 
 let bindingRules = '';
 try { bindingRules = readFileSync(fileURLToPath(new URL('../../../../config/harness-system-prompt.txt', import.meta.url)), 'utf8').trim(); }
@@ -32,6 +35,10 @@ export const toolSchemas = {
   pay_payee: { schema: PayPayee, description: 'Pay an approved payee. Inside a confirmed limit it pays; otherwise it files a proposal (needs_owner_confirmation).' },
   list_proposals: { schema: HarnessEmpty, description: 'Status and results of recent proposals.' },
   bridge_quote: { schema: HarnessBridge, description: 'Indicative quote for a registered bridge route. Never executes.' },
+  check_recipient: { schema: CheckRecipient, description: 'Check an XRPL address before paying: valid format, approved payee or not, standing limit, pending proposal.' },
+  get_balance: { schema: HarnessEmpty, description: 'What the agent may still spend: remaining amount per payee limit this period, plus wallet balance when the ledger provides it.' },
+  payment_history: { schema: History, description: 'Recent payments, approvals and blocked attempts from the audit log.' },
+  list_scheduled: { schema: HarnessEmpty, description: 'Owner-confirmed payments scheduled for later and their run time.' },
 };
 export type ToolName = keyof typeof toolSchemas;
 export async function callTool(h: Harness, name: ToolName, input: unknown, agentId = 'default'): Promise<unknown> {
@@ -54,6 +61,38 @@ export async function callTool(h: Harness, name: ToolName, input: unknown, agent
     case 'propose_payment': return h.propose('payment', body);
     case 'propose_mandate': return h.propose('mandate', body);
     case 'pay_payee': return { evidence: h.adapters.evidence, ...await h.payPayee(body) };
+    case 'check_recipient': {
+      const address = body.address as string; const valid = XrplAddress.safeParse(address).success;
+      const payee = h.payees().find(p => p.address === address);
+      const pending = h.proposals(200).find(p => p.status === 'pending' && p.kind === 'payee' && (p.data as any).address === address);
+      return { evidence: h.adapters.evidence, address, validFormat: valid, approved: !!payee,
+        payee: payee ? { payeeId: payee.payeeId, name: payee.name, mandate: payee.mandate } : null, pendingProposalId: pending?.id ?? null,
+        advice: !valid ? 'Not a valid XRPL classic address. Ask the user to re-check it; do not pay.'
+          : payee ? (payee.mandate ? 'Approved with a standing limit: pay_payee pays up to the remaining amount.' : 'Approved; each payment needs owner confirmation.')
+          : pending ? 'Already proposed; waiting for the owner.' : 'Not an approved payee. Confirm the name with the user, then propose_payee.' };
+    }
+    case 'get_balance': {
+      const limits = h.payees().filter(p => p.mandate).map(p => ({ payeeId: p.payeeId, name: p.name, cap: p.mandate!.cap, period: p.mandate!.period,
+        spent: p.mandate!.spentThisPeriod, remaining: p.mandate!.remaining }));
+      const cents = limits.reduce((t, l) => t + Math.round(Number(l.remaining) * 100), 0);
+      const wallet = typeof (h.adapters as any).balance === 'function' ? await (h.adapters as any).balance()
+        : { available: false, note: h.adapters.evidence === 'simulated' ? 'SIMULATED ledger: no wallet balance. Limits below are what the agent may spend without asking.' : 'Wallet balance is not exposed to the agent.' };
+      const { policy } = h.policy();
+      return { evidence: h.adapters.evidence, paymentsEnabled: policy.enabled, wallet, autoPayRemainingTotal: (cents / 100).toFixed(2) + ' RLUSD', limits };
+    }
+    case 'payment_history': {
+      const keep = /payment|payee_approved|mandate_set|proposal_(confirmed|rejected)|execution_(returned|blocked)/;
+      const names = new Map(h.payees().map(p => [p.payeeId, p.name] as const));
+      const events = h.audit().filter(e => keep.test(e.event)).slice(-(body.limit ?? 20)).reverse()
+        .map(e => ({ at: e.at, event: e.event, target: names.get(e.targetId) ?? e.targetId, code: e.code }));
+      const payments = h.proposals(50).filter(p => p.kind === 'payment' && p.status !== 'pending').slice(0, body.limit ?? 20)
+        .map(p => ({ summary: p.summary, status: p.status, result: (p.result as any)?.result?.status ?? (p.result as any)?.status ?? null }));
+      return { evidence: h.adapters.evidence, payments, events };
+    }
+    case 'list_scheduled': return { evidence: h.adapters.evidence, scheduled: h.proposals(200)
+      .filter(p => p.kind === 'payment' && p.status === 'confirmed' && (p.data as any).executeAt && (p.result as any)?.result?.status === 'scheduled')
+      .map(p => ({ proposalId: p.id, summary: p.summary, executeAt: (p.data as any).executeAt,
+        state: Date.parse((p.data as any).executeAt) > Date.now() ? 'upcoming' : 'due or already run (see payment_history)' })) };
     case 'list_proposals': return { proposals: h.proposals(20).map(({ id, kind, status, summary, result }) => ({ proposalId: id, kind, status, summary, result })) };
   }
 }

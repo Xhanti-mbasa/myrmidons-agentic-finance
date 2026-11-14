@@ -89,7 +89,7 @@ async function main() {
     pass('agent key accepted; a wrong key is refused without counting as a strike');
 
     const tools = await agent.tools();
-    assert.ok(tools.length >= 17 && tools.some(t => t.function.name === 'pay_payee'));
+    assert.ok(tools.length >= 21 && ['pay_payee', 'check_recipient', 'get_balance', 'payment_history', 'list_scheduled'].every(n => tools.some(t => t.function.name === n)));
     assert.ok(!JSON.stringify(tools).includes('pattern'), 'model sees compact schemas');
     pass(`CLI loads the same ${tools.length} harness tools Open WebUI sees`);
 
@@ -131,6 +131,25 @@ async function main() {
     assert.equal(outs[0], 'needs_owner_confirmation · OVER_MANDATE');
     const tm = s2.messages.find(m => m.role === 'tool' && m.name === 'propose_mandate') as any; assert.ok(tm.tool_call_id.startsWith('call_'));
     pass('OpenAI-compatible stream (args split in 3 chunks): mandate → owner confirms → pays inside limit → over limit asks owner');
+
+    /* ---- extra tools: recipient, balance, history, schedule ---- */
+    const rc = (await agent.call('check_recipient', { address })).json;
+    assert.equal(rc.validFormat, true); assert.equal(rc.approved, true); assert.equal(rc.payee.name, 'Thabo Supplies');
+    const badAddr = (await agent.call('check_recipient', { address: 'rNOTREAL123' })).json; assert.equal(badAddr.validFormat, false); assert.match(badAddr.advice, /do not pay/);
+    const stranger = (await agent.call('check_recipient', { address: Wallet.generate().address })).json; assert.equal(stranger.approved, false);
+    const bal = (await agent.call('get_balance', {})).json;
+    assert.equal(bal.limits[0].remaining, '0.00'); assert.equal(bal.autoPayRemainingTotal, '0.00 RLUSD'); assert.equal(bal.wallet.available, false);
+    const hist = (await agent.call('payment_history', { limit: 10 })).json;
+    assert.ok(hist.events.some((e: any) => e.event.startsWith('mandate_payment') && e.target === 'Thabo Supplies'));
+    const later = new Date(Date.now() + 86400000).toISOString();
+    const sch = (await agent.call('propose_payment', { payeeId: 'thabo_supplies', amount: '20.00', executeAt: later })).json;
+    await ownerDo('confirm', [sch.proposalId]);
+    const ls = (await agent.call('list_scheduled', {})).json; assert.ok(ls.scheduled.some((x: any) => x.executeAt === later && x.state === 'upcoming'), JSON.stringify(ls));
+    assert.ok(sch.proposalId);
+    const ol0 = ol.queue.length; ol.queue.push({ calls: [{ name: 'check_recipient', args: { address } }] }, { text: 'Thabo is approved.' });
+    const ct: string[] = []; await new Session(agent, mk(ol, 'ollama'), tools, sys).turn('is ' + address + ' safe to pay?', { toolEnd: nm => ct.push(nm) });
+    assert.deepEqual(ct, ['check_recipient']); assert.equal(ol.queue.length, ol0);
+    pass('new tools: check_recipient (valid/approved/unknown), get_balance, payment_history, list_scheduled — model can call them');
 
     /* ---- small-model robustness ---- */
     assert.equal(salvageToolCalls('<tool_call>{"name":"list_payees","arguments":{}}</tool_call>').toolCalls[0]!.function.name, 'list_payees');

@@ -14,7 +14,8 @@ ALLOWED = frozenset({'get_capabilities', 'get_policy', 'policy_check', 'complian
                      'get_transfer_status', 'purchase_resource', 'reconcile_purchase',
                      'read_purchased_resource', 'get_audit_log', 'run_flow', 'bridge_quote',
                      'get_instructions', 'list_payees', 'propose_payee', 'propose_payment',
-                     'propose_mandate', 'pay_payee', 'list_proposals'})
+                     'propose_mandate', 'pay_payee', 'list_proposals', 'check_recipient',
+                     'get_balance', 'payment_history', 'list_scheduled'})
 
 
 def settings():
