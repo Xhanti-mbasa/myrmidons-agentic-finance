@@ -30,12 +30,13 @@ describe("POST /payments", () => {
     expect((await rules()).spent).toBe("30.00");
   });
 
-  it("is idempotent: the same invoice twice gives the same PayResult and one log entry", async () => {
+  it("blocks an exact repeat of a settled invoice as DUPLICATE_INVOICE with the original hash, and logs it", async () => {
     backend = await startTestBackend();
-    const first = await backend.agent("POST", "/payments", pay("INV-1042", "30.00"));
+    const first = PayResult.parse((await backend.agent("POST", "/payments", pay("INV-1042", "30.00"))).json);
     const second = await backend.agent("POST", "/payments", pay("INV-1042", "30", "sup_karoo", "Reworded reason"));
-    expect(second.json).toEqual(first.json);
-    expect(await log()).toHaveLength(1);
+    if (first.status !== "settled") throw new Error("unreachable");
+    expect(second.json).toMatchObject({ status: "blocked", ruleCode: "DUPLICATE_INVOICE", txHash: first.txHash });
+    expect((await log()).map((e) => e.event)).toEqual(["policy_blocked", "payment_settled"]);
     expect((await rules()).spent).toBe("30.00");
   });
 
@@ -56,8 +57,8 @@ describe("POST /payments", () => {
     expect(otherAmount.json).toMatchObject({ status: "blocked", ruleCode: "DUPLICATE_INVOICE" });
     expect(otherSupplier.json).toMatchObject({ status: "blocked", ruleCode: "DUPLICATE_INVOICE" });
     expect((await rules()).spent).toBe("30.00");
-    // The original result still stands for an exact repeat.
-    expect((await backend.agent("POST", "/payments", pay("INV-1042", "30.00"))).json).toEqual(first.json);
+    // An exact repeat is a duplicate too, and points at the original payment.
+    expect((await backend.agent("POST", "/payments", pay("INV-1042", "30.00"))).json).toMatchObject({ status: "blocked", ruleCode: "DUPLICATE_INVOICE", txHash: first.json.txHash });
   });
 
   it("re-checks an invoice whose first attempt was blocked when the request changes", async () => {

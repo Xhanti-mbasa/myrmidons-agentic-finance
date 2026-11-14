@@ -24,24 +24,24 @@ import {
   testnetExplorerUrl,
 } from "@shucamoxa/shared";
 import type { MockSeed } from "./seed";
+import { mockSettler, type NewLogEntry, type SettlementMode, type Settler, type SettlerFactory } from "./settlement";
+
+export { MOCK_LEDGER_RESULT, mockTxHash } from "./settlement";
 
 /** Confidence reported when two suppliers tie for the best score: an ambiguous name is never payable. */
 const AMBIGUOUS_CONFIDENCE_CAP = 0.5;
 const LOG_PAGE_SIZE = 50;
 
 /** What the mock writes as ledgerResult: it never submits anything, so it never claims tesSUCCESS. */
-export const MOCK_LEDGER_RESULT = "MOCK_NOT_SUBMITTED";
+type StoredPayment = { supplierId: string; cents: bigint; result: PayResult } | { supplierId: string; cents: bigint; unknown: true };
+type NewEntry = NewLogEntry;
 
-/**
- * A 64-hex "tx hash" that decodes to the text MOCK-TX-NOT-ON-LEDGER-<10 digits>. It fits LogEntry's
- * txHash format, so the log stays one shape, but any explorer lookup fails and fromHex shows it's fake.
- */
-export function mockTxHash(n: number): string {
-  return toHex(`MOCK-TX-NOT-ON-LEDGER-${String(n).padStart(10, "0")}`);
+/** Settlement ran but its outcome is not known. The amount stays reserved and the invoice is never resubmitted. */
+export class SettlementUnknown extends Error {
+  constructor(readonly invoiceNumber: string) {
+    super(`Payment outcome unknown for ${invoiceNumber}: the amount is held and the invoice will not be resubmitted. Check the ledger before acting.`);
+  }
 }
-
-type StoredPayment = { supplierId: string; cents: bigint; result: PayResult };
-type NewEntry = Omit<LogEntry, "seq" | "ts" | "prevHash" | "hash">;
 type StoredApproval = { approvalId: string; ts: string; request: ApprovalRequest; status: "pending" | "approved" | "rejected" };
 
 /** Why an owner write was refused, for the owner API to map to a status. */
@@ -62,20 +62,33 @@ export class MockStore {
   private capCents: bigint;
   private budgetCents: bigint;
   private spentCents = 0n;
+  private reservedCents = 0n;
+  private readonly settler: Settler;
   private killSwitch: boolean;
   private readonly payments = new Map<string, StoredPayment>();
   private readonly log: LogEntry[] = [];
   private readonly approvals: StoredApproval[] = [];
-  private txCount = 0;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly seed: MockSeed,
     private readonly approvalsFile: string,
+    makeSettler: SettlerFactory = mockSettler,
   ) {
     this.capCents = toCents(seed.perPaymentCap);
     this.budgetCents = toCents(seed.totalBudget);
     this.killSwitch = seed.killSwitch;
+    this.settler = makeSettler({
+      append: (entry) => this.append(entry), // the settler only runs inside pay(), which holds the queue
+      supplier: (id) => {
+        const found = this.approved().find((s) => s.id === id);
+        return found ? { id: found.id, name: found.name, address: found.address, status: "approved" } : null;
+      },
+    });
+  }
+
+  get settlementMode(): SettlementMode {
+    return this.settler.mode;
   }
 
   private serialise<T>(task: () => Promise<T>): Promise<T> {
@@ -89,12 +102,12 @@ export class MockStore {
   }
 
   rules(): Rules {
-    const remaining = this.budgetCents - this.spentCents;
+    const remaining = this.budgetCents - this.spentCents - this.reservedCents;
     return {
       perPaymentCap: fromCents(this.capCents),
       totalBudget: fromCents(this.budgetCents),
       spent: fromCents(this.spentCents),
-      reserved: "0.00", // the mock settles instantly, so nothing is ever held in reserve
+      reserved: fromCents(this.reservedCents), // only an unknown settlement outcome holds money in reserve
       remaining: fromCents(remaining > 0n ? remaining : 0n),
       periodStart: this.seed.periodStart,
       killSwitch: this.killSwitch,
@@ -113,36 +126,58 @@ export class MockStore {
   }
 
   /**
-   * Policy checks 1, 3, 7, 8 and 9 in the spec's order, in cents. Idempotent on invoiceNumber: an exact
-   * repeat (same supplier and amount; the reason may differ) gets the stored result and no log entry.
+   * Policy checks 1, 3, 7, 8 and 9 in the spec's order, in cents, then settlement. An exact repeat of a
+   * blocked request gets the stored result without a new log entry. Any repeat of a settled invoice is
+   * blocked as DUPLICATE_INVOICE, logged, and carries the original transaction hash.
    */
   pay(request: PayRequest): Promise<PayResult> {
     return this.serialise(async () => {
       const cents = toCents(request.amount);
       const prior = this.payments.get(request.invoiceNumber);
-      if (prior && prior.supplierId === request.supplierId && prior.cents === cents) return prior.result;
+      if (prior && "unknown" in prior) throw new SettlementUnknown(request.invoiceNumber);
+      if (prior?.result.status === "blocked" && prior.supplierId === request.supplierId && prior.cents === cents) return prior.result;
 
       const code = this.check(request.supplierId, cents, prior);
-      const base = {
-        invoiceNumber: request.invoiceNumber,
-        supplierId: request.supplierId,
-        amount: fromCents(cents),
-        ruleCode: code,
-        explanation: `${ruleExplanation(code)} Agent's reason: ${request.reason}`,
-      };
-
-      let result: PayResult;
-      if (code === "OK") {
-        const txHash = mockTxHash(++this.txCount);
-        const entry = await this.append({ ...base, actor: "payment", event: "payment_settled", txHash, ledgerResult: MOCK_LEDGER_RESULT });
-        this.spentCents += cents;
-        result = { status: "settled", ruleCode: "OK", txHash, logId: String(entry.seq) };
-      } else {
-        const entry = await this.append({ ...base, actor: "policy", event: "policy_blocked", txHash: null, ledgerResult: null });
-        result = { status: "blocked", ruleCode: code, logId: String(entry.seq) };
+      if (code !== "OK") {
+        const entry = await this.append({
+          actor: "policy",
+          event: "policy_blocked",
+          invoiceNumber: request.invoiceNumber,
+          supplierId: request.supplierId,
+          amount: fromCents(cents),
+          ruleCode: code,
+          explanation: `${ruleExplanation(code)} Agent's reason: ${request.reason}`,
+          txHash: null,
+          ledgerResult: null,
+        });
+        const original = prior?.result.status === "settled" ? { txHash: prior.result.txHash } : {};
+        const result: PayResult = { status: "blocked", ruleCode: code, ...original, logId: String(entry.seq) };
+        if (prior?.result.status !== "settled") this.payments.set(request.invoiceNumber, { supplierId: request.supplierId, cents, result });
+        return result;
       }
-      // A settled invoice keeps its result for good; an unsettled one is re-checked if the request changes.
-      if (prior?.result.status !== "settled") this.payments.set(request.invoiceNumber, { supplierId: request.supplierId, cents, result });
+
+      this.reservedCents += cents;
+      let result: PayResult;
+      try {
+        result = await this.settler.settle({ ...request, amount: fromCents(cents) });
+      } catch {
+        await this.append({
+          actor: "payment",
+          event: "payment_failed",
+          invoiceNumber: request.invoiceNumber,
+          supplierId: request.supplierId,
+          amount: fromCents(cents),
+          ruleCode: null,
+          explanation: "Settlement did not finish, so the outcome is unknown. The amount is held and the invoice will not be resubmitted until someone checks the ledger.",
+          txHash: null,
+          ledgerResult: null,
+        });
+        this.payments.set(request.invoiceNumber, { supplierId: request.supplierId, cents, unknown: true });
+        throw new SettlementUnknown(request.invoiceNumber);
+      }
+      this.reservedCents -= cents;
+      if (result.status === "settled") this.spentCents += cents;
+      this.payments.set(request.invoiceNumber, { supplierId: request.supplierId, cents, result });
       return result;
     });
   }
@@ -151,8 +186,8 @@ export class MockStore {
     if (this.killSwitch) return "KILL_SWITCH_ON";
     if (!this.approved().some((s) => s.id === supplierId)) return "SUPPLIER_NOT_APPROVED";
     if (cents > this.capCents) return "OVER_PER_PAYMENT_CAP";
-    if (this.spentCents + cents > this.budgetCents) return "OVER_BUDGET";
-    if (prior?.result.status === "settled") return "DUPLICATE_INVOICE";
+    if (this.spentCents + this.reservedCents + cents > this.budgetCents) return "OVER_BUDGET";
+    if (prior && "result" in prior && prior.result.status === "settled") return "DUPLICATE_INVOICE";
     return "OK";
   }
 

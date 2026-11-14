@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { ApprovalRequest, ApprovalResponse, LogEntry, LogFilter, PayRequest, PayResult, Rules, SupplierLookup, SupplierName } from "@shucamoxa/shared";
 import { roleOf, type MockConfig, type Role } from "./config";
-import type { MockStore } from "./store";
+import { SettlementUnknown, type MockStore } from "./store";
 
 const SupplierQuery = z.strictObject({ q: SupplierName });
 const LogPage = z.array(LogEntry).max(50);
@@ -19,9 +19,9 @@ type Env = { Variables: { role: Role } };
 export function createMockApp(config: MockConfig, store: MockStore) {
   const app = new Hono<Env>();
 
-  const send = <S extends z.ZodType>(c: Context<Env>, schema: S, body: z.input<S>, status: 200 | 201 | 400 | 401 | 403 | 404 | 413 | 500 = 200) =>
+  const send = <S extends z.ZodType>(c: Context<Env>, schema: S, body: z.input<S>, status: 200 | 201 | 400 | 401 | 403 | 404 | 413 | 500 | 503 = 200) =>
     c.json(schema.parse(body) as object, status);
-  const fail = (c: Context<Env>, status: 400 | 401 | 403 | 404 | 413 | 500, error: string) => send(c, ErrorBody, { error }, status);
+  const fail = (c: Context<Env>, status: 400 | 401 | 403 | 404 | 413 | 500 | 503, error: string) => send(c, ErrorBody, { error }, status);
 
   app.use("*", async (c, next) => {
     await next();
@@ -53,7 +53,13 @@ export function createMockApp(config: MockConfig, store: MockStore) {
   app.post("/payments", only("agent"), async (c) => {
     const request = PayRequest.safeParse(await jsonBody(c));
     if (!request.success) return fail(c, 400, "body is not a PayRequest");
-    return send(c, PayResult, await store.pay(request.data));
+    try {
+      return send(c, PayResult, await store.pay(request.data));
+    } catch (error) {
+      // Unknown settlement outcome: 503 so the agent reports it as unclear and never retries blindly.
+      if (error instanceof SettlementUnknown) return fail(c, 503, error.message);
+      throw error;
+    }
   });
 
   app.post("/approvals", only("agent"), async (c) => {
