@@ -124,6 +124,24 @@ async function main() {
     assert.ok((await tool('list_payees')).payees.length > 0);
     pass('owner reviews and unlocks; agent works again');
 
+    const made = await call('/owner/agents', { name: 'AP Clerk', description: 'Accounts payable for Karoo and Thabo', instructions: 'Only pay suppliers already in the payee list.', tools: ['get_instructions', 'list_payees', 'propose_payment'] }, 'owner');
+    assert.match(made.token, /^shx_/);
+    const asClerk = async (path: string, body: unknown, expected = 200, method = 'POST') => {
+      const res = await fetch(origin + path, { method, headers: { Authorization: 'Bearer ' + made.token, 'Content-Type': 'application/json' }, ...(method === 'GET' ? {} : { body: JSON.stringify(body) }) });
+      assert.equal(res.status, expected, path); return await res.json() as any; };
+    assert.equal(Object.keys((await asClerk('/openapi.json', undefined, 200, 'GET')).paths).length, 3);
+    assert.equal((await asClerk('/tools/get_instructions', {})).agent.instructions, 'Only pay suppliers already in the payee list.');
+    assert.ok((await asClerk('/tools/list_payees', {})).payees.length > 0);
+    assert.equal((await asClerk('/tools/pay_payee', { payeeId: 'thabo_supplies', amount: '1.00' }, 403)).code, 'TOOL_NOT_ALLOWED');
+    pass('owner creates an agent with its own key, role instructions and 3 tools; it sees and can use only those');
+    const listed = (await call('/owner/state', undefined, 'owner', 200, 'GET')).agents.find((a: any) => a.id === made.agentId);
+    assert.equal(listed.strikes, 1); assert.ok(listed.lastActive);
+    assert.ok((await tool('list_payees')).payees.length > 0);
+    pass('strikes and activity are tracked per agent; the default agent is unaffected');
+    await call('/owner/agents/revoke', { agentId: made.agentId }, 'owner');
+    await asClerk('/tools/list_payees', {}, 401);
+    pass('revoked agent key stops working immediately');
+
     const audit = await tool('get_audit_log');
     assert.equal(audit.valid, true);
     pass('audit chain verifies (' + audit.count + ' events)');

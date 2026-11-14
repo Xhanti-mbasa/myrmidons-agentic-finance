@@ -26,6 +26,18 @@ async function load(){
   const no=document.createElement('button');no.textContent='Reject';no.onclick=()=>run(async()=>{show(await api('/owner/proposals/reject','POST',{proposalId:p.id}));await load();});r.append(ok,no);box.append(r);plist.append(box);}
  const pt=$('payees');pt.replaceChildren();
  for(const p of snapshot.payees){const row=document.createElement('tr');for(const v of [p.name,p.address.slice(0,10)+'…',p.mandate?p.mandate.cap+' / '+p.mandate.period:'asks every time',p.mandate?p.mandate.spentThisPeriod:'—',p.mandate?p.mandate.remaining:'—']){const c=document.createElement('td');c.textContent=v;row.append(c);}pt.append(row);}
+ const al=$('agentlist');al.replaceChildren();
+ for(const a of snapshot.agents){const row=document.createElement('div');row.className='arow';const t=document.createElement('strong');t.textContent=a.name;
+  const tag=document.createElement('span');tag.className='tag'+(a.revoked?' off':a.locked?' lock':'');tag.textContent=a.revoked?'revoked':a.locked?'locked':a.tools.length+' tools';t.append(tag);
+  const m=document.createElement('p');m.className='muted';m.textContent=(a.description||'')+(a.description?' · ':'')+a.strikes+' strike(s) · last active '+(a.lastActive?a.lastActive.slice(11,16)+' UTC':'never');
+  const acts=document.createElement('div');acts.className='acts';
+  if(a.locked&&!a.revoked){const u=document.createElement('button');u.className='primary';u.textContent='Unlock';u.onclick=()=>run(async()=>{show(await api('/owner/agent/unlock','POST',{agentId:a.id}));await load();});acts.append(u);}
+  if(!a.builtIn&&!a.revoked){const r=document.createElement('button');r.textContent='Revoke key';r.onclick=()=>run(async()=>{show(await api('/owner/agents/revoke','POST',{agentId:a.id}));await load();});acts.append(r);}
+  row.append(t,acts,m);al.append(row);}
+ if(!$('toolpick').childElementCount){const groups=[['Read','get_instructions get_capabilities get_policy list_payees list_proposals get_audit_log get_transfer_status'],['Ask the owner','propose_payee propose_payment propose_mandate'],['Pay','pay_payee pay'],['Buy (x402)','purchase_resource reconcile_purchase read_purchased_resource'],['Checks','policy_check compliance_check'],['Automation','run_flow bridge_quote']];
+  for(const [g,names] of groups){const h=document.createElement('p');h.className='grp';h.textContent=g;const c=document.createElement('div');c.className='chips';
+   for(const n of names.split(' ')){const l=document.createElement('label');l.className='chip';const i=document.createElement('input');i.type='checkbox';i.value=n;l.append(i,document.createTextNode(n));c.append(l);}
+   $('toolpick').append(h,c);}applyTpl();}
  const sec=snapshot.agentSecurity;$('trust').textContent=sec.locked?'LOCKED · '+(sec.reason||''):'Trusted · '+sec.strikes.length+' recent strike(s) of 5';$('trust').className=sec.locked?'mode':'badge';$('unlock').hidden=!sec.locked;$('moxa-stop').hidden=!sec.locked;
  $('binding').textContent=snapshot.instructions.bindingRules;if(document.activeElement!==$('business'))$('business').value=snapshot.instructions.businessInstructions;
  $('chain').textContent=snapshot.audit.count+' events · chain verified';$('head').textContent=snapshot.audit.head;
@@ -50,6 +62,15 @@ $('audit').onclick=()=>run(()=>api('/tools/get_audit_log','POST',{}).then(show))
 $('reconcile').onclick=()=>run(()=>api('/tools/reconcile_purchase','POST',{purchaseId:$('purchaseid').value.trim()}).then(show));
 $('content').onclick=()=>run(()=>api('/tools/read_purchased_resource','POST',{purchaseId:$('purchaseid').value.trim()}).then(show));
 $('unlock').onclick=()=>run(async()=>{show(await api('/owner/agent/unlock','POST',{}));await load();});
+const TPL={ap:{name:'AP Clerk',role:'Pays approved suppliers inside their limits',inst:'Only pay suppliers already in the payee list. Repeat the wallet address before any new payee.',tools:'get_instructions get_capabilities list_payees list_proposals get_audit_log propose_payee propose_payment propose_mandate pay_payee'},
+ research:{name:'Research buyer',role:'Buys approved articles and data per use',inst:'Buy only registered resources. Never subscribe. Report the price before buying.',tools:'get_instructions get_capabilities get_policy list_proposals purchase_resource reconcile_purchase read_purchased_resource'},
+ auditor:{name:'Auditor',role:'Reads everything, changes nothing',inst:'Read and summarise. Never propose or pay.',tools:'get_instructions get_capabilities get_policy list_payees list_proposals get_audit_log get_transfer_status'},
+ blank:{name:'',role:'',inst:'',tools:'get_instructions'}};
+function applyTpl(){const t=TPL[$('tpl').value];$('aname').value=t.name;$('arole').value=t.role;$('ainst').value=t.inst;const on=t.tools.split(' ');for(const i of $('toolpick').querySelectorAll('input'))i.checked=on.includes(i.value);}
+$('tpl').onchange=applyTpl;
+$('mkagent').onclick=()=>run(async()=>{const tools=[...$('toolpick').querySelectorAll('input:checked')].map(i=>i.value);
+ const r=await api('/owner/agents','POST',{name:$('aname').value.trim(),description:$('arole').value.trim(),instructions:$('ainst').value,tools});
+ const k=$('newkey');k.replaceChildren();const b=document.createElement('b');b.textContent='Key for '+r.agentId+' (shown once): ';k.append(b,document.createTextNode(r.token));k.hidden=false;await load();});
 $('savebiz').onclick=()=>run(async()=>{show(await api('/owner/instructions','PUT',{text:$('business').value}));await load();});
 $('rundue').onclick=()=>run(async()=>{show(await api('/owner/run-due','POST',{}));await load();});
 setInterval(()=>{if(token&&!$('workspace').hidden&&document.activeElement!==$('business'))load().catch(()=>{});},5000);
@@ -103,6 +124,24 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--blue);font-weight:600;
 a{color:var(--blue);font-weight:600;text-decoration:none}
 footer{padding:28px 0;color:var(--mut);font-size:12px}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.cores{grid-template-columns:1fr 1fr}.hero{padding-top:32px}.hero h1{font-size:34px}}
+.agents{display:grid;grid-template-columns:1.15fr 1fr;gap:24px}
+.arow{display:grid;grid-template-columns:1fr auto;gap:8px 16px;padding:16px 0;border-top:1px solid var(--bd)}
+.arow:first-child{border-top:0}
+.arow strong{font-size:16px}.arow .muted{grid-column:1/2}
+.arow .acts{grid-row:1/3;grid-column:2;display:flex;gap:8px;align-items:center}
+.arow .acts button{min-height:40px;padding:8px 14px;font-size:14px}
+.newagent{background:var(--s0);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.grp{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:8px 0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--bd);border-radius:999px;padding:6px 12px;font:500 13px/1.2 "JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;color:var(--ink);cursor:pointer}
+.chip:has(input:checked){border-color:var(--blue);background:#E3EEFF}
+.chip input[type=checkbox]{appearance:auto;width:16px;height:16px;min-height:0;border:0;background:none;accent-color:var(--blue)}
+.chip input[type=checkbox]::after{display:none}
+.keybox{background:#111;color:#F5F5F3;border-radius:18px;padding:16px;font:13px/1.6 "JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere;margin:0}
+.keybox b{color:var(--yel,#FFC93C)}
+.tag{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:var(--s2);color:var(--mut);margin-left:8px;vertical-align:middle}
+.tag.lock{background:var(--blkt);color:var(--blk)}.tag.off{background:var(--s2);color:var(--mut);text-decoration:line-through}
+@media(max-width:760px){.agents{grid-template-columns:1fr}}
 </style></head><body>
 <header><p class="wm">shucamoxa<i>.</i></p><a href="http://localhost:3000" target="_blank" rel="noreferrer">Open WebUI ↗</a></header><main>
 <section id="login" class="card"><div class="dotgrid"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="200" height="200" aria-hidden="true" aria-label="Moxa waving hello"><path d="M80 36 V22" stroke="#111111" stroke-width="4" stroke-linecap="round"/><circle cx="80" cy="17" r="7" fill="#E5202E"/>
@@ -124,6 +163,12 @@ footer{padding:28px 0;color:var(--mut);font-size:12px}
 <rect x="40" y="36" width="80" height="92" rx="36" fill="#FFFFFF" stroke="#111111" stroke-width="4"/>
 <circle cx="57" cy="90" r="6" fill="#FFC93C"/><circle cx="103" cy="90" r="6" fill="#FFC93C"/>
 <path d="M66 128 v10 h-8 M94 128 v10 h8" stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M61 76 Q67 81 73 76 M87 76 Q93 81 99 76" stroke="#111111" stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="80" cy="96" r="4" fill="#111111"/><path d="M126 30 h14 l-14 16 h14 M140 10 h10 l-10 11 h10" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 96 Q30 104 34 116 M120 96 Q130 104 126 116" stroke="#111111" stroke-width="4" stroke-linecap="round" fill="none"/></svg></span><div><h2>Waiting for you</h2><p class="muted">Moxa can only ask. Nothing here happens until you confirm. “Yes” in the chat doesn’t count.</p></div></div><span id="pendingcount" class="badge dm"></span></div><div id="proposals"></div></section>
+<section class="card wide"><div class="row between"><div><p class="dm eyebrow">Agents</p><h2>Your agents</h2><p class="muted">Each agent gets its own key, its own role and only the tools you tick. Any model can sit behind a key; the harness checks every call.</p></div></div>
+<div class="agents"><div id="agentlist"></div>
+<div class="newagent"><h2 style="font-size:18px">New agent</h2><label for="tpl">Start from</label><select id="tpl"><option value="ap">Accounts payable clerk</option><option value="research">Research buyer (x402)</option><option value="auditor">Read-only auditor</option><option value="blank">Blank</option></select>
+<label for="aname">Name</label><input id="aname" placeholder="e.g. AP Clerk"><label for="arole">Role</label><input id="arole" placeholder="One line: what this agent is for">
+<label for="ainst">Instructions</label><textarea id="ainst" style="min-height:90px" spellcheck="false"></textarea>
+<div id="toolpick"></div><button id="mkagent" class="primary">Create agent and key</button><p id="newkey" class="keybox" hidden></p></div></div></section>
 <section class="card"><div class="row between"><h2>Payees &amp; limits</h2><button id="rundue">Run due payments</button></div><table><thead><tr><th>Payee</th><th>Address</th><th>Limit</th><th>Spent</th><th>Left</th></tr></thead><tbody id="payees"></tbody></table><p class="muted">Inside a limit Moxa pays without asking. Over it, or with no limit, it asks you. Scheduled payments run every 30 seconds when due.</p></section>
 <section class="card"><div class="row between"><div class="moxa"><span id="moxa-stop" hidden><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="88" height="88" aria-hidden="true" aria-label="Moxa holding up a hand: blocked"><path d="M80 36 V22" stroke="#111111" stroke-width="4" stroke-linecap="round"/><circle cx="80" cy="17" r="7" fill="#E5202E"/>
 <rect x="40" y="36" width="80" height="92" rx="36" fill="#FFFFFF" stroke="#111111" stroke-width="4"/>
