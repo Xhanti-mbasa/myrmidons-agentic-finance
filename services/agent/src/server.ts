@@ -79,7 +79,7 @@ const digest = (value: string) => createHash("sha256").update(value).digest();
 export function createAgentServer(deps: AgentServerDeps) {
   const config = loadAgentServerConfig(deps.env);
   const log = deps.logger ?? ((entry: AgentLogEntry) => console.log(JSON.stringify(entry)));
-  const agent = createAgent({ ...deps.models(config), backendUrl: config.backendUrl, backendToken: config.backendToken, fetch: deps.fetch, limits: deps.limits });
+  const agent = createAgent({ ...deps.models(config), planner: config.planner, backendUrl: config.backendUrl, backendToken: config.backendToken, fetch: deps.fetch, limits: deps.limits });
   const expectedToken = digest(config.inboundToken);
 
   let tail: Promise<unknown> = Promise.resolve();

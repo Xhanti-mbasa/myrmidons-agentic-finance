@@ -26,6 +26,7 @@ export const AGENT_ENV_NAMES = [
   "AGENT_INBOUND_TOKEN",
   "AGENT_PORT",
   "AGENT_HOST",
+  "AGENT_PLANNER",
   "LOG_LEVEL",
 ] as const;
 
@@ -184,7 +185,7 @@ export function loadAgentConfig(env: Env): AgentConfig {
   };
 }
 
-export type AgentServerConfig = AgentConfig & { inboundToken: string; host: string; port: number };
+export type AgentServerConfig = AgentConfig & { inboundToken: string; host: string; port: number; planner: "model" | "rules" };
 
 /** Shortest AGENT_INBOUND_TOKEN accepted: `openssl rand -base64 32` gives 44 characters. */
 const MIN_INBOUND_TOKEN_CHARS = 32;
@@ -207,7 +208,9 @@ export function loadAgentServerConfig(env: Env): AgentServerConfig {
   }
   const port = Number(env.AGENT_PORT || "8790");
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("Agent config: AGENT_PORT must be a port number from 1 to 65535");
-  return { ...config, inboundToken, host, port };
+  const planner = env.AGENT_PLANNER || "model";
+  if (planner !== "model" && planner !== "rules") throw new Error("Agent config: AGENT_PLANNER must be model or rules");
+  return { ...config, inboundToken, host, port, planner };
 }
 
 const DEFAULT_ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));

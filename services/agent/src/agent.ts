@@ -20,7 +20,13 @@ import { agentTools, isConfident, newRunState, overLimit, ownerAmountFromMessage
 export { MIN_SUPPLIER_CONFIDENCE } from "./tools";
 
 /** limits (from BackendDeps) also bounds model calls and the whole run; see limits.ts. */
-export type AgentDeps = BackendDeps & { extractionModel: LanguageModel; plannerModel: LanguageModel };
+/**
+ * "model" (default): the planner model chooses the guarded tool calls. "rules": code calls the same
+ * guarded tools in the order the planner's rules prescribe, so an invoice needs one model call
+ * (extraction) instead of about four. Every tool guard and backend check still applies.
+ */
+export type PlannerMode = "model" | "rules";
+export type AgentDeps = BackendDeps & { extractionModel: LanguageModel; plannerModel: LanguageModel; planner?: PlannerMode };
 
 export type AgentFlag = "ADDRESS_ON_INVOICE_IGNORED" | "SUSPICIOUS_TEXT";
 
@@ -132,17 +138,21 @@ export function createAgent(deps: AgentDeps) {
     };
     const state = newRunState(mandate, limitsOf(rules));
     progress.state = state;
-    await run.stage("the planner model", limits.modelMs, (abortSignal) =>
-      generateText({
-        model: deps.plannerModel,
-        system: PLANNER_SYSTEM + INVOICE_RULES,
-        prompt: JSON.stringify(plannerView(invoice, mandate)),
-        tools: agentTools(backend, state),
-        stopWhen: isStepCount(STEP_LIMIT),
-        temperature: 0,
-        abortSignal,
-      }),
-    );
+    if (deps.planner === "rules") {
+      await rulesPlan(agentTools(backend, state), mandate, limitsOf(rules));
+    } else {
+      await run.stage("the planner model", limits.modelMs, (abortSignal) =>
+        generateText({
+          model: deps.plannerModel,
+          system: PLANNER_SYSTEM + INVOICE_RULES,
+          prompt: JSON.stringify(plannerView(invoice, mandate)),
+          tools: agentTools(backend, state),
+          stopWhen: isStepCount(STEP_LIMIT),
+          temperature: 0,
+          abortSignal,
+        }),
+      );
+    }
 
     return { ...base, ...decide(state) };
   }
@@ -311,6 +321,32 @@ function orNull<T>(schema: z.ZodType<T>, value: unknown): T | null {
 }
 
 /** The limits request_approval is judged against: the ones code read, never the model's. */
+/**
+ * The planner's invoice rules as code: unknown supplier → propose it; over the cap or the remaining
+ * budget → ask the owner; otherwise confirm the supplier and pay the invoice total. Calls go through
+ * the same tool objects, so their guards (supplier match, mandate amount, duplicates) still decide.
+ */
+async function rulesPlan(tools: ReturnType<typeof agentTools>, mandate: Mandate, limits: Limits): Promise<void> {
+  let n = 0;
+  const call = (name: string, input: Record<string, unknown>) => {
+    const t = (tools as Record<string, { execute?: (input: unknown, options: unknown) => unknown }>)[name];
+    if (!t?.execute) throw new Error(`rules planner: tool ${name} is not available`);
+    return t.execute(input, { toolCallId: `rules-${++n}`, messages: [] });
+  };
+  if (mandate.supplierId === null) {
+    await call("propose_supplier", { name: mandate.supplierName });
+    return;
+  }
+  await call("find_supplier", { name: mandate.supplierName });
+  const over = overLimit(mandate.amount, limits);
+  if (over) {
+    const reason = over === "OVER_PER_PAYMENT_CAP" ? "The amount is above the owner's per-payment cap." : "The amount is above the remaining budget.";
+    await call("request_approval", { invoiceNumber: mandate.invoiceNumber, supplierId: mandate.supplierId, amount: mandate.amount, reason });
+    return;
+  }
+  await call("pay", { supplierId: mandate.supplierId, amount: mandate.amount, invoiceNumber: mandate.invoiceNumber, reason: "Approved supplier, within the owner's limits." });
+}
+
 function limitsOf(rules: Rules): Limits {
   return { perPaymentCap: rules.perPaymentCap, remaining: rules.remaining };
 }

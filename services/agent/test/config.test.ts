@@ -393,6 +393,7 @@ describe("T09: loadAgentEnvFile reads only allowlisted names from services/agent
         "AGENT_INBOUND_TOKEN",
         "AGENT_PORT",
         "AGENT_HOST",
+        "AGENT_PLANNER",
         "LOG_LEVEL",
       ].sort(),
     );
