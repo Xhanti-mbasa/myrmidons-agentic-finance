@@ -115,6 +115,11 @@ export class MockStore {
     };
   }
 
+  /** The rules plus each approved supplier's address: only for the independent policy service. */
+  policyRules(): Omit<Rules, "suppliers"> & { suppliers: { id: string; name: string; address: string; status: "approved" }[] } {
+    return { ...this.rules(), suppliers: this.approved().map((s) => ({ id: s.id, name: s.name, address: s.address, status: "approved" as const })) };
+  }
+
   findSupplier(query: string): SupplierLookup {
     const scored = this.approved()
       .map((s) => ({ s, score: supplierNameConfidence(query, s.name) }))

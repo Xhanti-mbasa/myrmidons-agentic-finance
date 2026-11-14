@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Wallet, hashes, type Payment, type SubmittableTransaction } from "xrpl";
+import { Wallet, decode, hashes, type Payment, type SubmittableTransaction } from "xrpl";
 import {
   RLUSD_CURRENCY_HEX,
   RLUSD_TESTNET_ISSUER,
@@ -7,6 +7,7 @@ import {
   MEMO_TYPE,
   toHex,
   fromHex,
+  canonicalJson,
   type CosignRequest,
   type CosignResponse,
   type PayRequest,
@@ -257,6 +258,14 @@ describe("Payment Service (T26)", () => {
     reason: "Monthly supply batch 1",
   };
 
+  it("sends the policy service exactly the transaction it signed (the policy compares them byte for byte)", async () => {
+    const { paymentService, policy } = createTestHarness();
+    await paymentService.pay(validPayRequest);
+    const [request] = policy.calls;
+    const { Signers: _signers, ...signed } = decode(request!.agentSignedBlob) as Record<string, unknown>;
+    expect(canonicalJson(request!.txJson)).toBe(canonicalJson(signed));
+  });
+
   // 1. Happy path -> {status: settled, ruleCode: OK, txHash, logId}.
   it("1. Happy path -> {status: settled, ruleCode: OK, txHash, logId}", async () => {
     const { app, xrpl, policy, auditLog, reservations } = createTestHarness();
@@ -296,7 +305,7 @@ describe("Payment Service (T26)", () => {
     const tx = cosignCall.txJson as any;
     expect(tx.Memos).toBeDefined();
     expect(tx.Memos[0].Memo.MemoType).toBe(toHex(MEMO_TYPE));
-    expect(tx.Memos[0].Memo.MemoData).toBe(toHex(cosignCall.request.logEntryHash));
+    expect(tx.Memos[0].Memo.MemoData).toBe(cosignCall.request.logEntryHash.toUpperCase());
 
     // LastLedgerSequence capped at currentLedger + 20
     expect(tx.LastLedgerSequence).toBe(120);

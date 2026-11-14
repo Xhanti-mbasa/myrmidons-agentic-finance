@@ -5,6 +5,10 @@ import { ApprovalRequest, ApprovalResponse, LogEntry, LogFilter, PayRequest, Pay
 import { roleOf, type MockConfig, type Role } from "./config";
 import { SettlementUnknown, type MockStore } from "./store";
 
+const PolicyRulesBody = Rules.omit({ suppliers: true }).extend({
+  suppliers: z.array(z.strictObject({ id: z.string(), name: z.string(), address: z.string(), status: z.literal("approved") })),
+});
+
 const SupplierQuery = z.strictObject({ q: SupplierName });
 const LogPage = z.array(LogEntry).max(50);
 const ErrorBody = z.strictObject({ error: z.string() });
@@ -43,6 +47,8 @@ export function createMockApp(config: MockConfig, store: MockStore) {
   const jsonBody = async (c: Context<Env>): Promise<unknown> => c.req.json().catch(() => undefined);
 
   app.get("/rules", only("agent"), (c) => send(c, Rules, store.rules()));
+  // The independent policy service's view: same rules plus approved addresses. Never the agent's.
+  app.get("/policy/rules", only("policy"), (c) => send(c, PolicyRulesBody, store.policyRules()));
 
   app.get("/suppliers", only("agent"), (c) => {
     const query = SupplierQuery.safeParse(c.req.query());
