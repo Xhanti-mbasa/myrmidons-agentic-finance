@@ -88,6 +88,28 @@ class FastSetupTests(unittest.TestCase):
         self.assertEqual(updated['params']['max_tokens'], 512)
         self.assertNotIn('a' * 40, json.dumps(updated))
 
+    def test_fast_turns_off_background_generation_and_refreshes_shipped_prompt(self):
+        calls = []
+        class Opener:
+            def open(self, request, timeout):
+                calls.append((request.full_url, json.loads(request.data) if request.data else None))
+                if request.full_url.endswith('/tasks/config'):
+                    return io.BytesIO(json.dumps({'TASK_MODEL': '', 'ENABLE_TITLE_GENERATION': True,
+                        'ENABLE_FOLLOW_UP_GENERATION': True, 'ENABLE_TAGS_GENERATION': True}).encode())
+                if '/models/model?' in request.full_url:
+                    return io.BytesIO(json.dumps({'id': 'shucamoxa-finance', 'name': 'Finance', 'base_model_id': 'old',
+                        'params': {'system': 'You are Shucamoxa, old slow prompt. First call get_instructions.'},
+                        'meta': {'toolIds': ['server:shucamoxa']}}).encode())
+                return io.BytesIO(b'{}')
+        result = module.install('http://127.0.0.1:3000', 'http://127.0.0.1:8091', 'admin', 'a' * 40, 'model', Opener(), fast=True)
+        tasks = next(body for url, body in calls if url.endswith('/tasks/config/update'))
+        self.assertEqual(result['tasks'], 'background_generation_off')
+        self.assertFalse(tasks['ENABLE_TITLE_GENERATION'] or tasks['ENABLE_FOLLOW_UP_GENERATION'] or tasks['ENABLE_TAGS_GENERATION'])
+        self.assertEqual(tasks['TASK_MODEL'], '')
+        prompt = calls[-1][1]['params']['system']
+        self.assertNotIn('First call get_instructions', prompt)
+        self.assertIn('never call tools', prompt)
+
     def test_local_network_migration_verifies_agent_before_replacing_connection(self):
         calls = []
         class Opener:

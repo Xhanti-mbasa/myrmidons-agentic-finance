@@ -173,3 +173,23 @@ Official integration references inspected:
 - https://github.com/open-webui/open-webui/blob/main/backend/open_webui/models/models.py
 
 The finance preset explicitly disables Open WebUI built-in tools and auxiliary execution capabilities and attaches only `server:shucamoxa`. Re-running startup repairs older presets; use a new chat afterward. See the claimed-admin injection note in [DEMO_TEST_GUIDE.md](DEMO_TEST_GUIDE.md).
+
+## Speed (local model)
+
+The finance preset is tuned for a small local model:
+
+- The system prompt no longer makes the model call tools before answering. Each tool
+  call is a full extra model pass, so "can i pay" used to cost four passes before any
+  text appeared. `list_payees` now also returns the owner's business notes.
+- The model sees compact tool schemas (no regex patterns or length limits). The
+  harness still validates every call with the full zod schema.
+- `--fast` setup turns off Open WebUI's title, tag, follow-up and autocomplete
+  generation, which otherwise queue on the same local model after every reply. It
+  keeps the model loaded for 24h and swaps in the new prompt if the old shipped one
+  is still in place. Owner-written prompts are left alone.
+
+Apply: `python3 scripts/start-local-demo.py` (fast is the default), then start a NEW chat.
+Measure: `python3 scripts/model-speed.py --model <your model>`. It prints load, prompt
+and reply speed, plus how much of the model sits on the GPU.
+Ollama service settings that help: `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`,
+`OLLAMA_KEEP_ALIVE=24h`.

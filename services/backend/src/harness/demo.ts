@@ -44,6 +44,24 @@ export function createDemo(directory: string) {
         { id: 'supplier_payment', label: 'Pay approved supplier once', steps: [{ action: 'pay', targetId: allowed }] }] };
     put('initial', initial);
   }
+  // Older demo installs used a 200.00 lifetime budget; raise once so conversational payments can be shown.
+  // The demo is the only writer of its engine rules, so it keeps its own copy of them.
+  type Rules = { enabled: boolean; perPaymentCap: string; totalBudget: string; recipientCaps: Record<string, string> };
+  const rules = (): Rules => get('engine_rules') ?? { enabled: true, perPaymentCap: '50.00', totalBudget: '200.00', recipientCaps: {} };
+  const setRules = (next: Rules) => { payments.setPolicy(owner, next); put('engine_rules', next); };
+  if (Number(rules().totalBudget) < 10000) setRules({ ...rules(), totalBudget: '10000.00' });
+  const ownerAuthority: HarnessAdapters['ownerAuthority'] = {
+    addPayee: async (id, address) => payments.approveRecipient(owner, { id, kind: 'vendor', address }),
+    allowAmount: async (payeeId, amount) => {
+      const current = rules(); const existing = current.recipientCaps[payeeId];
+      if (existing && Number(existing) >= Number(amount)) return;
+      setRules({ ...current, recipientCaps: { ...current.recipientCaps, [payeeId]: amount } });
+    },
+    createPayment: async (payeeId, amount, reference, executeAt) => payments.createIntent(owner, { sourceAccountId: 'treasury',
+      recipientId: payeeId, amount, reference, executeAt,
+      expiresAt: new Date((executeAt ? Date.parse(executeAt) : Date.now()) + 86400000).toISOString() }).intentId,
+    executeDue: async () => payments.executeDue(agent),
+  };
   const budgets = new PurchaseBudgetService(join(directory, 'demo-purchase-budgets.db'), {
     quotes: { resolve: () => ({ id: 'demo_quote', source: 'SIMULATION fixed fixture, not a market price', zarPerRlusd: '20',
       issuedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() }) },
@@ -76,7 +94,7 @@ export function createDemo(directory: string) {
     put('resource:' + resourceId, b); put('purchase:' + b.purchaseId, b); return b;
   }
   const byPurchase = (id: string): PurchaseBinding => { const b = get('purchase:' + id); if (!b) throw new Error('Not purchased'); return b; };
-  const adapters: HarnessAdapters = { evidence: 'simulated',
+  const adapters: HarnessAdapters = { evidence: 'simulated', ownerAuthority,
     pay: id => payments.pay(agent, { intentId: id }), transferStatus: async id => payments.getStatus(agent, id),
     purchase: async resourceId => { const b = binding(resourceId); return { purchaseId: b.purchaseId, ...await purchaseService.purchase(agent, b, 'automatic') }; },
     reconcile: async id => ({ purchaseId: id, ...await purchaseService.reconcile(agent, byPurchase(id)) }),
